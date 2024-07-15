@@ -1,0 +1,13 @@
+{
+  "name": "cryptpad-server-proto",
+  "description": "CryptPad server",
+  "version": "0.0.1",
+  "license": "AGPL-3.0+",
+  "dependencies": {
+    "express": "~4.19.2"
+  },
+  "optionalDependencies": {
+  },
+  "devDependencies": {
+  }
+}
