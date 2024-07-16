@@ -25,13 +25,15 @@ Data.getMetadataRaw = function (Env, channel /* channelName */, _cb) {
 
     // return synthetic metadata for admin broadcast channels as a safety net
     // in case anybody manages to write metadata
-    if (channel.length === HK.ADMIN_CHANNEL_LENGTH) {
-        return void cb(void 0, {
-            channel: channel,
-            creation: +new Date(),
-            owners: Env.admins,
-        });
-    }
+    // XXX: RESTORE later when done
+    //
+    // if (channel.length === HK.ADMIN_CHANNEL_LENGTH) {
+    //     return void cb(void 0, {
+    //         channel: channel,
+    //         creation: +new Date(),
+    //         owners: Env.admins,
+    //     });
+    // }
 
     var cached = Env.metadata_cache[channel];
     if (HK.isMetadataMessage(cached)) {
