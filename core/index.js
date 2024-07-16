@@ -11,10 +11,12 @@ let onDirectMessage = function(Env, Server, seq, userId, json) {
     try {
         parsed = JSON.parse(json[2]);
     } catch (err) {
-        Log.error("HK_PARSE_CLIENT_MESSAGE", json);
+        // TODO: Send ACK error
+        console.error("HK_PARSE_CLIENT_MESSAGE", json);
         return;
     }
 
+    // TODO: Send ACK to user
     let first = parsed[0];
 
     if (first === 'GET_HISTORY') {
