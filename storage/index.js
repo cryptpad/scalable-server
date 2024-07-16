@@ -6,6 +6,7 @@ const nThen = require("nthen");
 const BatchRead = require("./batch-read.js");
 const Meta = require("./commands/metadata.js");
 const HK = require("./hk-util.js");
+const Config = require("../config.js");
 
 let Env = {
     id: "0123456789abcdef",

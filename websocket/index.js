@@ -4,6 +4,7 @@ const Express = require('express');
 const Http = require('http');
 const WebSocketServer = require('ws').Server;
 const ChainpadServer = require('chainpad-server');
+const Config = require("../config.js");
 
 let config = {
     address: '::',

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2024 XWiki CryptPad Team <contact@cryptpad.org> and contributors
+const Config = require("../config.js");
 let Env = {};
 
 let getHistory = function (Env, Server, seq, userId, parsed) {
