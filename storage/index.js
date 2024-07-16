@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2024 XWiki CryptPad Team <contact@cryptpad.org> and contributors
 const Store = require("./storage/file.js");
 const Util = require("./common-util.js");
 const nThen = require("nthen");
