@@ -4,6 +4,19 @@ const Core = require("./core");
 const Util = require("../common-util");
 const HK = require("../hk-util");
 
+const computeMetadata = function (Env, channel, cb) {
+    const ref = {};
+    const lineHandler = Meta.createLineHandler(ref, Env.Log.error);
+    return void Env.store.readChannelMetadata(channel, lineHandler, function (err) {
+        if (err) {
+            // stream errors?
+            return void cb(err);
+        }
+        cb(void 0, ref.meta);
+    });
+};
+
+
 Data.getMetadataRaw = function (Env, channel /* channelName */, _cb) {
     const cb = Util.once(Util.mkAsync(_cb));
     if (!Core.isValidId(channel)) { return void cb('INVALID_CHAN'); }
@@ -27,7 +40,7 @@ Data.getMetadataRaw = function (Env, channel /* channelName */, _cb) {
     }
 
     Env.batchMetadata(channel, cb, function (done) {
-        Env.computeMetadata(channel, function (err, meta) {
+        computeMetadata(Env, channel, function (err, meta) {
             if (!err && HK.isMetadataMessage(meta)) {
                 Env.metadata_cache[channel] = meta;
                 // clear metadata after a delay if nobody has joined the channel within 30s
