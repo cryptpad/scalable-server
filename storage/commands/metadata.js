@@ -4,10 +4,10 @@ const Core = require("./core");
 const Util = require("../common-util");
 const HK = require("../hk-util");
 
-const computeMetadata = function (Env, channel, cb) {
+const computeMetadata = function(Env, channel, cb) {
     const ref = {};
     const lineHandler = Meta.createLineHandler(ref, Env.Log.error);
-    return void Env.store.readChannelMetadata(channel, lineHandler, function (err) {
+    return void Env.store.readChannelMetadata(channel, lineHandler, function(err) {
         if (err) {
             // stream errors?
             return void cb(err);
@@ -17,7 +17,7 @@ const computeMetadata = function (Env, channel, cb) {
 };
 
 
-Data.getMetadataRaw = function (Env, channel /* channelName */, _cb) {
+Data.getMetadataRaw = function(Env, channel /* channelName */, _cb) {
     const cb = Util.once(Util.mkAsync(_cb));
     if (!Core.isValidId(channel)) { return void cb('INVALID_CHAN'); }
     if (channel.length !== HK.STANDARD_CHANNEL_LENGTH &&
@@ -41,8 +41,8 @@ Data.getMetadataRaw = function (Env, channel /* channelName */, _cb) {
         return void cb(void 0, cached);
     }
 
-    Env.batchMetadata(channel, cb, function (done) {
-        computeMetadata(Env, channel, function (err, meta) {
+    Env.batchMetadata(channel, cb, function(done) {
+        computeMetadata(Env, channel, function(err, meta) {
             if (!err && HK.isMetadataMessage(meta)) {
                 Env.metadata_cache[channel] = meta;
                 // clear metadata after a delay if nobody has joined the channel within 30s
