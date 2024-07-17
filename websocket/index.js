@@ -7,13 +7,13 @@ const ChainpadServer = require('chainpad-server');
 const Config = require("../config.js");
 
 let config = {
-    address: '::',
+    host: '::',
     port: '3000'
 };
 
 let app = Express();
 let httpServer = Http.createServer(app);
-httpServer.listen(config.port, config.address, function() {
+httpServer.listen(config.port, config.host, function() {
     console.log('server started');
 });
 
