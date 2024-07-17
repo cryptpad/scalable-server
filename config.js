@@ -3,18 +3,18 @@
 module.exports = {
     infra: {
         ws: [{
-            address: 'localhost',
+            host: 'localhost',
             port: 3010
         }],
         core: [{
-            address: 'localhost',
+            host: 'localhost',
             port: 3011
         }, {
-            address: 'localhost',
+            host: 'localhost',
             port: 3012
         }],
         storage: [{
-            address: 'localhost',
+            host: 'localhost',
             port: 3014
         }]
     }
