@@ -105,7 +105,7 @@ let init = function(config) {
     let wsCreate = function(server, i) {
         let app = Express();
         let httpServer = Http.createServer(app);
-        httpServer.listen(server.host, server.port, function() {
+        httpServer.listen(server.port, server.host, function() {
             ws[i] = new WebSocket.Server({ server: httpServer });
         });
     };
