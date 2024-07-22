@@ -84,7 +84,7 @@ let communicationManager = function(sockets) {
     };
 
     let disconnect = function() {
-        ws.forEach((wsConnection) => {
+        ws.forEach(wsConnection => {
             if (wsConnection) {
                 wsConnection.onclose = NOFUNC;
                 wsConnection.close();
