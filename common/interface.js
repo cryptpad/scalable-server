@@ -43,7 +43,7 @@ let communicationManager = function(sockets) {
         try {
             msg = JSON.parse(data);
         } catch (err) {
-            console.log("JSON parse error:", e)
+            console.log("JSON parse error:", err)
             return;
         }
 
