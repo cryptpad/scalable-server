@@ -6,6 +6,7 @@ const Http = require("http");
 const Util = require("./common-util.js");
 
 const DEFAULT_QUERY_TIMEOUT = 5000;
+const NOFUNC = function () {};
 
 let communicationManager = function(sockets) {
     const timeout = DEFAULT_QUERY_TIMEOUT;
@@ -71,7 +72,16 @@ let communicationManager = function(sockets) {
         return msg;
     };
 
-    return { sendEvent, sendQuery, onMessage };
+    let disconnect = function() {
+        ws.forEach((wsConnection) => {
+            if (wsConnection) {
+                wsConnection.onclose = NOFUNC;
+                wsConnection.close();
+            }
+        });
+    };
+
+    return { sendEvent, sendQuery, onMessage, disconnect };
 }
 
 /* This function initializes the different ws connections from the Ws and
@@ -106,18 +116,10 @@ let connect = function(config) {
         }
     });
 
-    let disconnect = function() {
-
-    };
 
     let manager = communicationManager(ws);
 
-    return {
-        sendEvent: manager.sendEvent,
-        sendQuery: manager.sendQuery,
-        onMessage: manager.onMessage,
-        disconnect
-    };
+    return manager;
 };
 
 /* This function initializes the different ws servers on the Core components */
@@ -147,12 +149,7 @@ let init = function(config) {
 
     let manager = communicationManager(ws);
 
-    return {
-        sendEvent: manager.sendEvent,
-        sendQuery: manager.sendQuery,
-        onMessage: manager.onMessage,
-        disconnect
-    };
+    return manager;
 };
 
 module.exports = { connect, init };
