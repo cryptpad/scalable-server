@@ -6,7 +6,7 @@ const Http = require("http");
 const Util = require("./common-util.js");
 
 const DEFAULT_QUERY_TIMEOUT = 5000;
-const NOFUNC = function () {};
+const NOFUNC = function() { };
 
 let communicationManager = function(sockets) {
     const timeout = DEFAULT_QUERY_TIMEOUT;
@@ -38,10 +38,10 @@ let communicationManager = function(sockets) {
         wsDest.send(JSON.stringify(msg));
     };
 
-    let onMessage = function(data) {
+    let parseMessage = function(message) {
         let msg = {};
         try {
-            msg = JSON.parse(data);
+            msg = JSON.parse(message);
         } catch (err) {
             console.log("JSON parse error:", err)
             return;
@@ -70,6 +70,17 @@ let communicationManager = function(sockets) {
         msg.TYPE = msgType;
 
         return msg;
+    };
+
+    let onMessage = function(type, action) {
+        let onMessageCall = function(message) {
+            let parsed = parseMessage(message);
+            /* TODO: handling messages */
+        };
+
+        ws.forEach(wsConnection => {
+            wsConnection.onmessage = onMessageCall;
+        });
     };
 
     let disconnect = function() {
