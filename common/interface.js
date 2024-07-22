@@ -88,7 +88,7 @@ let connect = function(config) {
     ws.forEach((wsConnection, i) => {
         /* TODO: error handling */
         if (!wsConnection) {
-            // setTimeout?
+            // XXX: setTimeout?
             console.log("Error while connecting with Core server ", i);
         }
     });
@@ -124,7 +124,7 @@ let init = function(config) {
     ws.forEach((wsConnection, i) => {
         /* TODO: error handling */
         if (!wsConnection) {
-            // setTimeout?
+            // XXX: setTimeout?
             console.log("Error while creating the Core server ", i);
         }
     });
