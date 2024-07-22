@@ -46,14 +46,27 @@ let communicationManager = function(sockets) {
             return;
         }
 
+        let msgType = '';
         if (typeof (msg.IDX) !== 'undefined') {
-            try {
-                response.handle(msg.IDX, msg.ARGS);
-            } catch (error) {
-                console.log('Error: handling message ', msg);
-                console.log('Error: ', error);
+            if (typeof (msg.CMD) === 'undefined') {
+                /* No command and an idx given: it’s a Response */
+                try {
+                    msgType = 'response';
+                    response.handle(msg.IDX, msg.ARGS);
+                } catch (error) {
+                    console.log('Error: handling message ', msg);
+                    console.log('Error: ', error);
+                }
+            } else {
+                /* A command is given and it has an idx: it’s a Query */
+                msgType = 'query';
             }
+        } else {
+            /* No IDX: it’s an Event */
+            msgType = 'event';
         }
+
+        msg.TYPE = msgType;
 
         return msg;
     };
