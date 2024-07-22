@@ -45,9 +45,17 @@ let communicationManager = function(sockets) {
             return;
         }
 
+        if (typeof (msg.IDX) !== 'undefined') {
+            try {
+                response.handle(msg.IDX, msg.ARGS);
+            } catch (error) {
+                console.log('Error: handling message ', msg);
+                console.log('Error: ', error);
+            }
+        }
+
         return msg;
     };
-
 
     return { sendEvent, sendQuery, onMessage };
 }
