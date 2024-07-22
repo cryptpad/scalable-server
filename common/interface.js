@@ -9,6 +9,7 @@ const DEFAULT_QUERY_TIMEOUT = 5000;
 
 let communicationManager = function(sockets) {
     const timeout = DEFAULT_QUERY_TIMEOUT;
+    let id = 0;
 
     let response = Util.response(function(error) {
         console.log('Client Response Error:', error);
