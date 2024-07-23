@@ -8,9 +8,10 @@ const Util = require("./common-util.js");
 const DEFAULT_QUERY_TIMEOUT = 5000;
 const NOFUNC = function() { };
 
-let communicationManager = function(sockets) {
+let communicationManager = function(ctx, sockets) {
     const timeout = DEFAULT_QUERY_TIMEOUT;
     let id = 0;
+    let myId = ctx.myId;
 
     let response = Util.response(function(error) {
         console.log('Client Response Error:', error);
@@ -113,6 +114,9 @@ let connect = function(config) {
     }
 
     let ws = [];
+    let ctx = {};
+    ctx.myId = config.myId;
+
     // Connect to each core
     // TODO: error handling
     config.infra.core.forEach((server, i) => {
@@ -127,8 +131,7 @@ let connect = function(config) {
         }
     });
 
-
-    let manager = communicationManager(ws);
+    let manager = communicationManager(ctx, ws);
 
     return manager;
 };
@@ -136,6 +139,8 @@ let connect = function(config) {
 /* This function initializes the different ws servers on the Core components */
 let init = function(config) {
     let ws = [];
+    let ctx = {};
+    ctx.myId = config.myId;
 
     let wsCreate = function(server, i) {
         let app = Express();
@@ -158,7 +163,7 @@ let init = function(config) {
     let disconnect = function() {
     };
 
-    let manager = communicationManager(ws);
+    let manager = communicationManager(ctx, ws);
 
     return manager;
 };
