@@ -177,6 +177,7 @@ let init = function(config) {
     let myConfig = config.infra.core[ctx.myNumber];
 
     if (!myConfig) {
+        console.log("Error: trying to create a non-existing server ");
         throw new Error('INVALID_SERVER_ID');
     }
 
