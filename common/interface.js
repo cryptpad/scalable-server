@@ -138,32 +138,41 @@ let connect = function(config) {
 
 /* This function initializes the different ws servers on the Core components */
 let init = function(config) {
-    let ws = [];
-    let ctx = {};
-    ctx.myId = config.myId;
-
-    let wsCreate = function(server, i) {
-        let app = Express();
-        let httpServer = Http.createServer(app);
-        httpServer.listen(server.port, server.host, function() {
-            ws[i] = new WebSocket.Server({ server: httpServer });
-        });
+    let ctx = {
+        others: {
+            storage: [],
+            ws: []
+        },
+        commands: {},
     };
+    ctx.myId = config.myId;
+    let parseId = ctx.myId.split(':');
+    assert(parseId[0] === 'core');
+    ctx.myType = parseId[0];
+    ctx.myNumber = Number(parseId[1]);
 
-    config.infra.core.forEach(wsCreate);
-
-    ws.forEach((wsConnection, i) => {
-        /* TODO: error handling */
-        if (!wsConnection) {
-            // XXX: setTimeout?
-            console.log("Error while creating the Core server ", i);
-        }
+    // Response manager
+    ctx.response = Util.response(function(error) {
+        console.error("Client response error:", error);
     });
 
-    let disconnect = function() {
-    };
+    let myConfig = config.infra.core[ctx.myNumber];
 
-    let manager = communicationManager(ctx, ws);
+    if (!myConfig) {
+        throw new Error('INVALID_SERVER_ID');
+    }
+
+    let app = Express();
+    let httpServer = Http.createServer(app);
+    httpServer.listen(myConfig.port, myConfig.host, function() {
+        let server = new WebSocket.Server({ server: httpServer });
+        server.on('connection', function(ws, req) {
+            // TODO: get data from req to know who we are talking to and handle new connections
+            createHandlers(ctx, ws);
+        });
+    });
+
+    let manager = communicationManager(ctx, myConfig);
 
     return manager;
 };
