@@ -72,7 +72,7 @@ let communicationManager = function(ctx) {
 
         // Message format: [txid, from, cmd, args, (extra)]
         // fixed uid for events
-        let msg = ['event', ctx.myId, command, args]
+        let msg = ['event', myId, command, args]
         dest.send(JSON.stringify(msg));
         return true;
     };
@@ -88,7 +88,7 @@ let communicationManager = function(ctx) {
         let txid = guid();
 
         // Message format: [txid, from, cmd, args, (extra)]
-        let msg = [txid, ctx.myId, command, args]
+        let msg = [txid, myId, command, args]
         ctx.response.expect(txid, function() {
             // XXX: log, cleanup, etc
             cb();
