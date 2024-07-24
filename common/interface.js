@@ -116,33 +116,42 @@ let communicationManager = function(ctx) {
  * of the connection.
  */
 let connect = function(config) {
-    let wsConnect = function(server) {
-        let ws = WebSocket('ws://' + server.host + ':' + server.port)
-            .on('error', function(err) {
-                console.error("WebSocket Connection error:", err);
-            })
-            .on('close', function() {
-                delete ws;
-            });
-        return ws;
+    let ctx = {
+        others: {
+            core: []
+        },
+        commands: [],
     };
-
-    let ws = [];
-    let ctx = {};
     ctx.myId = config.myId;
+    let parsedId = ctx.myId.split(':');
+    if (parsedId[0] === 'core') {
+        console.log("Error: trying to create a connection from a core node");
+        throw new Error('INVALID_CLIENT_ID');
+    }
+    ctx.myType = parsedId[0];
+    ctx.myNumber = Number(parsedId[1]);
 
-    // Connect to each core
-    // TODO: error handling
-    config.infra.core.forEach((server, i) => {
-        ws[i] = wsConnect(server);
+    ctx.response = Util.response(function(error) {
+        console.log('Server response error:', error);
     });
 
-    ws.forEach((wsConnection, i) => {
-        /* TODO: error handling */
-        if (!wsConnection) {
-            // XXX: setTimeout?
-            console.log("Error while connecting with Core server:", i);
-        }
+    let myConfig = Util.find(ctx, parsedId);
+
+    if (!myConfig) {
+        console.log("Error: client not found in the network topology");
+        throw new Error('INVALID_CLIENT_ID');
+    }
+
+    // Connection to the different core servers
+    config.infra.core.forEach(function(server, id) {
+        let socket = WebSocket('ws://' + server.host + ':' + server.port)
+        .on('error', function(error) {
+            console.error('Websocket connection error on', server, ':', error)
+        })
+        .on('open', function () {
+            ctx.others.core[id] = socket;
+            socket.send(['IDENT', ctx.myId]);
+        });
     });
 
     let manager = communicationManager(ctx);
