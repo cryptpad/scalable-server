@@ -7,8 +7,10 @@ const Util = require("./common-util.js");
 
 let createHandlers = function(ctx, other) {
     other.onMessage(function(message) {
-        // TODO: check registration before
-        handleMessage(ctx, message);
+        handleMessage(ctx, message, function(identity) {
+            // TODO: verify if identity is in config.infra
+            ctx.others[identity[0]][identity[1]] = other;
+        });
     });
     other.onDisconnect(function() {
         // TODO: manage disconnections
@@ -20,7 +22,7 @@ let findDest = function(ctx, destId) {
     return Util.find(ctx.others, destPath);
 };
 
-let handleMessage = function(ctx, message) {
+let handleMessage = function(ctx, message, cb) {
     let response = ctx.response;
 
     let parsed = Util.tryParse(message);
@@ -30,16 +32,25 @@ let handleMessage = function(ctx, message) {
 
     // Message format: [txid, from, cmd, args, (extra)]
     const txid = parsed[0];
-    if (response.expecter(txid)) {
-        response.handle(txid, parsed[3]);
+    const fromId = parsed[1];
+    const cmd = parsed[2];
+    const args = parsed[3];
+
+    if (response.expected(txid)) {
+        response.handle(txid, args);
         return;
     }
 
-    const fromId = parsed[1];
     let from = findDest(ctx, fromId);
+    if(!from) {
+        if (txid !== 'IDENT') {
+            console.log('Unidentified message received', message);
+            return;
+        }
+        cb(args);
+        return;
+    }
 
-    const args = parsed[3];
-    const cmd = parsed[2];
     let cmdObj = ctx.commands[cmd];
     if (cmdObj) {
         cmdObj.handler(args, (error, data) => {
