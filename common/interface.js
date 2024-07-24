@@ -155,14 +155,15 @@ let connect = function(config) {
 
     // Connection to the different core servers
     config.infra.core.forEach(function(server, id) {
-        let socket = WebSocket('ws://' + server.host + ':' + server.port)
-        .on('error', function(error) {
+        let socket = WebSocket('ws://' + server.host + ':' + server.port);
+        socket.on('error', function(error) {
             console.error('Websocket connection error on', server, ':', error)
         })
         .on('open', function () {
             ctx.others.core[id] = socket;
-            socket.send(['IDENT', ctx.myId]);
-        });
+            socket.send(['event', ctx.myId, 'IDENT', [ctx.myType, ctx.myNumber]]);
+            createHandlers(ctx, socket);
+        })
     });
 
     let manager = communicationManager(ctx);
