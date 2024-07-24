@@ -5,9 +5,6 @@ const Express = require("express");
 const Http = require("http");
 const Util = require("./common-util.js");
 
-const DEFAULT_QUERY_TIMEOUT = 5000;
-const NOFUNC = function() { };
-
 let createHandlers = function(ctx, other) {
     other.onMessage(function(message) {
         // TODO: check registration before
@@ -54,7 +51,6 @@ let handleMessage = function(ctx, message) {
 };
 
 let communicationManager = function(ctx) {
-    const timeout = DEFAULT_QUERY_TIMEOUT;
     let myId = ctx.myId;
 
     let guid = function() {
