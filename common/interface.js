@@ -161,13 +161,13 @@ let init = function(config) {
         commands: {},
     };
     ctx.myId = config.myId;
-    let parseId = ctx.myId.split(':');
-    if (parseId[0] !== 'core') {
+    let parsedId = ctx.myId.split(':');
+    if (parsedId[0] !== 'core') {
         console.log("Error: trying to create a server from a non-core node");
         throw new Error('INVALID_SERVER_ID');
     }
-    ctx.myType = parseId[0];
-    ctx.myNumber = Number(parseId[1]);
+    ctx.myType = parsedId[0];
+    ctx.myNumber = Number(parsedId[1]);
 
     // Response manager
     ctx.response = Util.response(function(error) {
