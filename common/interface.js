@@ -94,42 +94,6 @@ let communicationManager = function(ctx) {
         return true;
     };
 
-    let parseMessage = function(message) {
-        let msg = {};
-        try {
-            msg = JSON.parse(message);
-        } catch (err) {
-            console.log("JSON parse error:", err)
-            return;
-        }
-
-        let msgType = '';
-        if (typeof (msg.IDX) !== 'undefined') {
-            if (typeof (msg.CMD) === 'undefined') {
-                /* No command and an idx given: it’s a Response */
-                try {
-                    msgType = 'response';
-                    // TODO: check if a response is expected
-                    response.handle(msg.IDX, msg.ARGS);
-                } catch (error) {
-                    console.log("Error: handling message:", msg);
-                    console.log("Error:", error);
-                }
-            } else {
-                /* A command is given and it has an idx: it’s a Query */
-                msgType = 'query';
-            }
-        } else {
-            /* No IDX: it’s an Event */
-            // TODO: change to a fixed value, e.g. 0
-            msgType = 'event';
-        }
-
-        msg.TYPE = msgType;
-
-        return msg;
-    };
-
     let handleCommands = function(COMMANDS) {
         Object.keys(COMMANDS).forEach(cmd => {
             let f = COMMANDS[cmd];
