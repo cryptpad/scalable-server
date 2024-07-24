@@ -8,7 +8,7 @@ const Util = require("./common-util.js");
 let createHandlers = function(ctx, other) {
     other.onMessage(function(message) {
         // TODO: check registration before
-        handleMessage(ctx, message)
+        handleMessage(ctx, message);
     });
     other.onDisconnect(function() {
         // TODO: manage disconnections
@@ -43,7 +43,7 @@ let handleMessage = function(ctx, message) {
     let cmdObj = ctx.commands[cmd];
     if (cmdObj) {
         cmdObj.handler(args, (error, data) => {
-            from.send(JSON.stringify([txid]), { error, data })
+            from.send(JSON.stringify([txid]), { error, data });
         }, {
             from: fromId
         });
@@ -68,7 +68,7 @@ let communicationManager = function(ctx) {
 
         // Message format: [txid, from, cmd, args, (extra)]
         // fixed uid for events
-        let msg = ['event', myId, command, args]
+        let msg = ['event', myId, command, args];
         dest.send(JSON.stringify(msg));
         return true;
     };
@@ -84,7 +84,7 @@ let communicationManager = function(ctx) {
         let txid = guid();
 
         // Message format: [txid, from, cmd, args, (extra)]
-        let msg = [txid, myId, command, args]
+        let msg = [txid, myId, command, args];
         ctx.response.expect(txid, function() {
             // XXX: log, cleanup, etc
             cb();
@@ -126,7 +126,7 @@ let connect = function(config) {
                 delete ws;
             });
         return ws;
-    }
+    };
 
     let ws = [];
     let ctx = {};
@@ -177,7 +177,7 @@ let init = function(config) {
     let myConfig = config.infra.core[ctx.myNumber];
 
     if (!myConfig) {
-        console.log("Error: trying to create a non-existing server ");
+        console.log("Error: trying to create a non-existing server");
         throw new Error('INVALID_SERVER_ID');
     }
 
