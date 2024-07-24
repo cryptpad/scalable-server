@@ -8,7 +8,50 @@ const Util = require("./common-util.js");
 const DEFAULT_QUERY_TIMEOUT = 5000;
 const NOFUNC = function() { };
 
-let communicationManager = function(ctx, sockets) {
+let createHandlers = function(ctx, other) {
+    other.onMessage(function(message) {
+        // TODO: check registration before
+        handleMessage(ctx, message)
+    });
+    other.onDisconnect(function() {
+        // TODO: manage disconnections
+    });
+};
+
+let findDest = function(ctx, destId) {
+    let destPath = destId.split(':');
+    return Util.find(ctx.others, destPath);
+};
+
+let handleMessage = function(ctx, message) {
+    let response = ctx.response;
+
+    let parsed = Util.tryParse(message);
+    if (!parsed) {
+        return void console.log("JSON parse error", message);
+    }
+
+    // Message format: [txid, from, cmd, args, (extra)]
+    const txid = parsed[0];
+    if (response.expecter(txid)) {
+        response.handle(txid, parsed[3]);
+        return;
+    }
+
+    const fromId = parsed[1];
+    let from = findDest(ctx, fromId);
+
+    const args = parsed[3];
+    const cmd = parsed[2];
+    let cmdObj = ctx.commands[cmd];
+    if (cmdObj) {
+        cmdObj.handler(args, (error, data) => {
+            from.send(JSON.stringify([txid]), { error, data })
+        }, {
+            from: fromId
+        });
+    }
+};
     const timeout = DEFAULT_QUERY_TIMEOUT;
     let id = 0;
     let myId = ctx.myId;
