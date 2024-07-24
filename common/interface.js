@@ -111,11 +111,10 @@ let communicationManager = function(ctx) {
     return { sendEvent, sendQuery, handleCommands, disconnect };
 };
 
-/* This function initializes the different ws connections from the Ws and
-    * Storage components
-    * config contains:
-    * - ../config.js
-    * - whoami */
+/* Creates a connection to another node.
+ * - config: contains ../config.js and a string `myId` identifying the initiator
+ * of the connection.
+ */
 let connect = function(config) {
     let wsConnect = function(server) {
         let ws = WebSocket('ws://' + server.host + ':' + server.port)
