@@ -182,11 +182,11 @@ let connect = function(config) {
         /* TODO: error handling */
         if (!wsConnection) {
             // XXX: setTimeout?
-            console.log("Error while connecting with Core server ", i);
+            console.log("Error while connecting with Core server:", i);
         }
     });
 
-    let manager = communicationManager(ctx, ws);
+    let manager = communicationManager(ctx);
 
     return manager;
 };
