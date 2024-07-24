@@ -52,34 +52,50 @@ let handleMessage = function(ctx, message) {
         });
     }
 };
+
+let communicationManager = function(ctx) {
     const timeout = DEFAULT_QUERY_TIMEOUT;
-    let id = 0;
     let myId = ctx.myId;
 
-    let response = Util.response(function(error) {
-        console.log('Client Response Error:', error);
-    });
+    let guid = function() {
+        let uid = Util.uid();
+        return ctx.response.expected(uid) ? guid() : uid;
+    };
 
-    let sendEvent = function(dest, command, args) {
-        let msg = { CMD: command, ARGS: args, FROM: myId };
-        let wsDest = sockets[dest];
-        if (!wsDest) {
-            console.error('Server ', dest, ' unreachable');
+    let sendEvent = function(destId, command, args) {
+        let dest = findDest(ctx, destId);
+        if (!dest) {
+            // XXX: handle this more properly: timeout?
+            console.log("Error: dest", destId, "not found in ctx.");
             return false;
         }
-        wsDest.send(JSON.stringify(msg));
+
+        // Message format: [txid, from, cmd, args, (extra)]
+        // fixed uid for events
+        let msg = ['event', ctx.myId, command, args]
+        dest.send(JSON.stringify(msg));
         return true;
     };
 
-    let sendQuery = function(dest, command, args, cb) {
-        let msg = { CMD: command, ARGS: args, FROM: myId, IDX: id };
-        let wsDest = sockets[dest];
-        if (!wsDest) {
-            console.error('Server ', dest, ' unreachable');
+    let sendQuery = function(destId, command, args, cb) {
+        let dest = findDest(ctx, destId);
+        if (!dest) {
+            // XXX: handle this more properly: timeout?
+            console.log("Error: dest", destId, "not found in ctx.");
             return false;
         }
-        response.expect(String(id++), cb, timeout);
-        wsDest.send(JSON.stringify(msg));
+
+        let txid = guid();
+
+        // Message format: [txid, from, cmd, args, (extra)]
+        let msg = [txid, ctx.myId, command, args]
+        ctx.response.expect(txid, function() {
+            // XXX: log, cleanup, etc
+            cb();
+        });
+
+        dest.send(JSON.stringify(msg)); // XXX send message
+        return true;
     };
 
     let parseMessage = function(message) {
@@ -97,10 +113,11 @@ let handleMessage = function(ctx, message) {
                 /* No command and an idx given: it’s a Response */
                 try {
                     msgType = 'response';
+                    // TODO: check if a response is expected
                     response.handle(msg.IDX, msg.ARGS);
                 } catch (error) {
-                    console.log('Error: handling message ', msg);
-                    console.log('Error: ', error);
+                    console.log("Error: handling message:", msg);
+                    console.log("Error:", error);
                 }
             } else {
                 /* A command is given and it has an idx: it’s a Query */
@@ -108,6 +125,7 @@ let handleMessage = function(ctx, message) {
             }
         } else {
             /* No IDX: it’s an Event */
+            // TODO: change to a fixed value, e.g. 0
             msgType = 'event';
         }
 
@@ -116,28 +134,22 @@ let handleMessage = function(ctx, message) {
         return msg;
     };
 
-    let onMessage = function(type, action) {
-        let onMessageCall = function(message) {
-            let parsed = parseMessage(message);
-            /* TODO: handling messages */
-        };
-
-        ws.forEach(wsConnection => {
-            wsConnection.onmessage = onMessageCall;
+    let handleCommands = function(COMMANDS) {
+        Object.keys(COMMANDS).forEach(cmd => {
+            let f = COMMANDS[cmd];
+            if (typeof (f) !== 'function') { return; }
+            ctx.commands[cmd] = {
+                handler: f
+            };
         });
     };
 
     let disconnect = function() {
-        ws.forEach(wsConnection => {
-            if (wsConnection) {
-                wsConnection.onclose = NOFUNC;
-                wsConnection.close();
-            }
-        });
+        // XXX: TODO
     };
 
-    return { sendEvent, sendQuery, onMessage, disconnect };
-}
+    return { sendEvent, sendQuery, handleCommands, disconnect };
+};
 
 /* This function initializes the different ws connections from the Ws and
     * Storage components
@@ -215,7 +227,7 @@ let init = function(config) {
         });
     });
 
-    let manager = communicationManager(ctx, myConfig);
+    let manager = communicationManager(ctx);
 
     return manager;
 };
