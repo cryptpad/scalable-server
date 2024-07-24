@@ -162,7 +162,10 @@ let init = function(config) {
     };
     ctx.myId = config.myId;
     let parseId = ctx.myId.split(':');
-    assert(parseId[0] === 'core');
+    if (parseId[0] !== 'core') {
+        console.log("Error: trying to create a server from a non-core node");
+        throw new Error('INVALID_SERVER_ID');
+    }
     ctx.myType = parseId[0];
     ctx.myNumber = Number(parseId[1]);
 
