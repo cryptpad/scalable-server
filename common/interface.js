@@ -1,28 +1,28 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2024 XWiki CryptPad Team <contact@cryptpad.org> and contributors
-const WebSocket = require("ws");
-const Express = require("express");
-const Http = require("http");
 const Util = require("./common-util.js");
+const wsConnector = require("../ws-connector.js");
 
 let createHandlers = function(ctx, other) {
     other.onMessage(function(message) {
-        handleMessage(ctx, message, function(identity) {
-            // TODO: verify if identity is in config.infra
-            ctx.others[identity[0]][identity[1]] = other;
-        });
+        handleMessage(ctx, other, message);
     });
     other.onDisconnect(function() {
-        // TODO: manage disconnections
+        // TODO: manage disconnects
     });
 };
 
-let findDest = function(ctx, destId) {
+let findDestFromId = function(ctx, destId) {
     let destPath = destId.split(':');
     return Util.find(ctx.others, destPath);
 };
 
-let handleMessage = function(ctx, message, cb) {
+// TODO: findDest other object in ctx.others
+let findIdFromDest = function(ctx, dest) {
+
+}
+
+let handleMessage = function(ctx, other, message) {
     let response = ctx.response;
 
     let parsed = Util.tryParse(message);
@@ -30,62 +30,59 @@ let handleMessage = function(ctx, message, cb) {
         return void console.log("JSON parse error", message);
     }
 
-    // Message format: [txid, from, cmd, args, (extra)]
+    // Message format: [txid, type, data, (extra)]
+    // type: MESSAGE, IDENTITY, -- PING, ACK (on every single message?)
     const txid = parsed[0];
-    const fromId = parsed[1];
-    const cmd = parsed[2];
-    const args = parsed[3];
+    const type = parsed[1];
+    const data = parsed[2];
 
-    if (response.expected(txid)) {
-        response.handle(txid, args);
+    if (type === 'RESPONSE') {
+        if (response.expected(txid)) {
+            response.handle(txid, data);
+        }
         return;
     }
 
-    let from = findDest(ctx, fromId);
-    if(!from) {
-        if (txid !== 'IDENT') {
-            console.log('Unidentified message received', message);
+    let fromId = findIdFromDest(ctx, other);
+    if (!fromId) {
+        if (type !== 'IDENTITY') {
+            // TODO: close the connection
+            console.log("Unidentified message received", message);
             return;
         }
-        cb(args);
+        // TODO: sanity checks
+        ctx.others[data.type][data.idx] = other;
         return;
     }
 
+    if (type !== 'MESSAGE') {
+        console.log("Unexpected message type", message);
+        return;
+    }
+
+    const cmd = data[0];
+    const args = data[1];
     let cmdObj = ctx.commands[cmd];
     if (cmdObj) {
         cmdObj.handler(args, (error, data) => {
-            from.send(JSON.stringify([txid]), { error, data });
+            other.send([txid, 'RESPONSE', { error, data }]);
         }, {
             from: fromId
         });
     }
 };
 
+let guid = function() {
+    let uid = Util.uid();
+    return ctx.response.expected(uid) ? guid() : uid;
+};
+
 let communicationManager = function(ctx) {
     let myId = ctx.myId;
 
-    let guid = function() {
-        let uid = Util.uid();
-        return ctx.response.expected(uid) ? guid() : uid;
-    };
 
     let sendEvent = function(destId, command, args) {
-        let dest = findDest(ctx, destId);
-        if (!dest) {
-            // XXX: handle this more properly: timeout?
-            console.log("Error: dest", destId, "not found in ctx.");
-            return false;
-        }
-
-        // Message format: [txid, from, cmd, args, (extra)]
-        // fixed uid for events
-        let msg = ['event', myId, command, args];
-        dest.send(JSON.stringify(msg));
-        return true;
-    };
-
-    let sendQuery = function(destId, command, args, cb) {
-        let dest = findDest(ctx, destId);
+        let dest = findDestFromId(ctx, destId);
         if (!dest) {
             // XXX: handle this more properly: timeout?
             console.log("Error: dest", destId, "not found in ctx.");
@@ -94,14 +91,36 @@ let communicationManager = function(ctx) {
 
         let txid = guid();
 
-        // Message format: [txid, from, cmd, args, (extra)]
-        let msg = [txid, myId, command, args];
+        // Message format: [txid, type, data, (extra)]
+        let msg = [txid, 'MESSAGE', {
+            cmd: command,
+            args: args
+        }];
+        dest.send(msg);
+        return true;
+    };
+
+    let sendQuery = function(destId, command, args, cb) {
+        let dest = findDestFromId(ctx, destId);
+        if (!dest) {
+            // XXX: handle this more properly: timeout?
+            console.log("Error: dest", destId, "not found in ctx.");
+            return false;
+        }
+
+        let txid = guid();
+
+        // Message format: [txid, type, data, (extra)]
+        let msg = [txid, 'MESSAGE', {
+            cmd: command,
+            args: args
+        }];
         ctx.response.expect(txid, function() {
             // XXX: log, cleanup, etc
             cb();
         });
 
-        dest.send(JSON.stringify(msg)); // XXX send message
+        dest.send(msg);
         return true;
     };
 
@@ -154,17 +173,7 @@ let connect = function(config) {
     }
 
     // Connection to the different core servers
-    config.infra.core.forEach(function(server, id) {
-        let socket = WebSocket('ws://' + server.host + ':' + server.port);
-        socket.on('error', function(error) {
-            console.error('Websocket connection error on', server, ':', error)
-        })
-        .on('open', function () {
-            ctx.others.core[id] = socket;
-            socket.send(['event', ctx.myId, 'IDENT', [ctx.myType, ctx.myNumber]]);
-            createHandlers(ctx, socket);
-        })
-    });
+    wsConnector.initClient(ctx, config, createHandlers);
 
     let manager = communicationManager(ctx);
 
@@ -201,15 +210,7 @@ let init = function(config) {
         throw new Error('INVALID_SERVER_ID');
     }
 
-    let app = Express();
-    let httpServer = Http.createServer(app);
-    httpServer.listen(myConfig.port, myConfig.host, function() {
-        let server = new WebSocket.Server({ server: httpServer });
-        server.on('connection', function(ws, req) {
-            // TODO: get data from req to know who we are talking to and handle new connections
-            createHandlers(ctx, ws);
-        });
-    });
+    wsConnector.initServer(ctx, myConfig, createHandlers);
 
     let manager = communicationManager(ctx);
 
