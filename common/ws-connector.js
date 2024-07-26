@@ -50,7 +50,7 @@ module.exports = {
     close: function() {
         // TODO: fill
     },
-    initServer: function(config, onNewClient) {
+    initServer: function(ctx, config, onNewClient) {
         let app = Express();
         let httpServer = Http.createServer(app);
         httpServer.listen(config.port, config.host, function() {
@@ -61,7 +61,7 @@ module.exports = {
             });
         });
     },
-    initClient: function(config, onConnected) {
+    initClient: function(ctx, config, onConnected) {
         config.infra.core.forEach(function(server, id) {
             let socket = WebSocket('ws://' + server.host + ':' + server.port);
             socket.on('error', function(error) {
@@ -70,7 +70,7 @@ module.exports = {
                 .on('open', function() {
                     ctx.others.core[id] = socket;
                     let uid = Util.uid(); // XXX: replace with guid
-                    socket.send([uid, ['IDENT', [ctx.myType, ctx.myNumber]]]);
+                    socket.send([uid, 'IDENTITY', { type: ctx.myType, idx: ctx.myNumber }]);
                     onConnected(ctx, socketToClient(socket));
                 })
         });
