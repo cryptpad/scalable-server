@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2024 XWiki CryptPad Team <contact@cryptpad.org> and contributors
 const Util = require("./common-util.js");
-const wsConnector = require("../ws-connector.js");
+const wsConnector = require("./ws-connector.js");
 
 let createHandlers = function(ctx, other) {
     other.onMessage(function(message) {
@@ -149,7 +149,7 @@ let communicationManager = function(ctx) {
 };
 
 /* Creates a connection to another node.
- * - config: contains ../config.js and a string `myId` identifying the initiator
+ * - config: contains ../ws-config.js and a string `myId` identifying the initiator
  * of the connection.
  */
 let connect = function(config) {

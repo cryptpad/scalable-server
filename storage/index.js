@@ -6,7 +6,8 @@ const nThen = require("nthen");
 const BatchRead = require("./batch-read.js");
 const Meta = require("./commands/metadata.js");
 const HK = require("./hk-util.js");
-const Config = require("../config.js");
+const Config = require("../ws-config.js");
+const Interface = require("../common/interface.js");
 
 let Env = {
     id: "0123456789abcdef",
@@ -203,7 +204,7 @@ let init = store => {
             computeIndexFromOffset(channelName, 0, CB);
         });
     };
-}
+};
 
 Store.create({
     filePath: './data/channel',
