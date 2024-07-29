@@ -17,10 +17,18 @@ let findDestFromId = function(ctx, destId) {
     return Util.find(ctx.others, destPath);
 };
 
-// TODO: findDest other object in ctx.others
 let findIdFromDest = function(ctx, dest) {
-
-}
+    let found = void 0;
+    Object.keys(ctx.others).forEach(type => {
+        let idx = ctx.others[type].findIndex(function(socket) {
+            return socket == dest;
+        });
+        if (idx != -1) {
+            found = type + ':' + String(idx);
+        }
+    });
+    return found;
+};
 
 let handleMessage = function(ctx, other, message) {
     let response = ctx.response;
