@@ -557,7 +557,6 @@ let onGetHistory = function(seq, userId, parsed, cb) {
             toSend.push([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(parsedMsg)]);
         }));
     }).nThen(() => {
-        // TODO: need to SEND `toSend` to core
         cb(void 0, {history: toSend});
     });
 };
