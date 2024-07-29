@@ -21,7 +21,7 @@ let findIdFromDest = function(ctx, dest) {
     let found = void 0;
     Object.keys(ctx.others).forEach(type => {
         let idx = ctx.others[type].findIndex(function(socket) {
-            return socket == dest;
+            return socket === dest;
         });
         if (idx != -1) {
             found = type + ':' + String(idx);
