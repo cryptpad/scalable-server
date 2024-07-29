@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2024 XWiki CryptPad Team <contact@cryptpad.org> and contributors
-const Config = require("../config.js");
+const Config = require("../ws-config.js");
+const Interface = require("../common/interface.js");
 let Env = {};
 
 let getHistory = function (Env, Server, seq, userId, parsed) {
@@ -26,3 +27,16 @@ let onDirectMessage = function(Env, Server, seq, userId, json) {
         getHistory(Env, Server, seq, userId, parsed);
     }
 }
+
+let startServers = function() {
+    Config.myId = 'core:0';
+    let interface = Env.interface = Interface.init(Config);
+
+    let COMMANDS = {
+        'GET_HISTORY': getHistory,
+    };
+
+    interface.handleCommands(COMMANDS)
+};
+
+startServers();
