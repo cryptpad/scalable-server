@@ -80,9 +80,9 @@ let handleMessage = function(ctx, other, message) {
     }
 };
 
-let guid = function() {
+let guid = function(ctx) {
     let uid = Util.uid();
-    return ctx.response.expected(uid) ? guid() : uid;
+    return ctx.response.expected(uid) ? guid(ctx) : uid;
 };
 
 let communicationManager = function(ctx) {
@@ -96,7 +96,7 @@ let communicationManager = function(ctx) {
             return false;
         }
 
-        let txid = guid();
+        let txid = guid(ctx);
 
         // Message format: [txid, type, data, (extra)]
         let msg = [txid, 'MESSAGE', {
@@ -115,7 +115,7 @@ let communicationManager = function(ctx) {
             return false;
         }
 
-        let txid = guid();
+        let txid = guid(ctx);
 
         // Message format: [txid, type, data, (extra)]
         let msg = [txid, 'MESSAGE', {

@@ -12,7 +12,7 @@ const socketToClient = function(ws) {
     };
 
     ws.on('message', function(msg) {
-        handlers.message.forEach(handler => {
+        handlers.messages.forEach(handler => {
             try {
                 handler(msg);
             } catch (e) {
@@ -69,10 +69,11 @@ module.exports = {
                 console.error('Websocket connection error on', server, ':', error);
             })
                 .on('open', function() {
-                    ctx.others.core[id] = socket;
+                    let client = socketToClient(socket);
+                    ctx.others.core[id] = client;
                     let uid = Util.uid(); // XXX: replace with guid
-                    socket.send([uid, 'IDENTITY', { type: ctx.myType, idx: ctx.myNumber }]);
-                    onConnected(ctx, socketToClient(socket));
+                    client.send([uid, 'IDENTITY', { type: ctx.myType, idx: ctx.myNumber }]);
+                    onConnected(ctx, client);
                 })
         });
     }
