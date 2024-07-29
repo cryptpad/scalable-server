@@ -88,7 +88,6 @@ let guid = function() {
 let communicationManager = function(ctx) {
     let myId = ctx.myId;
 
-
     let sendEvent = function(destId, command, args) {
         let dest = findDestFromId(ctx, destId);
         if (!dest) {

@@ -29,6 +29,7 @@ const socketToClient = function(ws) {
         });
     });
 
+    // XXX: maybe add an uid for connections?
     return {
         _ws: ws,
         send: function(msg) {
