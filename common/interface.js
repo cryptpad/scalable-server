@@ -68,8 +68,8 @@ let handleMessage = function(ctx, other, message) {
         return;
     }
 
-    const cmd = data[0];
-    const args = data[1];
+    const cmd = data.cmd;
+    const args = data.args;
     let cmdObj = ctx.commands[cmd];
     if (cmdObj) {
         cmdObj.handler(args, (error, data) => {
