@@ -4,7 +4,8 @@ const Express = require('express');
 const Http = require('http');
 const WebSocketServer = require('ws').Server;
 const ChainpadServer = require('chainpad-server');
-const Config = require("../config.js");
+const Config = require("../ws-config.js");
+const Interface = require("../common/interface.js");
 
 let config = {
     host: '::',
@@ -48,3 +49,7 @@ let Server = ChainpadServer.create(new WebSocketServer({ server: httpServer }))
         console.error('ERROR', error);
     })
     .register(hkId, onDirectMessage);
+
+Config.myId = 'ws:0';
+let interface = Interface.connect(Config);
+

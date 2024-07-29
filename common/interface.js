@@ -122,9 +122,9 @@ let communicationManager = function(ctx) {
             cmd: command,
             args: args
         }];
-        ctx.response.expect(txid, function() {
+        ctx.response.expect(txid, function(data) {
             // XXX: log, cleanup, etc
-            cb();
+            cb(data);
         });
 
         dest.send(msg);

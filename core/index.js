@@ -4,28 +4,19 @@ const Config = require("../ws-config.js");
 const Interface = require("../common/interface.js");
 let Env = {};
 
-let getHistory = function (Env, Server, seq, userId, parsed) {
-    // TODO: Call Storage to get history
-}
-
-let onDirectMessage = function(Env, Server, seq, userId, json) {
-    const HISTORY_KEEPER_ID = Env.id;
-
-    let parsed;
-    try {
-        parsed = JSON.parse(json[2]);
-    } catch (err) {
-        // TODO: Send ACK error
-        console.error("HK_PARSE_CLIENT_MESSAGE", json);
+let getHistoryHandler = function(args, cb, extra) {
+    let s = extra.from.split(':');
+    if (s[0] !== 'ws') {
+        console.error('GET_HISTORY received from unauthorized server:', args, extra);
+        cb('UNAUTHORIZED_USER', void 0);
         return;
     }
 
-    // TODO: Send ACK to user
-    let first = parsed[0];
-
-    if (first === 'GET_HISTORY') {
-        getHistory(Env, Server, seq, userId, parsed);
-    }
+    // TODO: add consistent hash to know which storage to ask
+    let storage = 'storage:0';
+    Env.interface.sendQuery(storage, 'GET_HISTORY', args, function(error, data) {
+        cb(error, data);
+    });
 }
 
 let startServers = function() {
@@ -33,7 +24,7 @@ let startServers = function() {
     let interface = Env.interface = Interface.init(Config);
 
     let COMMANDS = {
-        'GET_HISTORY': getHistory,
+        'GET_HISTORY': getHistoryHandler,
     };
 
     interface.handleCommands(COMMANDS)

@@ -561,7 +561,11 @@ let onGetHistory = function(seq, userId, parsed, cb) {
     });
 };
 
-/* Start of the server */
+let getHistoryHandler = function(args, cb) {
+    onGetHistory(args.seq, args.userId, args.parsed, cb);
+}
+
+/* Start of the node */
 
 // Create a store
 Store.create({
