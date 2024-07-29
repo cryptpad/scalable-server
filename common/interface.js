@@ -172,7 +172,7 @@ let connect = function(config) {
         console.log('Server response error:', error);
     });
 
-    let myConfig = Util.find(ctx, parsedId);
+    let myConfig = Util.find(config.infra, parsedId);
 
     if (!myConfig) {
         console.log("Error: client not found in the network topology");

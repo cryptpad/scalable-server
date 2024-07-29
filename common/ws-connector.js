@@ -64,7 +64,7 @@ module.exports = {
     },
     initClient: function(ctx, config, onConnected) {
         config.infra.core.forEach(function(server, id) {
-            let socket = WebSocket('ws://' + server.host + ':' + server.port);
+            let socket = new WebSocket('ws://' + server.host + ':' + server.port);
             socket.on('error', function(error) {
                 console.error('Websocket connection error on', server, ':', error);
             })
