@@ -12,6 +12,8 @@ const Interface = require("../common/interface.js");
 let Env = {
     id: "0123456789abcdef",
     publicKeyLength: 32,
+    // TODO: make that automatic
+    coreId: 'core:0',
 
     metadata_cache: {},
     channel_cache: {},
@@ -206,16 +208,6 @@ let init = store => {
     };
 };
 
-Store.create({
-    filePath: './data/channel',
-    archivePath: './data/archive',
-    volumeId: 'channel'
-}, function(err, _store) {
-    if (err) { console.error('Error:', err); }
-    Env.store = _store;
-    init(_store);
-});
-
 const getMetadata = function(channelName, _cb) {
     let cb = Util.mkAsync(_cb);
     let metadata = Env.metadata_cache[channelName];
@@ -236,13 +228,13 @@ const getMetadata = function(channelName, _cb) {
 }
 
 /*  getIndex
-    calls back with an error if anything goes wrong
-    or with a cached index for a channel if it exists
-        (along with metadata)
-    otherwise it calls back with the index computed by 'computeIndex'
+calls back with an error if anything goes wrong
+or with a cached index for a channel if it exists
+(along with metadata)
+otherwise it calls back with the index computed by 'computeIndex'
 
-    as an added bonus:
-    if the channel exists but its index does not then it caches the index
+as an added bonus:
+if the channel exists but its index does not then it caches the index
 */
 const getIndex = (channelName, cb) => {
     const channel_cache = Env.channel_cache;
@@ -303,12 +295,12 @@ const getHistoryOffset = (channelName, lastKnownHash, _cb) => {
                 return void cb(null, index.cpIndex[0].offset);
                 /* LATER...
                     in practice, two checkpoints can be very close together
-                    we have measures to avoid duplicate checkpoints, but editors
-                    can produce nearby checkpoints which are slightly different,
+                we have measures to avoid duplicate checkpoints, but editors
+                can produce nearby checkpoints which are slightly different,
                     and slip past these protections. To be really careful, we can
-                    seek past nearby checkpoints by some number of patches so as
-                    to ensure that all editors have sufficient knowledge of history
-                    to reconcile their differences. */
+                seek past nearby checkpoints by some number of patches so as
+                to ensure that all editors have sufficient knowledge of history
+                to reconcile their differences. */
             }
 
             // If our lastKnownHash is older than the 2nd to last checkpoint, send
@@ -381,7 +373,7 @@ const getHistoryAsync = (channelName, lastKnownHash, beforeHash, handler, cb) =>
     This is called when a user tries to connect to a channel that doesn't exist.
     we initialize that channel by writing the metadata supplied by the user to its log.
     if the provided metadata has an expire time then we also create a task to expire it.
-*/
+    */
 const handleFirstMessage = function(Env, channelName, metadata) {
     if (metadata.selfdestruct) {
         // Set the selfdestruct flag to history keeper ID to handle server crash.
@@ -566,6 +558,33 @@ let onGetHistory = function(seq, userId, parsed, cb) {
         }));
     }).nThen(() => {
         // TODO: need to SEND `toSend` to core
-        cb();
+        cb(void 0, {history: toSend});
     });
 };
+
+/* Start of the server */
+
+// Create a store
+Store.create({
+    filePath: './data/channel',
+    archivePath: './data/archive',
+    volumeId: 'channel'
+}, function(err, _store) {
+    if (err) { console.error('Error:', err); }
+    Env.store = _store;
+    init(_store);
+});
+
+// List accepted commands
+let COMMANDS = {
+    'GET_HISTORY': onGetHistory,
+};
+
+// Connect to core
+let start = function() {
+    Config.myId = 'storage:0';
+    let interface = Env.interface = Interface.connect(Config);
+    interface.handleCommands(COMMANDS);
+};
+
+start();
