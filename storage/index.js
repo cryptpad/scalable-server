@@ -557,7 +557,7 @@ let onGetHistory = function(seq, userId, parsed, cb) {
             toSend.push([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(parsedMsg)]);
         }));
     }).nThen(() => {
-        cb(void 0, {history: toSend});
+        cb(void 0, { history: toSend });
     });
 };
 
@@ -580,7 +580,7 @@ Store.create({
 
 // List accepted commands
 let COMMANDS = {
-    'GET_HISTORY': onGetHistory,
+    'GET_HISTORY': getHistoryHandler,
 };
 
 // Connect to core
