@@ -39,7 +39,7 @@ let handleMessage = function(ctx, other, message) {
     }
 
     // Message format: [txid, type, data, (extra)]
-    // type: MESSAGE, IDENTITY, -- PING, ACK (on every single message?)
+    // type: MESSAGE, IDENTITY, RESPONSE -- PING, ACK (on every single message?)
     const txid = parsed[0];
     const type = parsed[1];
     const data = parsed[2];
