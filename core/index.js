@@ -9,46 +9,33 @@ let getStorageId = function(channelName) {
     return 'storage:0';
 };
 
-let getHistoryHandler = function(args, cb, extra) {
-    let s = extra.from.split(':');
-    if (s[0] !== 'ws') {
-        console.error('GET_HISTORY received from unauthorized server:', args, extra);
-        cb('UNAUTHORIZED_USER', void 0);
-        return;
-    }
+let wsToStorage = function(command) {
+    return function(args, cb, extra) {
+        let s = extra.from.split(':');
+        if (s[0] !== 'ws') {
+            console.error('GET_HISTORY received from unauthorized server:', args, extra);
+            cb('UNAUTHORIZED_USER', void 0);
+            return;
+        }
+        let channelName = args.channelName;
 
-    let channelId = args.channelId;
+        let storage = getStorageId(channelName);
 
-    let storage = getStorageId(channelId);
-    Env.interface.sendQuery(storage, 'GET_HISTORY', args, function(error, data) {
-        cb(error, data);
-    });
-}
-
-let getMetadataHandler = function(args, cb, extra) {
-    let s = extra.from.split(':');
-    if (s[0] !== 'ws') {
-        console.error('GET_HISTORY received from unauthorized server:', args, extra);
-        cb('UNAUTHORIZED_USER', void 0);
-        return;
-    }
-
-    let channelName = args.channelName;
-
-    let storage = getStorageId(channelName);
-    Env.interface.sendQuery(storage, 'GET_METADATA', args, function(response) {
-        cb(void 0, response.data);
-    });
-}
+        Env.interface.sendQuery(storage, command, args, function(response) {
+            cb(response.error, response.data);
+        });
+    };
+};
 
 let startServers = function() {
     Config.myId = 'core:0';
     let interface = Env.interface = Interface.init(Config);
 
-    let COMMANDS = {
-        'GET_HISTORY': getHistoryHandler,
-        'GET_METADATA': getMetadataHandler,
-    };
+    let queryToStorage = ['GET_HISTORY', 'GET_METADATA'];
+    let COMMANDS = {};
+    queryToStorage.forEach(function(command) {
+        COMMANDS[command] = wsToStorage(command);
+    });
 
     interface.handleCommands(COMMANDS)
 };
