@@ -463,7 +463,7 @@ let onGetHistory = function(seq, userId, parsed, cb) {
     // on the floor instead of doing a bunch of extra work
     // TODO: Send them an error message so they know something is wrong
     // TODO: add Log handling function
-    if (metadata.validateKey && !HK.isValidValidateKeyString(metadata.validateKey)) {
+    if (metadata.validateKey && !HK.isValidValidateKeyString(Env, metadata.validateKey)) {
         return void console.error('HK_INVALID_KEY', metadata.validateKey);
     }
 

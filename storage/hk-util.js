@@ -60,7 +60,7 @@ const decodeBase64 = function(string) {
 }
 
 // validateKeyStrings supplied by clients must decode to 32-byte Uint8Arrays
-const isValidValidateKeyString = HK.isValidValidateKeyString = function(key) {
+const isValidValidateKeyString = HK.isValidValidateKeyString = function(Env, key) {
     try {
         return typeof (key) === 'string' &&
             decodeBase64(key).length === Env.publicKeyLength;
