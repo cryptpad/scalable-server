@@ -6,6 +6,7 @@ const WebSocketServer = require('ws').Server;
 const ChainpadServer = require('chainpad-server');
 const Config = require("../ws-config.js");
 const Interface = require("../common/interface.js");
+const Util = require("../common/common-util.js")
 
 let publicConfig = {
     host: '::',
@@ -56,6 +57,7 @@ let onChannelOpen = function(Server, channelName, userId, wait) {
         cb(response.error, response.data);
     })
 };
+
 let onSessionClose = function(userId, reason) {
 
 };
@@ -93,6 +95,7 @@ let onDirectMessage = function(Server, seq, userId, json) {
 
         // TODO: sanity check on toSend
 
+        // TODO: to batch
         toSend.forEach(function(message) {
             Server.send(userId, message);
         });

@@ -30,7 +30,7 @@ let Env = {
 };
 
 const DETAIL = 1000;
-let round = function (n) {
+let round = function(n) {
     return Math.floor(n * DETAIL) / DETAIL;
 };
 
