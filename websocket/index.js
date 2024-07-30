@@ -64,6 +64,39 @@ let onSessionOpen = function(userId, ip) {
 };
 let onDirectMessage = function() {
 
+let onDirectMessage = function(Server, seq, userId, json) {
+    console.log('onDirectMessage', json);
+    let parsed = Util.tryParse(json[2]);
+    if (!parsed) {
+        console.error("HK_PARSE_CLIENT_MESSAGE", json);
+        return;
+    }
+
+    // if (typeof(directMessageCommands[first]) !== 'function') {
+        // it's either an unsupported command or an RPC call
+        // TODO: to handle
+        // console.error('NOT_IMPLEMENTED', first);
+    // }
+
+    let channelName = parsed[1];
+
+    let coreId = getCoreId(channelName);
+    Env.interface.sendQuery(coreId, 'GET_HISTORY', {seq, userId, parsed}, function(answer) {
+        let toSend = answer.data.toSend;
+        let error = answer.error;
+        if(error) {
+            return;
+        }
+        if(!toSend) {
+            return;
+        }
+
+        // TODO: sanity check on toSend
+
+        toSend.forEach(function(message) {
+            Server.send(userId, message);
+        });
+    });
 };
 
 let Server = ChainpadServer.create(new WebSocketServer({ server: httpServer }))
