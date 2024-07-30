@@ -59,13 +59,18 @@ The above configuration describes a network comprised of 4 nodes, having one
 websocket client node on port `3010`, 2 core servers on port `3011` and `3012`
 and a storage node accessible via port `3014`.
 
-In addition, launching a server requires to set the field `myId` with your
+In addition, launching a server requires setting the field `myId` with your
 identifier, which will be of the form `type:id`. For instance, in the first core
 node (the node listening on port 3011), it would be `Config.myId = 'core:0'`.
 
 ## Usage
 
-To run the new servers, you first need to start the core nodes with the command
+Before first use, you may want to install the dependencies with:
+```bash
+npm install
+```
+
+To run the new servers, you first need to start the `core` nodes with the command
 
 ```bash
 node core/index.js
