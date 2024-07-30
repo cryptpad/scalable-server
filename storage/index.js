@@ -565,6 +565,10 @@ let getHistoryHandler = function(args, cb) {
     onGetHistory(args.seq, args.userId, args.parsed, cb);
 }
 
+let getMetaDataHandler = function(args, cb) {
+    getMetadata(args.channelName, cb);
+}
+
 /* Start of the node */
 
 // Create a store
@@ -581,6 +585,7 @@ Store.create({
 // List accepted commands
 let COMMANDS = {
     'GET_HISTORY': getHistoryHandler,
+    'GET_METADATA': getMetaDataHandler,
 };
 
 // Connect to core

@@ -26,8 +26,29 @@ let onChannelClose = function(channelName) {
 let onChannelMessage = function(Server, channel, msgStruct, cb) {
 
 };
-let onChannelOpen = function(Server, channelName, userId, wait) {
 
+let onChannelOpen = function(Server, channelName, userId, wait) {
+    let next = wait();
+
+    let sendHKJoinMessage = function() {
+        Server.send(userId, [
+            0,
+            hkId,
+            'JOIN',
+            channelName
+        ]);
+    };
+
+    let cb = function(err, info) {
+        next(err, info, sendHKJoinMessage);
+    };
+
+    // XXX: to select automatically
+    let coreId = 'core:0';
+
+    Env.interface.sendQuery(coreId, 'GET_METADATA', {id: hkId, userId, channelName}, function(response) {
+        cb(response.error, response.data);
+    })
 };
 let onSessionClose = function(userId, reason) {
 
