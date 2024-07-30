@@ -11,7 +11,7 @@ const Interface = require("../common/interface.js");
 
 let Env = {
     id: "0123456789abcdef",
-    publicKeyLength: 32,
+    publicKeyLength: 30,
     // TODO: make that automatic
     coreId: 'core:0',
 
@@ -25,7 +25,13 @@ let Env = {
     Log: {
         info: console.log,
         error: console.error,
+        verbose: console.log,
     },
+};
+
+const DETAIL = 1000;
+let round = function (n) {
+    return Math.floor(n * DETAIL) / DETAIL;
 };
 
 Env.checkCache = function(channel) {
@@ -71,7 +77,7 @@ let init = store => {
                     // fall through intentionally because the following blocks are invalid
                     // for all but the first message
                 } else if (msgObj.buff.includes(OPEN_CURLY_BRACE)) {
-                    msg = Util.tryParse(Env, msgObj.buff.toString('utf8'));
+                    msg = Util.tryParse(msgObj.buff.toString('utf8'));
                     if (typeof msg === "undefined") {
                         i++; // always increment the message counter
                         return readMore();
@@ -83,14 +89,14 @@ let init = store => {
                         i++; // always increment the message counter
                         return readMore();
                     }
-                } else if (!(msg = Util.tryParse(Env, msgObj.buff.toString('utf8')))) {
+                } else if (!(msg = Util.tryParse(msgObj.buff.toString('utf8')))) {
                     w.abort();
                     abort();
                     return CB("OFFSET_ERROR");
                 }
                 i++;
                 if (msgObj.buff.includes(CHECKPOINT_PREFIX)) {
-                    msg = msg || Util.tryParse(Env, msgObj.buff.toString('utf8'));
+                    msg = msg || Util.tryParse(msgObj.buff.toString('utf8'));
                     if (typeof msg === "undefined") { return readMore(); }
                     // cache the offsets of checkpoints if they can be parsed
                     if (msg[2] === 'MSG' && msg[4].indexOf('cp|') === 0) {
@@ -121,7 +127,7 @@ let init = store => {
                 // or the 50-100 latest messages if the channel is of a type without checkpoints.
                 // map the 'hash' of each message to its byte offset in the log, to be used for reconnecting clients
                 messageBuf.forEach((msgObj) => {
-                    const msg = Util.tryParse(Env, msgObj.buff.toString('utf8'));
+                    const msg = Util.tryParse(msgObj.buff.toString('utf8'));
                     if (typeof msg === "undefined") { return; }
                     if (msg[0] === 0 && msg[2] === 'MSG' && typeof (msg[4]) === 'string') {
                         // msgObj.offset is API guaranteed by our storage module
@@ -346,7 +352,7 @@ const getHistoryAsync = (channelName, lastKnownHash, beforeHash, handler, cb) =>
 
     let offset = -1;
     nThen((waitFor) => {
-        getHistoryOffset(Env, channelName, lastKnownHash, waitFor((err, os) => {
+        getHistoryOffset(channelName, lastKnownHash, waitFor((err, os) => {
             if (err) {
                 waitFor.abort();
                 var reason;
@@ -365,7 +371,7 @@ const getHistoryAsync = (channelName, lastKnownHash, beforeHash, handler, cb) =>
         const start = (beforeHash) ? 0 : offset;
         store.readMessagesBin(channelName, start, (msgObj, readMore, abort) => {
             if (beforeHash && msgObj.offset >= offset) { return void abort(); }
-            const parsed = tryParse(Env, msgObj.buff.toString('utf8'));
+            const parsed = Util.tryParse(msgObj.buff.toString('utf8'));
             if (!parsed) { return void readMore(); }
             handler(parsed, readMore);
         }, waitFor(function(err, reason) {
@@ -562,7 +568,7 @@ let onGetHistory = function(seq, userId, parsed, cb) {
             toSend.push([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(parsedMsg)]);
         }));
     }).nThen(() => {
-        cb(void 0, { history: toSend });
+        cb(void 0, { toSend });
     });
 };
 
