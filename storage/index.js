@@ -217,7 +217,7 @@ const getMetadata = function(channelName, _cb) {
 
     Meta.getMetadataRaw(Env, channelName, function(err, metadata) {
         if (err) { return cb(err); }
-        if (!(metadata && typeof (metadata.channel) === 'string' && metadata.channel.length === STANDARD_CHANNEL_LENGTH)) {
+        if (!(metadata && typeof (metadata.channel) === 'string' && metadata.channel.length === HK.STANDARD_CHANNEL_LENGTH)) {
             return cb();
         }
 
