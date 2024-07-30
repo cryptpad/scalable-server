@@ -21,6 +21,11 @@ let Env = {
 
     batchIndexReads: BatchRead("HK_GET_INDEX"),
     batchMetadata: BatchRead('GET_METADATA'),
+
+    Log: {
+        info: console.log,
+        error: console.error,
+    },
 };
 
 Env.checkCache = function(channel) {
