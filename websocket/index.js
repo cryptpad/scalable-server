@@ -22,6 +22,11 @@ httpServer.listen(publicConfig.port, publicConfig.host, function() {
 
 let hkId = "0123456789abcdef";
 
+// XXX: to select automatically
+let getCoreId = function(channelName) {
+    return "core:0";
+};
+
 let onChannelClose = function(channelName) {
 
 };
@@ -45,8 +50,7 @@ let onChannelOpen = function(Server, channelName, userId, wait) {
         next(err, info, sendHKJoinMessage);
     };
 
-    // XXX: to select automatically
-    let coreId = 'core:0';
+    let coreId = getCoreId(channelName);
 
     Env.interface.sendQuery(coreId, 'GET_METADATA', {id: hkId, userId, channelName}, function(response) {
         cb(response.error, response.data);
