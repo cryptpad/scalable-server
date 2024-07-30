@@ -7,14 +7,16 @@ const ChainpadServer = require('chainpad-server');
 const Config = require("../ws-config.js");
 const Interface = require("../common/interface.js");
 
-let config = {
+let publicConfig = {
     host: '::',
     port: '3000'
 };
 
+let Env = {};
+
 let app = Express();
 let httpServer = Http.createServer(app);
-httpServer.listen(config.port, config.host, function() {
+httpServer.listen(publicConfig.port, publicConfig.host, function() {
     console.log('server started');
 });
 
@@ -72,5 +74,5 @@ let Server = ChainpadServer.create(new WebSocketServer({ server: httpServer }))
     .register(hkId, onDirectMessage);
 
 Config.myId = 'ws:0';
-let interface = Interface.connect(Config);
+Env.interface = Interface.connect(Config);
 

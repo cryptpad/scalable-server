@@ -17,8 +17,9 @@ let getHistoryHandler = function(args, cb, extra) {
         return;
     }
 
-    // TODO: add consistent hash to know which storage to ask
-    let storage = 'storage:0';
+    let channelId = args.channelId;
+
+    let storage = getStorageId(channelId);
     Env.interface.sendQuery(storage, 'GET_HISTORY', args, function(error, data) {
         cb(error, data);
     });
@@ -39,6 +40,7 @@ let getMetadataHandler = function(args, cb, extra) {
         cb(void 0, response.data);
     });
 }
+
 let startServers = function() {
     Config.myId = 'core:0';
     let interface = Env.interface = Interface.init(Config);
