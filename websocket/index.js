@@ -64,7 +64,6 @@ let onSessionClose = function(userId, reason) {
 let onSessionOpen = function(userId, ip) {
     // TODO: log IPs if needed
 };
-let onDirectMessage = function() {
 
 let onDirectMessage = function(Server, seq, userId, json) {
     console.log('onDirectMessage', json);
