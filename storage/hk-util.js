@@ -55,8 +55,7 @@ const isMetadataMessage = HK.isMetadataMessage = function (parsed) {
 };
 
 const decodeBase64 = function(string) {
-    let buff = Buffer.from(string, 'base64');
-    return buff.toString();
+    return Buffer.from(string, 'base64');
 }
 
 // validateKeyStrings supplied by clients must decode to 32-byte Uint8Arrays

@@ -11,7 +11,7 @@ const Interface = require("../common/interface.js");
 
 let Env = {
     id: "0123456789abcdef",
-    publicKeyLength: 30,
+    publicKeyLength: 32,
     // TODO: make that automatic
     coreId: 'core:0',
 
