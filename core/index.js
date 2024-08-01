@@ -8,6 +8,7 @@ let Env = {};
 let getStorageId = function(channelName) {
     return 'storage:0';
 };
+
 let getWsId = function(userId) {
     return 'ws:0';
 };
@@ -30,7 +31,7 @@ let wsToStorage = function(command) {
     };
 };
 
-let StorageToWs = function(command) {
+let storageToWs = function(command) {
     return function(args, cb, extra) {
         let s = extra.from.split(':');
         if (s[0] !== 'storage') {
@@ -59,7 +60,7 @@ let startServers = function() {
         COMMANDS[command] = wsToStorage(command);
     });
     queriesToWs.forEach(function(command) {
-        COMMANDS[command] = StorageToWs(command);
+        COMMANDS[command] = storageToWs(command);
     });
 
     interface.handleCommands(COMMANDS)
