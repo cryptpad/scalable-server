@@ -12,8 +12,6 @@ const Interface = require("../common/interface.js");
 let Env = {
     id: "0123456789abcdef",
     publicKeyLength: 32,
-    // TODO: make that automatic
-    coreId: 'core:0',
 
     metadata_cache: {},
     channel_cache: {},
@@ -29,8 +27,15 @@ let Env = {
     },
 };
 
+// TODO: make that automatic
+let getCoreId = function(channelname) {
+    return 'core:0';
+};
+
+Env.coreId = getCoreId('XXX');
+
 const DETAIL = 1000;
-let round = function (n) {
+let round = function(n) {
     return Math.floor(n * DETAIL) / DETAIL;
 };
 
@@ -556,10 +561,19 @@ let onGetHistory = function(seq, userId, parsed, cb) {
                 return;
             }
 
-            if (msgCount === 0 && !metadata_cache[channelName] && Server.channelContainsUser(channelName, userId)) {
-                // TODO: this might be a good place to reject channel creation by anonymous users
-                handleFirstMessage(Env, channelName, metadata);
-                toSend.push([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(metadata)]);
+            if (msgCount === 0 && !metadata_cache[channelName]) {
+                Env.interface.sendQuery(getCoreId(channelName), 'CHANNEL_CONTAINS_USER', { channelName, userId }, function(answer) {
+                    let err = answer.error;
+                    if (err) {
+                        console.error('Error: can’t check channelContainsUser:', err, '-', channelName, userId);
+                        return;
+                    }
+                    if (answer.data.response) {
+                        // TODO: this might be a good place to reject channel creation by anonymous users
+                        handleFirstMessage(Env, channelName, metadata);
+                        toSend.push([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(metadata)]);
+                    }
+                });
             }
 
             // End of history message:

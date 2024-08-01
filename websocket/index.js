@@ -13,7 +13,10 @@ let publicConfig = {
     port: '3000'
 };
 
-let Env = {};
+let Env = {
+    LogIp: true,
+    openConnections: {},
+};
 
 let app = Express();
 let httpServer = Http.createServer(app);
@@ -53,7 +56,9 @@ let onChannelOpen = function(Server, channelName, userId, wait) {
 
     let coreId = getCoreId(channelName);
 
-    Env.interface.sendQuery(coreId, 'GET_METADATA', {id: hkId, userId, channelName}, function(response) {
+    Env.openConnections[channelName] = Server;
+
+    Env.interface.sendQuery(coreId, 'GET_METADATA', { id: hkId, userId, channelName }, function(response) {
         cb(response.error, response.data);
     })
 };
@@ -61,8 +66,14 @@ let onChannelOpen = function(Server, channelName, userId, wait) {
 let onSessionClose = function(userId, reason) {
 
 };
+
 let onSessionOpen = function(userId, ip) {
     // TODO: log IPs if needed
+    if (!Env.logIP) { return; }
+    console.log('USER_CONNECTION', {
+        userId: userId,
+        ip: ip,
+    });
 };
 
 let onDirectMessage = function(Server, seq, userId, json) {
@@ -74,21 +85,21 @@ let onDirectMessage = function(Server, seq, userId, json) {
     }
 
     // if (typeof(directMessageCommands[first]) !== 'function') {
-        // it's either an unsupported command or an RPC call
-        // TODO: to handle
-        // console.error('NOT_IMPLEMENTED', first);
+    // it's either an unsupported command or an RPC call
+    // TODO: to handle
+    // console.error('NOT_IMPLEMENTED', first);
     // }
 
     let channelName = parsed[1];
 
     let coreId = getCoreId(channelName);
-    Env.interface.sendQuery(coreId, 'GET_HISTORY', {seq, userId, parsed}, function(answer) {
+    Env.interface.sendQuery(coreId, 'GET_HISTORY', { seq, userId, parsed }, function(answer) {
         let toSend = answer.data.toSend;
         let error = answer.error;
-        if(error) {
+        if (error) {
             return;
         }
-        if(!toSend) {
+        if (!toSend) {
             return;
         }
 
@@ -115,3 +126,21 @@ let Server = ChainpadServer.create(new WebSocketServer({ server: httpServer }))
 Config.myId = 'ws:0';
 Env.interface = Interface.connect(Config);
 
+let channelContainsUserHandle = function(args, cb) {
+    let channelName = args.channelName;
+    let userId = args.userId;
+
+    let Server = Env.openConnections[channelName];
+    if (!Server) {
+        console.error('Error: Server for', channelName, 'not found.');
+        cb('SERVER_NOT_FOUND', void 0);
+    }
+
+    cb(void 0, { response: Server.channelContainsUser(channelName, userId)});
+};
+
+let COMMANDS = {
+    'CHANNEL_CONTAINS_USER': channelContainsUserHandle,
+};
+
+Env.interface.handleCommands(COMMANDS);

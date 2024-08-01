@@ -8,20 +8,41 @@ let Env = {};
 let getStorageId = function(channelName) {
     return 'storage:0';
 };
+let getWsId = function(channelName) {
+    return 'ws:0';
+};
 
 let wsToStorage = function(command) {
     return function(args, cb, extra) {
         let s = extra.from.split(':');
         if (s[0] !== 'ws') {
-            console.error('GET_HISTORY received from unauthorized server:', args, extra);
+            console.error('Error:', command, 'received from unauthorized server:', args, extra);
             cb('UNAUTHORIZED_USER', void 0);
             return;
         }
         let channelName = args.channelName;
 
-        let storage = getStorageId(channelName);
+        let storageId = getStorageId(channelName);
 
-        Env.interface.sendQuery(storage, command, args, function(response) {
+        Env.interface.sendQuery(storageId, command, args, function(response) {
+            cb(response.error, response.data);
+        });
+    };
+};
+
+let StorageToWs = function(command) {
+    return function(args, cb, extra) {
+        let s = extra.from.split(':');
+        if (s[0] !== 'storage') {
+            console.error('Error:', command, 'received from unauthorized server:', args, extra);
+            cb('UNAUTHORIZED_USER', void 0);
+            return;
+        }
+        let channelName = args.channelName;
+
+        let wsId = getWsId(channelName);
+
+        Env.interface.sendQuery(wsId, command, args, function(response) {
             cb(response.error, response.data);
         });
     };
@@ -31,10 +52,14 @@ let startServers = function() {
     Config.myId = 'core:0';
     let interface = Env.interface = Interface.init(Config);
 
-    let queryToStorage = ['GET_HISTORY', 'GET_METADATA'];
+    let queriesToStorage = ['GET_HISTORY', 'GET_METADATA'];
+    let queriesToWs = ['CHANNEL_CONTAINS_USER'];
     let COMMANDS = {};
-    queryToStorage.forEach(function(command) {
+    queriesToStorage.forEach(function(command) {
         COMMANDS[command] = wsToStorage(command);
+    });
+    queriesToWs.forEach(function(command) {
+        COMMANDS[command] = StorageToWs(command);
     });
 
     interface.handleCommands(COMMANDS)
