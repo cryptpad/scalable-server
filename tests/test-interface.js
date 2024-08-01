@@ -7,7 +7,7 @@
  */
 
 const Interface = require("../common/interface.js");
-const ITERS = 500;
+const ITERS = 1000;
 const NTRIES = 5;
 
 let Config = {
@@ -50,7 +50,7 @@ let wsStart = function(myId) {
     let i = 0;
     let timings = [];
 
-    let sendPing = async function() {
+    let sendPing = function() {
         interface.sendQuery(other, 'PING', (new Date()).getTime(), function(response) {
             let now = (new Date()).getTime();
             let pingTime = response.data.ping;
