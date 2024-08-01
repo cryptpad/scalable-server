@@ -8,7 +8,7 @@ let Env = {};
 let getStorageId = function(channelName) {
     return 'storage:0';
 };
-let getWsId = function(channelName) {
+let getWsId = function(userId) {
     return 'ws:0';
 };
 
@@ -38,9 +38,9 @@ let StorageToWs = function(command) {
             cb('UNAUTHORIZED_USER', void 0);
             return;
         }
-        let channelName = args.channelName;
+        let userId = args.userId;
 
-        let wsId = getWsId(channelName);
+        let wsId = getWsId(userId);
 
         Env.interface.sendQuery(wsId, command, args, function(response) {
             cb(response.error, response.data);
