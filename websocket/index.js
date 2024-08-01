@@ -77,7 +77,6 @@ let onSessionOpen = function(userId, ip) {
 };
 
 let onDirectMessage = function(Server, seq, userId, json) {
-    console.log('onDirectMessage', json);
     let parsed = Util.tryParse(json[2]);
     if (!parsed) {
         console.error("HK_PARSE_CLIENT_MESSAGE", json);
@@ -90,10 +89,11 @@ let onDirectMessage = function(Server, seq, userId, json) {
     // console.error('NOT_IMPLEMENTED', first);
     // }
 
+    let first = parsed[0];
     let channelName = parsed[1];
 
     let coreId = getCoreId(channelName);
-    Env.interface.sendQuery(coreId, 'GET_HISTORY', { seq, userId, parsed }, function(answer) {
+    Env.interface.sendQuery(coreId, first, { seq, userId, parsed }, function(answer) {
         let toSend = answer.data.toSend;
         let error = answer.error;
         if (error) {
@@ -106,6 +106,7 @@ let onDirectMessage = function(Server, seq, userId, json) {
         // TODO: sanity check on toSend
 
         // TODO: to batch
+        Server.send(userId, [seq, 'ACK']);
         toSend.forEach(function(message) {
             Server.send(userId, message);
         });
