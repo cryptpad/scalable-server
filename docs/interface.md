@@ -55,3 +55,53 @@ should provide the following functions:
 messages.
 - **`onDisconnect(handler)`**: add a handler that is called upon disconnecting.
 - **`disconnect()`**: close the connection with the client.
+
+## Usage
+
+To create a minimal interface, one can use the following code, assuming you are
+one level above the root of the repository:
+```javascript
+const Interface = require("../common/interface.js");
+
+let Config = {
+    infra: {
+        core: [{
+            host: 'localhost',
+            port: 3010
+        }],
+        ws: [{
+            host: 'localhost',
+            port: 3012
+        }],
+        storage: [{
+            host: 'localhost',
+            port: 3011
+        }]
+    }
+};
+```
+
+Now, you can set which node you want to spawn, for instance for a `core` node:
+```javascript
+Config.myId = 'core:0';
+```
+
+Then, start it with `Interface.init` for a `core` node or `Interface.connect`
+for a `ws` or `storage` node:
+```javascript
+let interface = Interface.init(Config);
+```
+
+Now you are able to use the `interface` variable to communicate with other
+nodes once connected:
+```javascript
+interface.sendQuery('ws:0', 'HELLO', { whoami: 'core:0' }, function(response) {
+    let error = response.error;
+    if (error) {
+        console.error(`HELLO error: ${error}`)
+        return;
+    }
+    let whois = response.data.whois;
+    console.log(`Response obtained from ${whois}`);
+});
+```
