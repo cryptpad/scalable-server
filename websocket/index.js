@@ -7,6 +7,18 @@ const ChainpadServer = require('chainpad-server');
 const Config = require("../ws-config.js");
 const Interface = require("../common/interface.js");
 const Util = require("../common/common-util.js")
+const cli_args = require("minimist")(process.argv.slice(2));
+
+let proceed = true;
+
+if (cli_args.h || cli_args.help) {
+    proceed = false;
+    console.log(`Usage ${process.argv[1]}:`);
+    console.log("\t--help, -h\tDisplay this help");
+    console.log("\t--id\tSet the websocket node id (default: 0)");
+}
+
+if (!proceed) { return; }
 
 let publicConfig = {
     host: '::',
@@ -124,7 +136,8 @@ let Server = ChainpadServer.create(new WebSocketServer({ server: httpServer }))
     })
     .register(hkId, onDirectMessage);
 
-Config.myId = 'ws:0';
+let idx = Number(cli_args.id) || 0;
+Config.myId = 'ws:' + idx;
 Env.interface = Interface.connect(Config);
 
 let channelContainsUserHandle = function(args, cb) {
