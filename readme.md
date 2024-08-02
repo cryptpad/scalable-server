@@ -84,8 +84,8 @@ node websocket/index.js
 
 ## Tests
 
-The repository [`tests`](tests/) contains some unit and integration tests
-scripts and files.
+The directory [`tests`](tests/) contains some unit and integration tests scripts
+and files.
 
 - [`test-interface.js`](tests/test-interface.js): test the communication
 interface by implementing a simple ping-pong protocol that computes the time it
