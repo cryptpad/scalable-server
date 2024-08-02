@@ -16,13 +16,15 @@ if (cli_args.h || cli_args.help) {
     console.log(`Usage ${process.argv[1]}:`);
     console.log("\t--help, -h\tDisplay this help");
     console.log("\t--id\tSet the websocket node id (default: 0)");
+    console.log("\t--host\tSet the websocket listening host (default: ::)");
+    console.log("\t--port\tSet the websocket listening port (default: 3000)");
 }
 
 if (!proceed) { return; }
 
 let publicConfig = {
-    host: '::',
-    port: '3000'
+    host: cli_args.host || '::',
+    port: cli_args.port || '3000'
 };
 
 let Env = {
