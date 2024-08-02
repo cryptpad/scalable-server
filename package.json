@@ -16,5 +16,8 @@
   },
   "overrides": {
     "ws": "^8.17.1"
+  },
+  "scripts": {
+    "tests": "node --test tests/"
   }
 }

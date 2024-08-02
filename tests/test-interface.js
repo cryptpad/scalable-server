@@ -6,6 +6,8 @@
  * current timestamp as soon as it receives them.
  */
 
+const test = require("node:test").test;
+const assert = require("node:assert");
 const Interface = require("../common/interface.js");
 const cli_args = require('minimist')(process.argv.slice(2));
 let ITERS = Number(cli_args.iter) || 1000;
@@ -42,7 +44,7 @@ let Config = {
     }
 };
 
-let coreStart = function(myId) {
+let coreStart = function(myId, _cb) {
     Config.myId = myId;
     let interface = Interface.init(Config);
     let other = 'ws:0';
@@ -53,9 +55,12 @@ let coreStart = function(myId) {
 
     let COMMANDS = { 'PING': pingHandler };
     interface.handleCommands(COMMANDS);
+    if (typeof(_cb) === 'function') {
+        _cb(interface);
+    }
 };
 
-let wsStart = function(myId) {
+let wsStart = function(myId, _cb) {
     Config.myId = myId;
     let interface = Interface.connect(Config);
     let other = 'core:0';
@@ -80,11 +85,52 @@ let wsStart = function(myId) {
             interface.disconnect();
         }
     };
-    setTimeout(sendPing, 300);
+
+    let reset = function() {
+        i = 0;
+        timings = [];
+    };
+
+    if ( typeof(_cb) === 'function') {
+        _cb({ sendPing, reset });
+    }
 };
 
-coreStart('core:0');
+let clients = [];
 
-wsStart('ws:0');
-wsStart('ws:1');
-wsStart('ws:2');
+test("Initialize a server", () => {
+    coreStart('core:0', (server) => {
+        assert.ok(server);
+    });
+});
+
+test("Initialize a client", () => {
+    wsStart('ws:0', (client) => {
+        clients[0] = client;
+        assert.ok(clients[0]);
+    });
+});
+
+test("Initialize multiple clients", () => {
+    wsStart('ws:1', (client) =>{
+        clients[1] = client;
+        assert.ok(clients[1]);
+    });
+    wsStart('ws:2', (client) => {
+        clients[2] = client;
+        assert.ok(clients[2]);
+    });
+});
+
+test("Launch queries", async () => {
+    setTimeout(clients[0].sendPing, 300);
+    // validation?
+});
+
+
+test("Launch multiple queries", async () => {
+    clients[0].reset();
+    for (i = 0; i < 3; i++) {
+        setTimeout(clients[i].sendPing, 600);
+    };
+});
