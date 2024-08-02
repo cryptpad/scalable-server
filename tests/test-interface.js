@@ -8,8 +8,8 @@
 
 const Interface = require("../common/interface.js");
 const cli_args = require('minimist')(process.argv.slice(2));
-let ITERS = cli_args.iter || 1000;
-let NTRIES = cli_args.tries || 5;
+let ITERS = Number(cli_args.iter) || 1000;
+let NTRIES = Number(cli_args.tries) || 5;
 let proceed = true;
 
 if (cli_args.h || cli_args.help) {
