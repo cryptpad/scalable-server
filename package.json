@@ -4,18 +4,15 @@
   "version": "0.0.1",
   "license": "AGPL-3.0+",
   "dependencies": {
-    "express": "~4.19.2",
-    "ws": "^8.17.1",
     "chainpad-server": "^5.2.0",
-    "pull-stream": "^3.6.1",
-    "stream-to-pull-stream": "^1.7.2",
-    "saferphore": "0.0.1",
+    "express": "~4.19.2",
+    "fs-extra": "^7.0.0",
+    "minimist": "^1.2.8",
     "nthen": "0.1.8",
-    "fs-extra": "^7.0.0"
-  },  
-  "optionalDependencies": {
-  },  
-  "devDependencies": {
+    "pull-stream": "^3.6.1",
+    "saferphore": "0.0.1",
+    "stream-to-pull-stream": "^1.7.2",
+    "ws": "^8.17.1"
   },
   "overrides": {
     "ws": "^8.17.1"

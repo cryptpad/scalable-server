@@ -7,8 +7,21 @@
  */
 
 const Interface = require("../common/interface.js");
-const ITERS = 1000;
-const NTRIES = 5;
+const cli_args = require('minimist')(process.argv.slice(2));
+let ITERS = cli_args.iter || 1000;
+let NTRIES = cli_args.tries || 5;
+let proceed = true;
+
+if (cli_args.h || cli_args.help) {
+    proceed = false;
+    console.log('Usage', process.argv[1], '[--argument value]');
+    console.log('Arguments:');
+    console.log('\t--iter\t\tUse n results for averaging.');
+    console.log('\t--tries\t\tThe number full loops.');
+    console.log('\t--help -h\tDisplay this help.');
+}
+
+if (!proceed) { return; }
 
 let Config = {
     infra: {
