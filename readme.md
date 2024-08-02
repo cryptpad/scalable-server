@@ -81,3 +81,12 @@ Then you can start a `ws` and `storage` nodes in any order:
 node storage/index.js
 node websocket/index.js
 ```
+
+## Tests
+
+The repository [`tests`](tests/) contains some unit and integration tests
+scripts and files.
+
+- [`test-interface.js`](tests/test-interface.js): test the communication
+interface by implementing a simple ping-pong protocol that computes the time it
+takes to go back and forth in the network.
