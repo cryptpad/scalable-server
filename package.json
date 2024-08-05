@@ -18,6 +18,7 @@
     "ws": "^8.17.1"
   },
   "scripts": {
-    "tests": "node --test tests/"
+    "tests": "node --test tests/",
+    "start": "sh start.sh"
   }
 }

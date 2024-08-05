@@ -70,7 +70,13 @@ Before first use, you may want to install the dependencies with:
 npm install
 ```
 
-To run the new servers, you first need to start the `core` nodes with the command
+To spawn the default server topology, run the start script:
+```bash
+npm run start
+```
+
+Alternatively, you can the new servers manually. You first need to start the
+`core` nodes with the following command.
 
 ```bash
 node core/index.js
