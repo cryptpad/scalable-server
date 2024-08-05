@@ -39,6 +39,9 @@ httpServer.listen(publicConfig.port, publicConfig.host, function() {
 });
 
 let hkId = "0123456789abcdef";
+const EPHEMERAL_CHANNEL_LENGTH = 34;
+const ADMIN_CHANNEL_LENGTH = 33;
+const CHECKPOINT_PATTERN = /^cp\|(([A-Za-z0-9+\/=]+)\|)?/;
 
 // XXX: to select automatically
 let getCoreId = function(channelName) {
@@ -49,7 +52,52 @@ let onChannelClose = function(channelName) {
 
 };
 let onChannelMessage = function(Server, channel, msgStruct, cb) {
+    if (typeof(cb) !== "function") { cb = function () {}; }
+    console.log('onChannelMessage', msgStruct);
+    let channelName = channel.id; 
+    if (!channelName) {
+        console.error('INVALID CHANNEL');
+        return;
+    }
 
+
+    /// Sanitizing before sending to Storage
+    // don't store messages if the channel id indicates that it's an ephemeral message
+    if (channelName.length === EPHEMERAL_CHANNEL_LENGTH) {
+        return void cb();
+    }
+
+    // Admin channel. We can only write to this one from private message (RPC)
+    if (channel.id.length === ADMIN_CHANNEL_LENGTH && msgStruct[1] !== null) {
+        return void cb('ERESTRICTED_ADMIN');
+    }
+
+    const isCp = /^cp\|/.test(msgStruct[4]);
+    let id;
+    if (isCp) {
+        // id becomes either null or an array or results...
+        id = CHECKPOINT_PATTERN.exec(msgStruct[4]);
+        // FIXME: relying on this data to be stored on an in-memory structure
+        // managed by a dependency is fragile. We should put this somewhere
+        // more straightforward and reliable.
+        if (Array.isArray(id) && id[2] && id[2] === channel.lastSavedCp) {
+            // Reject duplicate checkpoints
+            return void cb();
+            // not an error? the checkpoint is already here so we can assume it's stored
+            //return void cb('DUPLICATE');
+        }
+    }
+
+    let coreId = getCoreId(channelName);
+
+    Env.interface.sendQuery(coreId, 'CHANNEL_MESSAGE', {channel, msgStruct}, function(answer) {
+        let error = answer.error;
+        if (error) {
+            cb(error);
+            return;
+        }
+        cb();
+    });
 };
 
 let onChannelOpen = function(Server, channelName, userId, wait) {
@@ -91,6 +139,7 @@ let onSessionOpen = function(userId, ip) {
 };
 
 let onDirectMessage = function(Server, seq, userId, json) {
+    console.log('onDirectMessage', userId, json);
     let parsed = Util.tryParse(json[2]);
     if (!parsed) {
         console.error("HK_PARSE_CLIENT_MESSAGE", json);

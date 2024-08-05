@@ -8,6 +8,7 @@ const Meta = require("./commands/metadata.js");
 const HK = require("./hk-util.js");
 const Config = require("../ws-config.js");
 const Interface = require("../common/interface.js");
+const WriteQueue = require("./write-queue.js");
 
 let Env = {
     id: "0123456789abcdef",
@@ -17,12 +18,15 @@ let Env = {
     channel_cache: {},
     cache_checks: {},
 
+    queueStorage: WriteQueue(),
+
     batchIndexReads: BatchRead("HK_GET_INDEX"),
     batchMetadata: BatchRead('GET_METADATA'),
 
     Log: {
         info: console.log,
         error: console.error,
+        warn: console.warn,
         verbose: console.log,
     },
 };
@@ -38,6 +42,8 @@ const DETAIL = 1000;
 let round = function(n) {
     return Math.floor(n * DETAIL) / DETAIL;
 };
+
+const CHECKPOINT_PATTERN = /^cp\|(([A-Za-z0-9+\/=]+)\|)?/;
 
 Env.checkCache = function(channel) {
     let f = Env.cache_checks[channel] = Env.cache_checks[channel] ||
@@ -606,6 +612,167 @@ let onGetFullHistory = function(seq, userId, parsed, cb) {
     cb(error, toSend);
 };
 
+let storeMessage = function(channel, msg, isCp, optionalMessageHash, time, cb) {
+    const id = channel.id;
+    const Log = Env.log;
+    if (typeof(cb) !== "function") { cb = function () {}; }
+
+    Env.queueStorage(id, next => {
+        const msgBin = Buffer.from(msg + '\n', 'utf8');
+        // Store the message first, and update the index only once it's stored.
+        // store.messageBin can be async so updating the index first may
+        // result in a wrong cpIndex
+        nThen(waitFor => {
+            Env.store.messageBin(id, msgBin, waitFor(function (err) {
+                if (err) {
+                    waitFor.abort();
+                    Log.error("HK_STORE_MESSAGE_ERROR", err.message);
+
+                    // this error is critical, but there's not much we can do at the moment
+                    // proceed with more messages, but they'll probably fail too
+                    // at least you won't have a memory leak
+
+                    // TODO make it possible to respond to clients with errors so they know
+                    // their message wasn't stored
+                    cb(err);
+                    return void next();
+                }
+            }));
+        }).nThen(waitFor => {
+            getIndex(id, waitFor((err, index) => {
+                if (err) {
+                    Log.warn("HK_STORE_MESSAGE_INDEX", err.stack);
+                    // non-critical, we'll be able to get the channel index later
+                    // cb with no error so that the message is broadcast
+                    cb();
+                    return void next();
+                }
+
+                if (optionalMessageHash && typeof(index.offsetByHash[optionalMessageHash]) === 'number') {
+                    cb();
+                    return void next();
+                }
+
+                if (typeof (index.line) === "number") { index.line++; }
+                if (isCp) {
+                    index.cpIndex = sliceCpIndex(index.cpIndex, index.line || 0);
+                    trimMapByOffset(index.offsetByHash, index.cpIndex[0]);
+                    index.cpIndex.push({
+                        offset: index.size,
+                        line: ((index.line || 0) + 1)
+                    });
+                }
+/*  This 'getIndex' call will construct a new index if one does not already exist.
+    If that is the case then our message will already be present and updating our offset map
+    can actually cause it to become incorrect, leading to incorrect behaviour when clients connect
+    with a lastKnownHash. We avoid this by only assigning new offsets to the map.
+*/
+                if (optionalMessageHash /* && typeof(index.offsetByHash[optionalMessageHash]) === 'undefined' */) {
+                    index.offsetByHash[optionalMessageHash] = index.size;
+                    index.offsets++;
+                }
+                if (index.offsets >= 100 && !index.cpIndex.length) {
+                    let offsetCount = checkOffsetMap(index.offsetByHash);
+                    if (offsetCount < 0) {
+                        Log.warn('OFFSET_TRIM_OOO', {
+                            channel: id,
+                            map: index.offsetByHash
+                        });
+                    } else if (offsetCount > 0) {
+                        trimOffsetByOrder(index.offsetByHash, index.offsets);
+                        index.offsets = checkOffsetMap(index.offsetByHash);
+                    }
+                }
+
+                // Message stored, call back
+                cb(void 0, time);
+
+                var msgLength = msgBin.length;
+                index.size += msgLength;
+
+                // handle the next element in the queue
+                next();
+                // TODO: call Env.incrementBytesWritten for metrics
+            }));
+        });
+    });
+};
+
+let onChannelMessage = function(channel, msgStruct, cb) {
+    let channelName = channel.id;
+    const isCp = /^cp\|/.test(msgStruct[4]);
+    let metadata;
+    nThen(function(w) {
+        getMetadata(channelName, w(function(err, _metadata) {
+            // if there's no channel metadata then it can't be an expiring channel
+            // nor can we possibly validate it
+            if (!_metadata) { return; }
+            metadata = _metadata;
+            // TODO: expiry verification
+        })).nThen(function(w) {
+            // if there's no validateKey p to the next block
+            if (!(metadata && metadata.validateKey)) { return; }
+
+            // trim the checkpoint indicator off the message if it's present
+            let signedMsg = (isCp) ? msgStruct[4].replace(CHECKPOINT_PATTERN, '') : msgStruct[4];
+
+            // Validate Message
+            let coreId = getCoreId(channelName);
+            Env.interface.send(coreId, 'VALIDATE_MESSAGE', {signedMsg, validateKey: metadata.validateKey}, function(answer) {
+                let err = answer.error;
+                if (!err) {
+                    return w();
+                }
+                else {
+                    if (err === 'FAILED') {
+                    // we log this case, but not others for some reason
+                        console.error("HK_SIGNED_MESSAGE_REJECTED", {
+                            channel: channel.id,
+                            validateKey: metadata.validayKey,
+                            message: signedMsg,
+                        });
+                    }
+
+                    cb('FAILED VALIDATION')
+                    return void w.abort();
+                }
+            });
+        });
+    }).nThen(function() {
+        // do checkpoint stuff...
+
+        // 1. get the checkpoint id
+        // 2. reject duplicate checkpoints
+
+        if (isCp) {
+            // if the message is a checkpoint we will have already validated
+            // that it isn't a duplicate. remember its id so that we can
+            // repeat this process for the next incoming checkpoint
+            // WARNING: the fact that we only check the most recent checkpoints
+            // is a potential source of bugs if one editor has high latency and
+            // pushes a duplicate of an earlier checkpoint than the latest which
+            // has been pushed by editors with low latency
+            //
+            // FIXME
+            if (Array.isArray(id) && id[2]) {
+                // Store new checkpoint hash
+                // there's a FIXME above which concerns a reference to `lastSavedCp`
+                // this is a hacky place to store important data.
+                channel.lastSavedCp = id[2];
+            }
+        }
+
+        // add the time to the message
+        let time = now();
+        msgStruct.push(time);
+
+        // storeMessage
+        //console.log(+new Date(), "Storing message");
+        storeMessage(channel, JSON.stringify(msgStruct), isCp, getHash(msgStruct[4], Log), time, cb);
+        //console.log(+new Date(), "Message stored");
+    });
+};
+
 let getHistoryHandler = function(args, cb) {
     onGetHistory(args.seq, args.userId, args.parsed, cb);
 }
@@ -616,6 +783,10 @@ let getFullHistoryHandler = function(args, cb) {
 
 let getMetaDataHandler = function(args, cb) {
     getMetadata(args.channelName, cb);
+}
+
+let channelMessageHandler = function(args, cb) {
+    onChannelMessage(args.channel, args.msgStruct, cb);
 }
 
 /* Start of the node */
@@ -636,6 +807,7 @@ let COMMANDS = {
     'GET_HISTORY': getHistoryHandler,
     'GET_METADATA': getMetaDataHandler,
     'GET_FULL_HISTORY': getFullHistoryHandler,
+    'CHANNEL_MESSAGE': channelMessageHandler,
 };
 
 // Connect to core
