@@ -44,7 +44,7 @@ let Config = {
     }
 };
 
-let coreStart = function(myId, _cb) {
+let coreStart = async function(myId, _cb) {
     Config.myId = myId;
     let interface = Interface.init(Config);
     let other = 'ws:0';
@@ -60,7 +60,7 @@ let coreStart = function(myId, _cb) {
     }
 };
 
-let wsStart = function(myId, _cb) {
+let wsStart = async function(myId, _cb) {
     Config.myId = myId;
     let interface = Interface.connect(Config);
     let other = 'core:0';
@@ -98,25 +98,25 @@ let wsStart = function(myId, _cb) {
 
 let clients = [];
 
-test("Initialize a server", () => {
-    coreStart('core:0', (server) => {
+test("Initialize a server", async () => {
+    await coreStart('core:0', (server) => {
         assert.ok(server);
     });
 });
 
-test("Initialize a client", () => {
-    wsStart('ws:0', (client) => {
+test("Initialize a client", async () => {
+    await wsStart('ws:0', (client) => {
         clients[0] = client;
         assert.ok(clients[0]);
     });
 });
 
-test("Initialize multiple clients", () => {
-    wsStart('ws:1', (client) =>{
+test("Initialize multiple clients", async () => {
+    await wsStart('ws:1', (client) =>{
         clients[1] = client;
         assert.ok(clients[1]);
     });
-    wsStart('ws:2', (client) => {
+    await wsStart('ws:2', (client) => {
         clients[2] = client;
         assert.ok(clients[2]);
     });
