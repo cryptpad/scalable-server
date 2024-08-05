@@ -586,8 +586,32 @@ let onGetHistory = function(seq, userId, parsed, cb) {
     });
 };
 
+let onGetFullHistory = function(seq, userId, parsed, cb) {
+    let channelName = parsed[1];
+    let toSend = [];
+    let error;
+
+    getHistoryAsync(channelName, -1, false, (msg, readMore) => {
+        toSend.push([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(['FULL_HISTORY', msg])]);
+        readMore();
+    }, (err) => {
+        let parsedMsg = ['FULL_HISTORY_END', channelName];
+        if (err) {
+            console.error('HK_GET_FULL_HISTORY', err.stack);
+            error = err;
+            parsedMsg = ['ERROR', parsed[1], err.message];
+        }
+        toSend.push([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(parsedMsg)]);
+    });
+    cb(error, toSend);
+};
+
 let getHistoryHandler = function(args, cb) {
     onGetHistory(args.seq, args.userId, args.parsed, cb);
+}
+
+let getFullHistoryHandler = function(args, cb) {
+    onGetFullHistory(args.seq, args.userId, args.parsed, cb);
 }
 
 let getMetaDataHandler = function(args, cb) {
@@ -611,6 +635,7 @@ Store.create({
 let COMMANDS = {
     'GET_HISTORY': getHistoryHandler,
     'GET_METADATA': getMetaDataHandler,
+    'GET_FULL_HISTORY': getFullHistoryHandler,
 };
 
 // Connect to core
