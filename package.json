@@ -12,6 +12,7 @@
     "pull-stream": "^3.6.1",
     "saferphore": "0.0.1",
     "stream-to-pull-stream": "^1.7.2",
+    "tweetnacl": "^1.0.3",
     "ws": "^8.17.1"
   },
   "overrides": {
