@@ -718,7 +718,7 @@ let onChannelMessage = function(channel, msgStruct, cb) {
 
             // Validate Message
             let coreId = getCoreId(channelName);
-            Env.interface.send(coreId, 'VALIDATE_MESSAGE', {signedMsg, validateKey: metadata.validateKey}, function(answer) {
+            Env.interface.send(coreId, 'VALIDATE_MESSAGE', {signedMsg, validateKey: metadata.validateKey, channelName}, function(answer) {
                 let err = answer.error;
                 if (!err) {
                     return w();

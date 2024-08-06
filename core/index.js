@@ -2,7 +2,11 @@
 // SPDX-FileCopyrightText: 2024 XWiki CryptPad Team <contact@cryptpad.org> and contributors
 const Config = require("../ws-config.js");
 const Interface = require("../common/interface.js");
-let Env = {};
+const WriteQueue = require("../storage/write-queue.js");
+const Crypto = require("./crypto.js");
+let Env = {
+    queueValidation: WriteQueue(),
+};
 
 // TODO: add consistent hash to know which storage to ask
 let getStorageId = function(channelName) {
@@ -49,13 +53,44 @@ let storageToWs = function(command) {
     };
 };
 
+let onValidateMessage = (msg, vk, cb) => {
+    let signedMsg;
+    try {
+        signedMsg = Crypto.decodeBase64(msg);
+    } catch (e) {
+        return void cb('E_BAD_MESSAGE');
+    }
+
+    let validateKey;
+    try {
+        validateKey = Crypto.decodeBase64(vk);
+    } catch (e) {
+        return void cb('E_BADKEY');
+    }
+
+    const validated = Crypto.sigVerify(signedMsg, validateKey);
+    if (!validated) {
+        return void cb('FAILED');
+    }
+    cb();
+};
+
+let validateMessageHandler = (args, cb) => { 
+    Env.queueValidation(args.channelName, function(next) { 
+        next();
+        onValidateMessage(args.signedMsg, args.validateKey, cb);
+    });
+};
+
 let startServers = function() {
     Config.myId = 'core:0';
     let interface = Env.interface = Interface.init(Config);
 
-    let queriesToStorage = ['GET_HISTORY', 'GET_METADATA'];
+    let queriesToStorage = ['GET_HISTORY', 'GET_METADATA', 'CHANNEL_MESSAGE'];
     let queriesToWs = ['CHANNEL_CONTAINS_USER'];
-    let COMMANDS = {};
+    let COMMANDS = {
+        'VALIDATE_MESSAGE': validateMessageHandler,
+    };
     queriesToStorage.forEach(function(command) {
         COMMANDS[command] = wsToStorage(command);
     });
