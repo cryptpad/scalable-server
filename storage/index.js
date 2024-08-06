@@ -624,10 +624,10 @@ let storeMessage = function(channel, msg, isCp, optionalMessageHash, time, cb) {
         // store.messageBin can be async so updating the index first may
         // result in a wrong cpIndex
         nThen(waitFor => {
-            Env.store.messageBin(id, msgBin, waitFor(function (err) {
+            Env.store.messageBin(id, msgBin, waitFor(function(err) {
                 if (err) {
                     waitFor.abort();
-                    Log.error("HK_STORE_MESSAGE_ERROR", err.message);
+                    Env.Log.error("HK_STORE_MESSAGE_ERROR", err.message);
 
                     // this error is critical, but there's not much we can do at the moment
                     // proceed with more messages, but they'll probably fail too
@@ -703,7 +703,7 @@ let getHash = function(msg) {
     if (typeof(msg) !== 'string') {
         return '';
     }
-    return msg.slice(0,64);
+    return msg.slice(0, 64);
 }
 
 let onChannelMessage = function(channelName, channel, msgStruct, cb) {
