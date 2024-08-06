@@ -52,7 +52,7 @@ let onChannelClose = function(channelName) {
 
 };
 let onChannelMessage = function(Server, channel, msgStruct, cb) {
-    if (typeof(cb) !== "function") { cb = function () {}; }
+    if (typeof (cb) !== "function") { cb = function() { }; }
     let channelName = channel.id;
     if (!channelName) {
         console.error('INVALID CHANNEL');
@@ -66,7 +66,7 @@ let onChannelMessage = function(Server, channel, msgStruct, cb) {
     }
 
     // Admin channel. We can only write to this one from private message (RPC)
-    if (channel.id.length === ADMIN_CHANNEL_LENGTH && msgStruct[1] !== null) {
+    if (channel.id.length === ADMIN_CHANNEL_LENGTH && msgStruct[1] !== null) {
         return void cb('ERESTRICTED_ADMIN');
     }
 
@@ -88,7 +88,7 @@ let onChannelMessage = function(Server, channel, msgStruct, cb) {
 
     let coreId = getCoreId(channelName);
 
-    Env.interface.sendQuery(coreId, 'CHANNEL_MESSAGE', {channelName, channel, msgStruct}, function(answer) {
+    Env.interface.sendQuery(coreId, 'CHANNEL_MESSAGE', { channelName, channel, msgStruct }, function(answer) {
         let error = answer.error;
         if (error) {
             cb(error);
@@ -137,7 +137,6 @@ let onSessionOpen = function(userId, ip) {
 };
 
 let onDirectMessage = function(Server, seq, userId, json) {
-    console.log('onDirectMessage', userId, json);
     let parsed = Util.tryParse(json[2]);
     if (!parsed) {
         console.error("HK_PARSE_CLIENT_MESSAGE", json);
@@ -199,7 +198,7 @@ let channelContainsUserHandle = function(args, cb) {
         cb('SERVER_NOT_FOUND', void 0);
     }
 
-    cb(void 0, { response: Server.channelContainsUser(channelName, userId)});
+    cb(void 0, { response: Server.channelContainsUser(channelName, userId) });
 };
 
 let COMMANDS = {
