@@ -781,6 +781,12 @@ let onChannelMessage = function(channelName, channel, msgStruct, cb) {
     });
 };
 
+let onDropChannel = function(channelName) {
+    delete Env.metadata_cache[channelName];
+    delete Env.channel_cache[channelName];
+}
+
+// Handlers
 let getHistoryHandler = function(args, cb) {
     onGetHistory(args.seq, args.userId, args.parsed, cb);
 }
@@ -795,6 +801,10 @@ let getMetaDataHandler = function(args, cb) {
 
 let channelMessageHandler = function(args, cb) {
     onChannelMessage(args.channelName, args.channel, args.msgStruct, cb);
+}
+
+let dropChannelHandler = function(args) {
+    onDropChannel(args.channelName);
 }
 
 /* Start of the node */
@@ -816,6 +826,7 @@ let COMMANDS = {
     'GET_METADATA': getMetaDataHandler,
     'GET_FULL_HISTORY': getFullHistoryHandler,
     'CHANNEL_MESSAGE': channelMessageHandler,
+    'DROP_CHANNEL': dropChannelHandler,
 };
 
 // Connect to core

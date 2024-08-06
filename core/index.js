@@ -53,6 +53,21 @@ let storageToWs = function(command) {
     };
 };
 
+let EventToStorage = function(command) {
+    return function(args, _cb, extra) {
+        let s = extra.from.split(':');
+        if (s[0] !== 'ws') {
+            console.error('Error:', command, 'received from unauthorized server:', args, extra);
+            return;
+        }
+        let channelName = args.channelName;
+
+        let storageId = getStorageId(channelName);
+
+        Env.interface.sendEvent(storageId, command, args);
+    };
+};
+
 let onValidateMessage = (msg, vk, cb) => {
     let signedMsg;
     try {
@@ -88,6 +103,7 @@ let startServers = function() {
 
     let queriesToStorage = ['GET_HISTORY', 'GET_METADATA', 'CHANNEL_MESSAGE'];
     let queriesToWs = ['CHANNEL_CONTAINS_USER'];
+    let eventsToStorage = ['DROP_CHANNEL',];
     let COMMANDS = {
         'VALIDATE_MESSAGE': validateMessageHandler,
     };
@@ -96,6 +112,9 @@ let startServers = function() {
     });
     queriesToWs.forEach(function(command) {
         COMMANDS[command] = storageToWs(command);
+    });
+    eventsToStorage.forEach(function(command) {
+        COMMANDS[command] = EventToStorage(command);
     });
 
     interface.handleCommands(COMMANDS)
