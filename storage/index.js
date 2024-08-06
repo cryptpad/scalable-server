@@ -709,6 +709,7 @@ let getHash = function(msg) {
 let onChannelMessage = function(channelName, channel, msgStruct, cb) {
     channel.id = channelName;
     const isCp = /^cp\|/.test(msgStruct[4]);
+    const CHECKPOINT_PATTERN = /^cp\|(([A-Za-z0-9+\/=]+)\|)?/;
     let metadata;
     nThen(function(w) {
         getMetadata(channelName, w(function(err, _metadata) {
@@ -717,34 +718,34 @@ let onChannelMessage = function(channelName, channel, msgStruct, cb) {
             if (!_metadata) { return; }
             metadata = _metadata;
             // TODO: expiry verification
-        })).nThen(function(w) {
-            // if there's no validateKey p to the next block
-            if (!(metadata && metadata.validateKey)) { return; }
+        }));
+    }).nThen(function(w) {
+        // if there's no validateKey present, skip to the next block
+        if (!(metadata && metadata.validateKey)) { return; }
 
-            // trim the checkpoint indicator off the message if it's present
-            let signedMsg = (isCp) ? msgStruct[4].replace(CHECKPOINT_PATTERN, '') : msgStruct[4];
+        // trim the checkpoint indicator off the message if it's present
+        let signedMsg = (isCp) ? msgStruct[4].replace(CHECKPOINT_PATTERN, '') : msgStruct[4];
 
-            // Validate Message
-            let coreId = getCoreId(channelName);
-            Env.interface.send(coreId, 'VALIDATE_MESSAGE', {signedMsg, validateKey: metadata.validateKey, channelName}, function(answer) {
-                let err = answer.error;
-                if (!err) {
-                    return w();
-                }
-                else {
-                    if (err === 'FAILED') {
+        // Validate Message
+        let coreId = getCoreId(channelName);
+        Env.interface.sendQuery(coreId, 'VALIDATE_MESSAGE', { signedMsg, validateKey: metadata.validateKey, channelName }, function(answer) {
+            let err = answer.error;
+            if (!err) {
+                return w();
+            }
+            else {
+                if (err === 'FAILED') {
                     // we log this case, but not others for some reason
-                        console.error("HK_SIGNED_MESSAGE_REJECTED", {
-                            channel: channel.id,
-                            validateKey: metadata.validayKey,
-                            message: signedMsg,
-                        });
-                    }
-
-                    cb('FAILED VALIDATION')
-                    return void w.abort();
+                    console.error("HK_SIGNED_MESSAGE_REJECTED", {
+                        channel: channel.id,
+                        validateKey: metadata.validayKey,
+                        message: signedMsg,
+                    });
                 }
-            });
+
+                cb('FAILED VALIDATION')
+                return void w.abort();
+            }
         });
     }).nThen(function() {
         // do checkpoint stuff...
@@ -762,6 +763,7 @@ let onChannelMessage = function(channelName, channel, msgStruct, cb) {
             // has been pushed by editors with low latency
             //
             // FIXME
+            let id = CHECKPOINT_PATTERN.exec(msgStruct[4]);
             if (Array.isArray(id) && id[2]) {
                 // Store new checkpoint hash
                 // there's a FIXME above which concerns a reference to `lastSavedCp`
@@ -776,7 +778,7 @@ let onChannelMessage = function(channelName, channel, msgStruct, cb) {
 
         // storeMessage
         //console.log(+new Date(), "Storing message");
-        storeMessage(channel, JSON.stringify(msgStruct), isCp, getHash(msgStruct[4], Log), time, cb);
+        storeMessage(channel, JSON.stringify(msgStruct), isCp, getHash(msgStruct[4]), time, cb);
         //console.log(+new Date(), "Message stored");
     });
 };
