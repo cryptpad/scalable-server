@@ -53,13 +53,11 @@ let onChannelClose = function(channelName) {
 };
 let onChannelMessage = function(Server, channel, msgStruct, cb) {
     if (typeof(cb) !== "function") { cb = function () {}; }
-    console.log('onChannelMessage', msgStruct);
-    let channelName = channel.id; 
+    let channelName = channel.id;
     if (!channelName) {
         console.error('INVALID CHANNEL');
         return;
     }
-
 
     /// Sanitizing before sending to Storage
     // don't store messages if the channel id indicates that it's an ephemeral message
@@ -90,7 +88,7 @@ let onChannelMessage = function(Server, channel, msgStruct, cb) {
 
     let coreId = getCoreId(channelName);
 
-    Env.interface.sendQuery(coreId, 'CHANNEL_MESSAGE', {channel, msgStruct}, function(answer) {
+    Env.interface.sendQuery(coreId, 'CHANNEL_MESSAGE', {channelName, channel, msgStruct}, function(answer) {
         let error = answer.error;
         if (error) {
             cb(error);

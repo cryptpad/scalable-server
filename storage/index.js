@@ -613,6 +613,7 @@ let onGetFullHistory = function(seq, userId, parsed, cb) {
 };
 
 let storeMessage = function(channel, msg, isCp, optionalMessageHash, time, cb) {
+    // TODO: check why channel.id disappears in the middle
     const id = channel.id;
     const Log = Env.log;
     if (typeof(cb) !== "function") { cb = function () {}; }
@@ -698,8 +699,15 @@ let storeMessage = function(channel, msg, isCp, optionalMessageHash, time, cb) {
     });
 };
 
-let onChannelMessage = function(channel, msgStruct, cb) {
-    let channelName = channel.id;
+let getHash = function(msg) {
+    if (typeof(msg) !== 'string') {
+        return '';
+    }
+    return msg.slice(0,64);
+}
+
+let onChannelMessage = function(channelName, channel, msgStruct, cb) {
+    channel.id = channelName;
     const isCp = /^cp\|/.test(msgStruct[4]);
     let metadata;
     nThen(function(w) {
@@ -786,7 +794,7 @@ let getMetaDataHandler = function(args, cb) {
 }
 
 let channelMessageHandler = function(args, cb) {
-    onChannelMessage(args.channel, args.msgStruct, cb);
+    onChannelMessage(args.channelName, args.channel, args.msgStruct, cb);
 }
 
 /* Start of the node */
