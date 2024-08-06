@@ -43,8 +43,6 @@ let round = function(n) {
     return Math.floor(n * DETAIL) / DETAIL;
 };
 
-const CHECKPOINT_PATTERN = /^cp\|(([A-Za-z0-9+\/=]+)\|)?/;
-
 Env.checkCache = function(channel) {
     let f = Env.cache_checks[channel] = Env.cache_checks[channel] ||
         Util.throttle(function() {
@@ -616,7 +614,7 @@ let storeMessage = function(channel, msg, isCp, optionalMessageHash, time, cb) {
     // TODO: check why channel.id disappears in the middle
     const id = channel.id;
     const Log = Env.log;
-    if (typeof(cb) !== "function") { cb = function () {}; }
+    if (typeof (cb) !== "function") { cb = function() { }; }
 
     Env.queueStorage(id, next => {
         const msgBin = Buffer.from(msg + '\n', 'utf8');
