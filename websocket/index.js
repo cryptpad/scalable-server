@@ -50,7 +50,7 @@ let getCoreId = function(channelName) {
 
 let onChannelClose = function(channelName) {
     let coreId = getCoreId(channelName);
-    Env.interface.sendEvent(coreId, 'DROP_CHANNEL', channelName)
+    Env.interface.sendEvent(coreId, 'DROP_CHANNEL', {channelName});
     delete Env.openConnections[channelName];
 };
 let onChannelMessage = function(Server, channel, msgStruct, cb) {
