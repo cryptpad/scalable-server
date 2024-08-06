@@ -773,7 +773,7 @@ let onChannelMessage = function(channelName, channel, msgStruct, cb) {
         }
 
         // add the time to the message
-        let time = now();
+        let time = (new Date()).getTime();
         msgStruct.push(time);
 
         // storeMessage
