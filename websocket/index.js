@@ -126,7 +126,26 @@ let onChannelOpen = function(Server, channelName, userId, wait) {
 };
 
 let onSessionClose = function(userId, reason) {
+    // Log unexpected errors
+    if (Env.logIP && !['SOCKET_CLOSED', 'INACTIVITY'].includes(reason)) {
+        return void console.info('USER_DISCONNECTED_ERROR', {
+            userId: userId,
+            reason: reason
+        });
+    }
+    if (['BAD_MESSAGE', 'SEND_MESSAGE_FAIL_2'].indexOf(reason) !== -1) {
+        if (reason && reason.code === 'ECONNRESET') { return; }
+        return void console.error('SESSION_CLOSE_WITH_ERROR', {
+            userId: userId,
+            reason: reason,
+        });
+    }
 
+    if (['SOCKET_CLOSED', 'SOCKET_ERROR'].includes(reason)) { return; }
+    console.verbose('SESSION_CLOSE_ROUTINE', {
+        userId: userId,
+        reason: reason,
+    });
 };
 
 let onSessionOpen = function(userId, ip) {
