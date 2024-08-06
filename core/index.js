@@ -3,7 +3,7 @@
 const Config = require("../ws-config.js");
 const Interface = require("../common/interface.js");
 const WriteQueue = require("../storage/write-queue.js");
-const Crypto = require("./crypto.js");
+const Crypto = require("./crypto.js")('sodiumnative');
 let Env = {
     queueValidation: WriteQueue(),
 };
