@@ -120,7 +120,7 @@ let onChannelOpen = function(Server, channelName, userId, wait) {
 
     Env.openConnections[channelName] = Server;
 
-    Env.interface.sendQuery(coreId, 'GET_METADATA', { id: hkId, userId, channelName }, function(response) {
+    Env.interface.sendQuery(coreId, 'CHANNEL_OPEN', { id: hkId, userId, channelName }, function(response) {
         cb(response.error, response.data);
     })
 };

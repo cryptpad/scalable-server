@@ -68,6 +68,18 @@ const isValidValidateKeyString = HK.isValidValidateKeyString = function(Env, key
     }
 };
 
+/*  Remove from the map any byte offsets which are below
+    the lowest offset you'd like to preserve
+    (probably the oldest checkpoint */
+const trimMapByOffset = HK.trimMapByOffset = function (map, offset) {
+    if (!offset) { return; }
+    for (let k in map) {
+        if (map[k] < offset) {
+            delete map[k];
+        }
+    }
+};
+
 // TODO: check
 HK.getNetfluxSession = function (Env, netfluxId) {
     return Env.netfluxUsers[netfluxId];

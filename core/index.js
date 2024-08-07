@@ -101,7 +101,7 @@ let startServers = function() {
     Config.myId = 'core:0';
     let interface = Env.interface = Interface.init(Config);
 
-    let queriesToStorage = ['GET_HISTORY', 'GET_METADATA', 'CHANNEL_MESSAGE'];
+    let queriesToStorage = ['CHANNEL_OPEN', 'GET_HISTORY', 'GET_METADATA', 'CHANNEL_MESSAGE'];
     let queriesToWs = ['CHANNEL_CONTAINS_USER'];
     let eventsToStorage = ['DROP_CHANNEL',];
     let COMMANDS = {

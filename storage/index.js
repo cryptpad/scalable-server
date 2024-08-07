@@ -647,15 +647,15 @@ let storeMessage = function(channel, msg, isCp, optionalMessageHash, time, cb) {
                     return void next();
                 }
 
-                if (optionalMessageHash && typeof(index.offsetByHash[optionalMessageHash]) === 'number') {
+                if (optionalMessageHash && typeof (index.offsetByHash[optionalMessageHash]) === 'number') {
                     cb();
                     return void next();
                 }
 
                 if (typeof (index.line) === "number") { index.line++; }
                 if (isCp) {
-                    index.cpIndex = sliceCpIndex(index.cpIndex, index.line || 0);
-                    trimMapByOffset(index.offsetByHash, index.cpIndex[0]);
+                    index.cpIndex = HK.sliceCpIndex(index.cpIndex, index.line || 0);
+                    HK.trimMapByOffset(index.offsetByHash, index.cpIndex[0]);
                     index.cpIndex.push({
                         offset: index.size,
                         line: ((index.line || 0) + 1)
@@ -698,7 +698,7 @@ let storeMessage = function(channel, msg, isCp, optionalMessageHash, time, cb) {
 };
 
 let getHash = function(msg) {
-    if (typeof(msg) !== 'string') {
+    if (typeof (msg) !== 'string') {
         return '';
     }
     return msg.slice(0, 64);
@@ -799,6 +799,11 @@ let getMetaDataHandler = function(args, cb) {
     getMetadata(args.channelName, cb);
 }
 
+let channelOpenHandler = function(args, cb) {
+    Env.channel_cache[args.channelName] = Env.channel_cache[args.channelName] || {};
+    getMetadata(args.channelName, cb);
+}
+
 let channelMessageHandler = function(args, cb) {
     onChannelMessage(args.channelName, args.channel, args.msgStruct, cb);
 }
@@ -823,6 +828,7 @@ Store.create({
 // List accepted commands
 let COMMANDS = {
     'GET_HISTORY': getHistoryHandler,
+    'CHANNEL_OPEN': channelOpenHandler,
     'GET_METADATA': getMetaDataHandler,
     'GET_FULL_HISTORY': getFullHistoryHandler,
     'CHANNEL_MESSAGE': channelMessageHandler,
