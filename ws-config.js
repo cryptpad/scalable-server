@@ -12,9 +12,9 @@ module.exports = {
         core: [{
             host: 'localhost',
             port: 3011
-            // }, {
-            //     host: 'localhost',
-            //     port: 3012
+        }, {
+            host: 'localhost',
+            port: 3012
         }],
         storage: [{
             host: 'localhost',

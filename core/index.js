@@ -19,6 +19,7 @@ if (!proceed) { return; }
 
 let Env = {
     queueValidation: WriteQueue(),
+    ws_id_cache: {},
 };
 
 // TODO: add consistent hash to know which storage to ask
@@ -30,13 +31,15 @@ let getWsId = function(userId) {
     return 'ws:0';
 };
 
-let wsToStorage = function(command) {
+let wsToStorage = function(command, validated) {
     return function(args, cb, extra) {
-        let s = extra.from.split(':');
-        if (s[0] !== 'ws') {
-            console.error('Error:', command, 'received from unauthorized server:', args, extra);
-            cb('UNAUTHORIZED_USER', void 0);
-            return;
+        if (!validated) {
+            let s = extra.from.split(':');
+            if (s[0] !== 'ws') {
+                console.error('Error:', command, 'received from unauthorized server:', args, extra);
+                cb('UNAUTHORIZED_USER', void 0);
+                return;
+            }
         }
         let channelName = args.channelName;
 
@@ -103,11 +106,24 @@ let onValidateMessage = (msg, vk, cb) => {
     cb();
 };
 
-let validateMessageHandler = (args, cb) => { 
-    Env.queueValidation(args.channelName, function(next) { 
+let validateMessageHandler = (args, cb) => {
+    Env.queueValidation(args.channelName, function(next) {
         next();
         onValidateMessage(args.signedMsg, args.validateKey, cb);
     });
+};
+
+let channelOpenHandler = function(args, cb, extra) {
+    let s = extra.from.split(':');
+    if (s[0] !== 'ws') {
+        console.error('Error:', command, 'received from unauthorized server:', args, extra);
+        cb('UNAUTHORIZED_USER', void 0);
+        return;
+    }
+    // TODO: clear in somewhere
+    Env.ws_id_cache[args.userId] = extra.from;
+
+    wsToStorage('CHANNEL_OPEN', true)(args, cb, extra);
 };
 
 let startServers = function() {
@@ -115,14 +131,15 @@ let startServers = function() {
     Config.myId = 'core:' + idx;
     let interface = Env.interface = Interface.init(Config);
 
-    let queriesToStorage = ['CHANNEL_OPEN', 'GET_HISTORY', 'GET_METADATA', 'CHANNEL_MESSAGE'];
+    let queriesToStorage = ['GET_HISTORY', 'GET_METADATA', 'CHANNEL_MESSAGE'];
     let queriesToWs = ['CHANNEL_CONTAINS_USER'];
     let eventsToStorage = ['DROP_CHANNEL',];
     let COMMANDS = {
         'VALIDATE_MESSAGE': validateMessageHandler,
+        'CHANNEL_OPEN': channelOpenHandler,
     };
     queriesToStorage.forEach(function(command) {
-        COMMANDS[command] = wsToStorage(command);
+        COMMANDS[command] = wsToStorage(command, false);
     });
     queriesToWs.forEach(function(command) {
         COMMANDS[command] = storageToWs(command);

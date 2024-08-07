@@ -6,7 +6,7 @@ const WebSocketServer = require('ws').Server;
 const ChainpadServer = require('chainpad-server');
 const Config = require("../ws-config.js");
 const Interface = require("../common/interface.js");
-const Util = require("../common/common-util.js")
+const Util = require("../common/common-util.js");
 const cli_args = require("minimist")(process.argv.slice(2));
 
 let proceed = true;
@@ -30,6 +30,7 @@ let publicConfig = {
 let Env = {
     LogIp: true,
     openConnections: {},
+    core_cache: {},
 };
 
 let app = Express();
@@ -43,14 +44,22 @@ const EPHEMERAL_CHANNEL_LENGTH = 34;
 const ADMIN_CHANNEL_LENGTH = 33;
 const CHECKPOINT_PATTERN = /^cp\|(([A-Za-z0-9+\/=]+)\|)?/;
 
-// XXX: to select automatically
+// TODO: to improve
+// It’s a 1-2 so far
 let getCoreId = function(channelName) {
-    return "core:0";
+    if (Env.core_cache[channelName]) {
+        return Env.core_cache[channelName];
+    }
+    let open_connections = Object.keys(Env.core_cache).length;
+    let total_cores = Config.infra.core.length;
+    let next_core = 'core:' + (open_connections % total_cores);
+    return Env.core_cache[channelName] = next_core;
 };
 
 let onChannelClose = function(channelName) {
     let coreId = getCoreId(channelName);
-    Env.interface.sendEvent(coreId, 'DROP_CHANNEL', {channelName});
+    Env.interface.sendEvent(coreId, 'DROP_CHANNEL', { channelName });
+    delete Env.core_cache[channelName];
     delete Env.openConnections[channelName];
 };
 let onChannelMessage = function(Server, channel, msgStruct, cb) {
