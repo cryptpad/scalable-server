@@ -4,6 +4,19 @@ const Config = require("../ws-config.js");
 const Interface = require("../common/interface.js");
 const WriteQueue = require("../storage/write-queue.js");
 const Crypto = require("./crypto.js")('sodiumnative');
+const cli_args = require("minimist")(process.argv.slice(2));
+
+let proceed = true;
+
+if (cli_args.h || cli_args.help) {
+    proceed = false;
+    console.log(`Usage ${process.argv[1]}:`);
+    console.log("\t--help, -h\tDisplay this help");
+    console.log("\t--id\tSet the websocket node id (default: 0)");
+}
+
+if (!proceed) { return; }
+
 let Env = {
     queueValidation: WriteQueue(),
 };
@@ -98,7 +111,8 @@ let validateMessageHandler = (args, cb) => {
 };
 
 let startServers = function() {
-    Config.myId = 'core:0';
+    let idx = Number(cli_args.id) || 0;
+    Config.myId = 'core:' + idx;
     let interface = Env.interface = Interface.init(Config);
 
     let queriesToStorage = ['CHANNEL_OPEN', 'GET_HISTORY', 'GET_METADATA', 'CHANNEL_MESSAGE'];

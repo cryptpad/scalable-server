@@ -9,6 +9,18 @@ const HK = require("./hk-util.js");
 const Config = require("../ws-config.js");
 const Interface = require("../common/interface.js");
 const WriteQueue = require("./write-queue.js");
+const cli_args = require("minimist")(process.argv.slice(2));
+
+let proceed = true;
+
+if (cli_args.h || cli_args.help) {
+    proceed = false;
+    console.log(`Usage ${process.argv[1]}:`);
+    console.log("\t--help, -h\tDisplay this help");
+    console.log("\t--id\tSet the websocket node id (default: 0)");
+}
+
+if (!proceed) { return; }
 
 let Env = {
     id: "0123456789abcdef",
@@ -837,7 +849,8 @@ let COMMANDS = {
 
 // Connect to core
 let start = function() {
-    Config.myId = 'storage:0';
+    let idx = Number(cli_args.id) || 0;
+    Config.myId = 'storage:' + idx;
     let interface = Env.interface = Interface.connect(Config);
     interface.handleCommands(COMMANDS);
 };
