@@ -60,7 +60,7 @@ let getCoreId = function(channelName) {
 let onChannelClose = function(channelName) {
     let coreId = getCoreId(channelName);
     Object.keys(Env.user_channel_cache).forEach(userId => {
-        let toRemove = Env.user_channel_cache[userId].find(name => name === channelName)
+        let toRemove = Env.user_channel_cache[userId].findIndex(name => name === channelName)
         if (toRemove !== -1) {
             Env.interface.sendEvent(coreId, 'DROP_CHANNEL', { channelName, userId });
             delete Env.user_channel_cache[userId][toRemove];
@@ -135,7 +135,7 @@ let onChannelOpen = function(Server, channelName, userId, wait) {
     let coreId = getCoreId(channelName);
 
     Env.openConnections[channelName] = Server;
-    if (Env.user_channel_cache[userId].find(name => name === channelName) === -1) {
+    if (Env.user_channel_cache[userId].findIndex(name => name === channelName) === -1) {
         Env.user_channel_cache[userId].push(channelName);
     }
 
