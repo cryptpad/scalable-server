@@ -12,7 +12,7 @@ if (cli_args.h || cli_args.help) {
     proceed = false;
     console.log(`Usage ${process.argv[1]}:`);
     console.log("\t--help, -h\tDisplay this help");
-    console.log("\t--id\tSet the websocket node id (default: 0)");
+    console.log("\t--id\tSet the core node id (default: 0)");
 }
 
 if (!proceed) { return; }
