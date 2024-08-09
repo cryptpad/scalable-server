@@ -142,7 +142,12 @@ let communicationManager = function(ctx) {
     };
 
     let disconnect = function() {
-        // XXX: TODO
+        console.log(`${ctx.myId} disconnects`);
+        Object.keys(ctx.others).forEach(type => {
+            ctx.others[type].forEach(element => {
+                element.disconnect();
+            });
+        });
     };
 
     return { sendEvent, sendQuery, handleCommands, disconnect };
