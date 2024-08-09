@@ -761,6 +761,12 @@
         return ver || undefined;
     };
 
+    const DETAIL = 1000;
+    Util.round = function(n) {
+        return Math.floor(n * DETAIL) / DETAIL;
+    };
+
+
 
     if (typeof(module) !== 'undefined' && module.exports) {
         module.exports = Util;

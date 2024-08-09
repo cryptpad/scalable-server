@@ -48,11 +48,6 @@ let getCoreId = function(userId) {
     return Env.core_cache[userId];
 };
 
-const DETAIL = 1000;
-let round = function(n) {
-    return Math.floor(n * DETAIL) / DETAIL;
-};
-
 Env.checkCache = function(channel) {
     let f = Env.cache_checks[channel] = Env.cache_checks[channel] ||
         Util.throttle(function() {
@@ -180,11 +175,11 @@ let init = store => {
                 Env.Log.info('WORKER_OFFSET_UPDATE', {
                     channel: channelName,
                     start: start,
-                    startMB: round(start / 1024 / 1024),
+                    startMB: Util.round(start / 1024 / 1024),
                     update: new_start,
-                    updateMB: round(new_start / 1024 / 1024),
+                    updateMB: Util.round(new_start / 1024 / 1024),
                     diff: diff,
-                    diffMB: round(diff / 1024 / 1024),
+                    diffMB: Util.round(diff / 1024 / 1024),
                 });
             }));
         }).nThen(function() {
@@ -213,7 +208,7 @@ let init = store => {
                     Env.Log.verbose('WORKER_OFFSET_RECOVERY', {
                         channel: channelName,
                         start: start,
-                        startMB: round(start / 1024 / 1024),
+                        startMB: Util.round(start / 1024 / 1024),
                     });
                 }
             }));
