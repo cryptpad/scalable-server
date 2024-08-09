@@ -49,13 +49,13 @@ const socketToClient = function(ws) {
 
 module.exports = {
     close: function() {
-        // TODO: fill
     },
     initServer: function(ctx, config, onNewClient) {
         let app = Express();
         let httpServer = Http.createServer(app);
         httpServer.listen(config.port, config.host, function() {
             let server = new WebSocket.Server({ server: httpServer });
+            ctx.self = socketToClient(server);
             server.on('connection', function(ws, req) {
                 // TODO: get data from req to know who we are talking to and handle new connections
                 onNewClient(ctx, socketToClient(ws));
@@ -70,6 +70,7 @@ module.exports = {
             })
                 .on('open', function() {
                     let client = socketToClient(socket);
+                    ctx.self = client;
                     ctx.others.core[id] = client;
                     let uid = Util.uid(); // XXX: replace with guid
                     client.send([uid, 'IDENTITY', { type: ctx.myType, idx: ctx.myNumber }]);
