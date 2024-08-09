@@ -31,6 +31,7 @@ let Env = {
     LogIp: true,
     openConnections: {},
     core_cache: {},
+    user_channel_cache: {},
 };
 
 let app = Express();
@@ -58,7 +59,13 @@ let getCoreId = function(channelName) {
 
 let onChannelClose = function(channelName) {
     let coreId = getCoreId(channelName);
-    Env.interface.sendEvent(coreId, 'DROP_CHANNEL', { channelName });
+    Object.keys(Env.user_channel_cache).forEach(userId => {
+        let toRemove = Env.user_channel_cache[userId].find(name => name === channelName)
+        if (toRemove !== -1) {
+            Env.interface.sendEvent(coreId, 'DROP_CHANNEL', { channelName, userId });
+            delete Env.user_channel_cache[userId][toRemove];
+        }
+    });
     delete Env.core_cache[channelName];
     delete Env.openConnections[channelName];
 };
@@ -128,6 +135,9 @@ let onChannelOpen = function(Server, channelName, userId, wait) {
     let coreId = getCoreId(channelName);
 
     Env.openConnections[channelName] = Server;
+    if (Env.user_channel_cache[userId].find(name => name === channelName) === -1) {
+        Env.user_channel_cache[userId].push(channelName);
+    }
 
     Env.interface.sendQuery(coreId, 'CHANNEL_OPEN', { id: hkId, userId, channelName }, function(response) {
         cb(response.error, response.data);
@@ -155,9 +165,18 @@ let onSessionClose = function(userId, reason) {
         userId: userId,
         reason: reason,
     });
+
+    // cleanup leftover channels
+    Env.user_channel_cache[userId].forEach(channelName => {
+        Env.interface.sendEvent(getCoreId(channelName), 'DROP_CHANNEL', { channelName, userId });
+        delete Env.core_cache[channelName];
+    });
+    delete Env.user_channel_cache[userId];
 };
 
 let onSessionOpen = function(userId, ip) {
+    Env.user_channel_cache[userId] = [];
+
     // TODO: log IPs if needed
     if (!Env.logIP) { return; }
     console.log('USER_CONNECTION', {

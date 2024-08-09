@@ -29,6 +29,7 @@ let Env = {
     metadata_cache: {},
     channel_cache: {},
     cache_checks: {},
+    core_cache: {},
 
     queueStorage: WriteQueue(),
 
@@ -43,12 +44,9 @@ let Env = {
     },
 };
 
-// TODO: make that automatic
-let getCoreId = function(channelname) {
-    return 'core:0';
+let getCoreId = function(userId) {
+    return Env.core_cache[userId];
 };
-
-Env.coreId = getCoreId('XXX');
 
 const DETAIL = 1000;
 let round = function(n) {
@@ -578,7 +576,7 @@ let onGetHistory = function(seq, userId, parsed, cb) {
             }
 
             if (msgCount === 0 && !metadata_cache[channelName]) {
-                Env.interface.sendQuery(getCoreId(channelName), 'CHANNEL_CONTAINS_USER', { channelName, userId }, function(answer) {
+                Env.interface.sendQuery(getCoreId(userId), 'CHANNEL_CONTAINS_USER', { channelName, userId }, function(answer) {
                     let err = answer.error;
                     if (err) {
                         console.error('Error: can’t check channelContainsUser:', err, '-', channelName, userId);
@@ -718,6 +716,7 @@ let getHash = function(msg) {
 
 let onChannelMessage = function(channelName, channel, msgStruct, cb) {
     channel.id = channelName;
+    let userId = msgStruct[1];
     const isCp = /^cp\|/.test(msgStruct[4]);
     const CHECKPOINT_PATTERN = /^cp\|(([A-Za-z0-9+\/=]+)\|)?/;
     let metadata;
@@ -737,7 +736,7 @@ let onChannelMessage = function(channelName, channel, msgStruct, cb) {
         let signedMsg = (isCp) ? msgStruct[4].replace(CHECKPOINT_PATTERN, '') : msgStruct[4];
 
         // Validate Message
-        let coreId = getCoreId(channelName);
+        let coreId = getCoreId(userId);
         Env.interface.sendQuery(coreId, 'VALIDATE_MESSAGE', { signedMsg, validateKey: metadata.validateKey, channelName }, function(answer) {
             let err = answer.error;
             if (!err) {
@@ -793,9 +792,10 @@ let onChannelMessage = function(channelName, channel, msgStruct, cb) {
     });
 };
 
-let onDropChannel = function(channelName) {
+let onDropChannel = function(channelName, userId) {
     delete Env.metadata_cache[channelName];
     delete Env.channel_cache[channelName];
+    delete Env.core_cache[userId];
 }
 
 // Handlers
@@ -811,8 +811,9 @@ let getMetaDataHandler = function(args, cb) {
     getMetadata(args.channelName, cb);
 }
 
-let channelOpenHandler = function(args, cb) {
+let channelOpenHandler = function(args, cb, extra) {
     Env.channel_cache[args.channelName] = Env.channel_cache[args.channelName] || {};
+    Env.core_cache[args.userId] = extra.from;
     getMetadata(args.channelName, cb);
 }
 
@@ -821,7 +822,7 @@ let channelMessageHandler = function(args, cb) {
 }
 
 let dropChannelHandler = function(args) {
-    onDropChannel(args.channelName);
+    onDropChannel(args.channelName, args.userId);
 }
 
 /* Start of the node */
