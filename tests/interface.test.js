@@ -142,5 +142,6 @@ test("Launch multiple queries", async () => {
 test("Stop server", async () => {
     setTimeout(() => {
         server.disconnect();
-    }, 10000);
+        process.exit(0);
+    }, ITERS * NTRIES + 1000);
 });
