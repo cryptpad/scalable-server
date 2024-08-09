@@ -55,7 +55,7 @@ let coreStart = async function(myId, _cb) {
 
     let COMMANDS = { 'PING': pingHandler };
     interface.handleCommands(COMMANDS);
-    if (typeof(_cb) === 'function') {
+    if (typeof (_cb) === 'function') {
         _cb(interface);
     }
 };
@@ -91,18 +91,22 @@ let wsStart = async function(myId, _cb) {
         timings = [];
     };
 
-    if ( typeof(_cb) === 'function') {
+    if (typeof (_cb) === 'function') {
         _cb({ sendPing, reset });
     }
 };
 
 let clients = [];
+let server;
 
 test("Initialize a server", async () => {
-    await coreStart('core:0', (server) => {
+    await coreStart('core:0', (_server) => {
+        server = _server;
         assert.ok(server);
     });
 });
+
+console.log(server);
 
 test("Initialize a client", async () => {
     await wsStart('ws:0', (client) => {
@@ -112,7 +116,7 @@ test("Initialize a client", async () => {
 });
 
 test("Initialize multiple clients", async () => {
-    await wsStart('ws:1', (client) =>{
+    await wsStart('ws:1', (client) => {
         clients[1] = client;
         assert.ok(clients[1]);
     });
@@ -133,4 +137,10 @@ test("Launch multiple queries", async () => {
     for (i = 0; i < 3; i++) {
         setTimeout(clients[i].sendPing, 600);
     };
+});
+
+test("Stop server", async () => {
+    setTimeout(() => {
+        server.disconnect();
+    }, 10000);
 });
