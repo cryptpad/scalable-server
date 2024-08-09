@@ -7,8 +7,8 @@ let createHandlers = function(ctx, other) {
     other.onMessage(function(message) {
         handleMessage(ctx, other, message);
     });
-    other.onDisconnect(function() {
-        // TODO: manage disconnects
+    other.onDisconnect(function(code, reason) {
+        ctx.self.disconnect();
     });
 };
 
@@ -142,7 +142,6 @@ let communicationManager = function(ctx) {
     };
 
     let disconnect = function() {
-        console.log(`${ctx.myId} disconnects`);
         Object.keys(ctx.others).forEach(type => {
             ctx.others[type].forEach(element => {
                 element.disconnect();
