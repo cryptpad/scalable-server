@@ -355,9 +355,10 @@ let dropChannelHandler = function(args) {
 /* Start of the node */
 
 // Create a store
+let idx = Number(cli_args.id) || 0;
 Store.create({
-    filePath: './data/channel',
-    archivePath: './data/archive',
+    filePath: './data/' + idx + '/channel',
+    archivePath: './data/' + idx + '/archive',
     volumeId: 'channel'
 }, function(err, _store) {
     if (err) { console.error('Error:', err); }
@@ -377,7 +378,6 @@ let COMMANDS = {
 
 // Connect to core
 let start = function() {
-    let idx = Number(cli_args.id) || 0;
     Config.myId = 'storage:' + idx;
     let interface = Env.interface = Interface.connect(Config);
     interface.handleCommands(COMMANDS);
