@@ -19,6 +19,10 @@ module.exports = {
         storage: [{
             host: 'localhost',
             port: 3014
+        },
+        {
+            host: 'localhost',
+            port: 3016
         }]
     }
 };
