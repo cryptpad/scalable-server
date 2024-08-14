@@ -16,6 +16,7 @@ const socketToClient = function(ws) {
             try {
                 handler(msg);
             } catch (e) {
+                console.error(e);
             }
         })
     });
@@ -25,6 +26,7 @@ const socketToClient = function(ws) {
             try {
                 handler(code, reason);
             } catch (e) {
+                console.error(e);
             }
         });
     });
