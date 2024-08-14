@@ -302,15 +302,15 @@ Store.storeMessage = function(Env, channel, msg, isCp, optionalMessageHash, time
                     index.offsets++;
                 }
                 if (index.offsets >= 100 && !index.cpIndex.length) {
-                    let offsetCount = checkOffsetMap(index.offsetByHash);
+                    let offsetCount = HK.checkOffsetMap(index.offsetByHash);
                     if (offsetCount < 0) {
                         Log.warn('OFFSET_TRIM_OOO', {
                             channel: id,
                             map: index.offsetByHash
                         });
                     } else if (offsetCount > 0) {
-                        trimOffsetByOrder(index.offsetByHash, index.offsets);
-                        index.offsets = checkOffsetMap(index.offsetByHash);
+                        HK.trimOffsetByOrder(index.offsetByHash, index.offsets);
+                        index.offsets = HK.checkOffsetMap(index.offsetByHash);
                     }
                 }
 

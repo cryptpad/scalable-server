@@ -4,6 +4,7 @@ const Config = require("../ws-config.js");
 const Interface = require("../common/interface.js");
 const WriteQueue = require("../storage/write-queue.js");
 const Crypto = require("./crypto.js")('sodiumnative');
+const { jumpConsistentHash } = require('jump-consistent-hash');
 const cli_args = require("minimist")(process.argv.slice(2));
 
 let proceed = true;
@@ -22,13 +23,25 @@ let Env = {
     ws_id_cache: {},
 };
 
-// TODO: add consistent hash to know which storage to ask
+// TODO: implement storage migration later (in /storage/)
 let getStorageId = function(channelName) {
-    return 'storage:0';
+    if (!channelName) {
+        console.error('getStorageId: No channelName provided');
+        return void 0;
+    }
+    if (typeof (Env.numberStorages) === 'undefined') {
+        console.error('getStrageId: number of storages undefied')
+        return void 0;
+    }
+    // We need a 8 byte key
+    let key = channelName.slice(0,8);
+    let ret = 'storage:' + jumpConsistentHash(key, Env.numberStorages);
+    return ret;
 };
 
+// TODO: to fix (probably in websocket nodes)
 let getWsId = function(userId) {
-    return 'ws:0';
+    return Env.ws_id_cache[userId] ? Env.ws_id_cache[userId] : 'ws:0';
 };
 
 let wsToStorage = function(command, validated) {
@@ -127,6 +140,7 @@ let channelOpenHandler = function(args, cb, extra) {
 };
 
 let startServers = function() {
+    Env.numberStorages = Config.infra.storage.length;
     let idx = Number(cli_args.id) || 0;
     Config.myId = 'core:' + idx;
     let interface = Env.interface = Interface.init(Config);

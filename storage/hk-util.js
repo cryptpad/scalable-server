@@ -80,6 +80,43 @@ const trimMapByOffset = HK.trimMapByOffset = function (map, offset) {
     }
 };
 
+/*  checkOffsetMap
+
+Sorry for the weird function --ansuz
+→ No Worries
+
+This should be almost equivalent to `Object.keys(map).length` except
+that is will use less memory by not allocating space for the temporary array.
+Beyond that, it returns length * -1 if any of the members of the map
+are not in ascending order. The function for removing older members of the map
+loops over elements in order and deletes them, so ordering is important!
+
+*/
+HK.checkOffsetMap = function (map) {
+    var prev = 0;
+    var cur;
+    var ooo = 0; // out of order
+    var count = 0;
+    for (let k in map) {
+        count++;
+        cur = map[k];
+        if (!ooo && prev > cur) { ooo = true; }
+        prev = cur;
+    }
+    return ooo ? count * -1: count;
+};
+
+/* Pass the map and the number of elements it contains */
+HK.trimOffsetByOrder = function (map, n) {
+    var toRemove = Math.max(n - 50, 0);
+    var i = 0;
+    for (let k in map) {
+        if (i >= toRemove) { return; }
+        i++;
+        delete map[k];
+    }
+};
+
 // TODO: check
 HK.getNetfluxSession = function (Env, netfluxId) {
     return Env.netfluxUsers[netfluxId];

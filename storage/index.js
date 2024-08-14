@@ -44,8 +44,9 @@ let Env = {
     },
 };
 
+// TODO: to fix
 let getCoreId = function(userId) {
-    return Env.core_cache[userId];
+    return Env.core_cache[userId] ? Env.core_cache[userId] : 'core:0';
 };
 
 Env.checkCache = function(channel) {
@@ -322,7 +323,7 @@ let onChannelMessage = function(channelName, channel, msgStruct, cb) {
 let onDropChannel = function(channelName, userId) {
     delete Env.metadata_cache[channelName];
     delete Env.channel_cache[channelName];
-    delete Env.core_cache[userId];
+    // delete Env.core_cache[userId];
 }
 
 // Handlers
@@ -381,6 +382,7 @@ let start = function() {
     Config.myId = 'storage:' + idx;
     let interface = Env.interface = Interface.connect(Config);
     interface.handleCommands(COMMANDS);
+    console.log(Config.myId, 'started');
 };
 
 start();

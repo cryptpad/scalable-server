@@ -21,6 +21,7 @@ if (cli_args.h || cli_args.help) {
 }
 
 if (!proceed) { return; }
+let idx = Number(cli_args.id) || 0;
 
 let publicConfig = {
     host: cli_args.host || '::',
@@ -37,7 +38,7 @@ let Env = {
 let app = Express();
 let httpServer = Http.createServer(app);
 httpServer.listen(publicConfig.port, publicConfig.host, function() {
-    console.log('server started');
+    console.log('ws:' + idx + ' started');
 });
 
 let hkId = "0123456789abcdef";
@@ -202,7 +203,7 @@ let onDirectMessage = function(Server, seq, userId, json) {
     let channelName = parsed[1];
 
     let coreId = getCoreId(channelName);
-    Env.interface.sendQuery(coreId, first, { seq, userId, parsed }, function(answer) {
+    Env.interface.sendQuery(coreId, first, { seq, userId, parsed, channelName }, function(answer) {
         let toSend = answer.data.toSend;
         let error = answer.error;
         if (error) {
@@ -233,7 +234,6 @@ let Server = ChainpadServer.create(new WebSocketServer({ server: httpServer }))
     })
     .register(hkId, onDirectMessage);
 
-let idx = Number(cli_args.id) || 0;
 Config.myId = 'ws:' + idx;
 Env.interface = Interface.connect(Config);
 
