@@ -235,7 +235,6 @@ let Server = ChainpadServer.create(new WebSocketServer({ server: httpServer }))
     .register(hkId, onDirectMessage);
 
 Config.myId = 'ws:' + idx;
-Env.interface = Interface.connect(Config);
 
 let channelContainsUserHandle = function(args, cb) {
     let channelName = args.channelName;
@@ -254,4 +253,11 @@ let COMMANDS = {
     'CHANNEL_CONTAINS_USER': channelContainsUserHandle,
 };
 
-Env.interface.handleCommands(COMMANDS);
+Interface.connect(Config, (err, interface) => {
+    if (err) {
+        console.error(Config.myId, ' error:', err);
+        return;
+    }
+    Env.interface = interface;
+    interface.handleCommands(COMMANDS);
+});

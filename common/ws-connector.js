@@ -52,9 +52,14 @@ const socketToClient = function(ws) {
 module.exports = {
     close: function() {
     },
-    initServer: function(ctx, config, onNewClient) {
+    initServer: function(ctx, config, onNewClient, cb) {
+        if (!cb) { cb = () => { } };
         let app = Express();
         let httpServer = Http.createServer(app);
+        if (!httpServer) {
+            console.error('Error: failed to create server');
+            cb('E_INITHTTPSERVER');
+        }
         httpServer.listen(config.port, config.host, function() {
             let server = new WebSocket.Server({ server: httpServer });
             ctx.self = socketToClient(server);
@@ -62,6 +67,7 @@ module.exports = {
                 // TODO: get data from req to know who we are talking to and handle new connections
                 onNewClient(ctx, socketToClient(ws));
             });
+            cb (void 0, ctx.self)
         });
     },
     initClient: function(ctx, config, onConnected) {

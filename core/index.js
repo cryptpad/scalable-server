@@ -143,7 +143,14 @@ let startServers = function() {
     Env.numberStorages = Config.infra.storage.length;
     let idx = Number(cli_args.id) || 0;
     Config.myId = 'core:' + idx;
-    let interface = Env.interface = Interface.init(Config);
+    let interface;
+    Interface.init(Config, (err, _interface) => {
+        if (err) {
+            console.error('E: interface initialisation error', err)
+            return;
+        }
+        interface = Env.interface = _interface;
+    });
 
     let queriesToStorage = ['GET_HISTORY', 'GET_METADATA', 'CHANNEL_MESSAGE'];
     let queriesToWs = ['CHANNEL_CONTAINS_USER'];

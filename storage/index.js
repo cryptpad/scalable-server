@@ -372,9 +372,15 @@ let COMMANDS = {
 // Connect to core
 let start = function() {
     Config.myId = 'storage:' + idx;
-    let interface = Env.interface = Interface.connect(Config);
-    interface.handleCommands(COMMANDS);
-    console.log(Config.myId, 'started');
+    Interface.connect(Config, (err, interface) => {
+        if (err) {
+            console.error(Config.myId, ' error:', err);
+            return;
+        }
+        interface.handleCommands(COMMANDS);
+        Env.interface = interface;
+        console.log(Config.myId, 'started');
+    });
 };
 
 start();

@@ -156,7 +156,9 @@ let communicationManager = function(ctx) {
  * - config: contains ../ws-config.js and a string `myId` identifying the initiator
  * of the connection.
  */
-let connect = function(config) {
+let connect = function(config, cb) {
+    if (!cb) { cb = () => { }; }
+
     let ctx = {
         others: {
             core: []
@@ -164,6 +166,7 @@ let connect = function(config) {
         commands: [],
     };
     ctx.myId = config.myId;
+
     let parsedId = ctx.myId.split(':');
     if (parsedId[0] === 'core') {
         console.log("Error: trying to create a connection from a core node");
@@ -184,15 +187,24 @@ let connect = function(config) {
     }
 
     // Connection to the different core servers
-    wsConnector.initClient(ctx, config, createHandlers);
+    wsConnector.initClient(ctx, config, createHandlers, (err, selfClient) => {
+        if (err) {
+            cb(err);
+        }
+        if (!selfClient) {
+            cb('E_INITWSCLIENT');
+        }
+    });
 
     let manager = communicationManager(ctx);
 
-    return manager;
+    cb(void 0, manager)
 };
 
 /* This function initializes the different ws servers on the Core components */
-let init = function(config) {
+let init = function(config, cb) {
+    if (!cb) { cb = () => { } };
+
     let ctx = {
         others: {
             storage: [],
@@ -201,6 +213,7 @@ let init = function(config) {
         commands: {},
     };
     ctx.myId = config.myId;
+
     let parsedId = ctx.myId.split(':');
     if (parsedId[0] !== 'core') {
         console.log("Error: trying to create a server from a non-core node");
@@ -212,6 +225,7 @@ let init = function(config) {
     // Response manager
     ctx.response = Util.response(function(error) {
         console.error("Client response error:", error);
+        cb('E_CLIENT');
     });
 
     let myConfig = config.infra.core[ctx.myNumber];
@@ -221,11 +235,18 @@ let init = function(config) {
         throw new Error('INVALID_SERVER_ID');
     }
 
-    wsConnector.initServer(ctx, myConfig, createHandlers);
+    wsConnector.initServer(ctx, myConfig, createHandlers, (err, selfClient) => {
+        if (err) {
+            cb(err);
+        }
+        if (!selfClient) {
+            cb('E_INITWSSERVER');
+        }
+    });
 
     let manager = communicationManager(ctx);
 
-    return manager;
+    cb(void 0, manager)
 };
 
 module.exports = { connect, init };
