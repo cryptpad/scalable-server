@@ -13,7 +13,7 @@ module.exports = {
         while (j < num_buckets) {
             b = j;
             keyBigInt = (keyBigInt * 2862933555777941757n + 1n) % (1n << 64n);
-            j = BigInt(Math.floor((Number(b) + 1) * Number(1n << 31n) / Number((keyBigInt >> 33n) + 1n)))
+            j = BigInt(Math.floor((Number(b) + 1) * Number(1n << 31n) / Number((keyBigInt >> 33n) + 1n)));
         }
         return b;
     }
