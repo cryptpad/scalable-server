@@ -7,7 +7,6 @@
     "chainpad-server": "^5.2.0",
     "express": "~4.19.2",
     "fs-extra": "^7.0.0",
-    "jump-consistent-hash": "^1.1.0",
     "minimist": "^1.2.8",
     "nthen": "0.1.8",
     "pull-stream": "^3.6.1",

@@ -4,7 +4,7 @@ const Config = require("../ws-config.js");
 const Interface = require("../common/interface.js");
 const WriteQueue = require("../storage/write-queue.js");
 const Crypto = require("./crypto.js")('sodiumnative');
-const { jumpConsistentHash } = require('jump-consistent-hash');
+const { jumpConsistentHash } = require('./consistent-hash.js');
 const cli_args = require("minimist")(process.argv.slice(2));
 
 let proceed = true;
@@ -34,7 +34,7 @@ let getStorageId = function(channelName) {
         return void 0;
     }
     // We need a 8 byte key
-    let key = channelName.slice(0,8);
+    let key = Buffer.from(channelName.slice(0,8));
     let ret = 'storage:' + jumpConsistentHash(key, Env.numberStorages);
     return ret;
 };
