@@ -45,8 +45,15 @@ let Config = {
 };
 
 let coreStart = async function(myId, _cb) {
+    if (typeof (_cb) !== 'function') { _cb = () => { }; }
+
     Config.myId = myId;
-    let interface = Interface.init(Config);
+    let interface;
+    Interface.init(Config, (err, _interface) => {
+        if (err) { _cb(err); }
+        interface = _interface;
+    });
+
     let other = 'ws:0';
 
     let pingHandler = function(args, cb, extra) {
@@ -55,14 +62,20 @@ let coreStart = async function(myId, _cb) {
 
     let COMMANDS = { 'PING': pingHandler };
     interface.handleCommands(COMMANDS);
-    if (typeof (_cb) === 'function') {
-        _cb(interface);
-    }
+    _cb(void 0, interface);
 };
 
 let wsStart = async function(myId, _cb) {
+    if (typeof (_cb) !== 'function') { _cb = () => { }; }
+
     Config.myId = myId;
-    let interface = Interface.connect(Config);
+    let interface;
+    Interface.connect(Config, (err, _interface) => {
+        if (err) {
+            _cb(err);
+        }
+        interface = _interface;
+    });
     let other = 'core:0';
 
     let i = 0;
@@ -91,36 +104,35 @@ let wsStart = async function(myId, _cb) {
         timings = [];
     };
 
-    if (typeof (_cb) === 'function') {
-        _cb({ sendPing, reset });
-    }
+    _cb(void 0, { sendPing, reset });
 };
 
 let clients = [];
 let server;
 
-test("Initialize a server", async () => {
-    await coreStart('core:0', (_server) => {
+test("Initialize a server", () => {
+    coreStart('core:0', (err, _server) => {
         server = _server;
-        assert.ok(server);
+        assert.ok(!err);
     });
 });
 
-console.log(server);
-
 test("Initialize a client", async () => {
-    await wsStart('ws:0', (client) => {
+    await wsStart('ws:0', (err, client) => {
+        assert.ok(!err);
         clients[0] = client;
         assert.ok(clients[0]);
     });
 });
 
 test("Initialize multiple clients", async () => {
-    await wsStart('ws:1', (client) => {
+    await wsStart('ws:1', (err, client) => {
+        assert.ok(!err);
         clients[1] = client;
         assert.ok(clients[1]);
     });
-    await wsStart('ws:2', (client) => {
+    await wsStart('ws:2', (err, client) => {
+        assert.ok(!err);
         clients[2] = client;
         assert.ok(clients[2]);
     });
@@ -130,7 +142,6 @@ test("Launch queries", async () => {
     setTimeout(clients[0].sendPing, 300);
     // validation?
 });
-
 
 test("Launch multiple queries", async () => {
     clients[0].reset();
