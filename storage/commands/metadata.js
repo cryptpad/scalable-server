@@ -9,7 +9,7 @@ const HK = require("../hk-util");
 const computeMetadata = function(Env, channel, cb) {
     const ref = {};
     const lineHandler = Meta.createLineHandler(ref, Env.Log.error);
-    return void Env.store.readChannelMetadata(channel, lineHandler, function(err) {
+    return void Env.CM.readChannelMetadata(channel, lineHandler, function(err) {
         if (err) {
             // stream errors?
             return void cb(err);

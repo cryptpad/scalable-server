@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2024 XWiki CryptPad Team <contact@cryptpad.org> and contributors
-const Store = require("./store.js");
+const ChannelManager = require("./channel_manager.js");
 const Util = require("./common-util.js");
 const nThen = require("nthen");
 const BatchRead = require("./batch-read.js");
@@ -40,7 +40,7 @@ let Env = {
         info: console.log,
         error: console.error,
         warn: console.warn,
-        verbose: () => {},
+        verbose: () => { },
     },
 };
 
@@ -315,7 +315,7 @@ let onChannelMessage = function(channelName, channel, msgStruct, cb) {
 
         // storeMessage
         //console.log(+new Date(), "Storing message");
-        Store.storeMessage(Env, channel, JSON.stringify(msgStruct), isCp, HK.getHash(msgStruct[4], Env.Log), time, cb);
+        Env.CM.storeMessage(channel, JSON.stringify(msgStruct), isCp, HK.getHash(msgStruct[4], Env.Log), time, cb);
         //console.log(+new Date(), "Message stored");
     });
 };
@@ -357,15 +357,7 @@ let dropChannelHandler = function(args) {
 
 // Create a store
 let idx = Number(cli_args.id) || 0;
-Store.create({
-    filePath: './data/' + idx + '/channel',
-    archivePath: './data/' + idx + '/archive',
-    volumeId: 'channel'
-}, function(err, _store) {
-    if (err) { console.error('Error:', err); }
-    Env.store = _store;
-    Store.init(Env, _store);
-});
+Env.CM = ChannelManager.create(Env, 'data/' + idx)
 
 // List accepted commands
 let COMMANDS = {

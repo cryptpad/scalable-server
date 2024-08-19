@@ -30,7 +30,7 @@ let getStorageId = function(channelName) {
         return void 0;
     }
     if (typeof (Env.numberStorages) === 'undefined') {
-        console.error('getStrageId: number of storages undefied')
+        console.error('getStorageId: number of storages undefined')
         return void 0;
     }
     // We need a 8 byte key

@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2024 XWiki CryptPad Team <contact@cryptpad.org> and contributors
-const Store = require("./store.js");
 const Util = require("./common-util.js");
 const nThen = require("nthen");
 const Meta = require("./commands/metadata.js");
@@ -35,7 +34,7 @@ const getHistoryOffset = (Env, channelName, lastKnownHash, _cb) => {
 
     let offset = -1;
     nThen((waitFor) => {
-        Store.getIndex(Env, channelName, waitFor((err, index) => {
+        Env.CM.getIndex(Env, channelName, waitFor((err, index) => {
             if (err) { waitFor.abort(); return void cb(err); }
 
             // check if the "hash" the client is requesting exists in the index
@@ -92,7 +91,7 @@ const getHistoryOffset = (Env, channelName, lastKnownHash, _cb) => {
         // either the message exists in history but is not in the cached index
         // or it does not exist at all. In either case 'getHashOffset' is expected
         // to return a number: -1 if not present, positive interger otherwise
-        Env.getHashOffset(channelName, lastKnownHash, w(function(err, _offset) {
+        Env.CM.getHashOffset(channelName, lastKnownHash, w(function(err, _offset) {
             if (err) {
                 w.abort();
                 return void cb(err);
@@ -105,8 +104,6 @@ const getHistoryOffset = (Env, channelName, lastKnownHash, _cb) => {
 };
 
 HistoryKeeper.getHistoryAsync = (Env, channelName, lastKnownHash, beforeHash, handler, cb) => {
-    const store = Env.store;
-
     let offset = -1;
     nThen((waitFor) => {
         getHistoryOffset(Env, channelName, lastKnownHash, waitFor((err, os) => {
@@ -126,7 +123,7 @@ HistoryKeeper.getHistoryAsync = (Env, channelName, lastKnownHash, beforeHash, ha
             return void cb(new Error('EUNKNOWN'));
         }
         const start = (beforeHash) ? 0 : offset;
-        store.readMessagesBin(channelName, start, (msgObj, readMore, abort) => {
+        Env.CM.readMessagesBin(channelName, start, (msgObj, readMore, abort) => {
             if (beforeHash && msgObj.offset >= offset) { return void abort(); }
             const parsed = Util.tryParse(msgObj.buff.toString('utf8'));
             if (!parsed) { return void readMore(); }
@@ -148,7 +145,7 @@ HistoryKeeper.handleFirstMessage = function(Env, channelName, metadata) {
         metadata.selfdestruct = Env.id;
     }
     delete metadata.forcePlaceholder;
-    Env.store.writeMetadata(channelName, JSON.stringify(metadata), function(err) {
+    Env.CM.writeMetadata(channelName, JSON.stringify(metadata), function(err) {
         if (err) {
             // FIXME tell the user that there was a channel error?
             return void console.error('HK_WRITE_METADATA', {
