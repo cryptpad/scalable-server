@@ -4,7 +4,7 @@ const Config = require("../ws-config.js");
 const Interface = require("../common/interface.js");
 const WriteQueue = require("../storage/write-queue.js");
 const Crypto = require("./crypto.js")('sodiumnative');
-const { jumpConsistentHash } = require('./consistent-hash.js');
+const { jumpConsistentHash } = require('../common/consistent-hash.js');
 const cli_args = require("minimist")(process.argv.slice(2));
 
 let proceed = true;
