@@ -40,7 +40,7 @@ let Env = {
         info: console.log,
         error: console.error,
         warn: console.warn,
-        verbose: console.log,
+        verbose: () => {},
     },
 };
 
