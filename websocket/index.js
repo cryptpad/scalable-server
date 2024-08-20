@@ -7,6 +7,7 @@ const ChainpadServer = require('chainpad-server');
 const Config = require("../ws-config.js");
 const Interface = require("../common/interface.js");
 const Util = require("../common/common-util.js");
+const { jumpConsistentHash } = require('../common/consistent-hash.js');
 const cli_args = require("minimist")(process.argv.slice(2));
 
 let proceed = true;
@@ -31,7 +32,6 @@ let publicConfig = {
 let Env = {
     LogIp: true,
     openConnections: {},
-    core_cache: {},
     user_channel_cache: {},
 };
 
@@ -46,16 +46,15 @@ const EPHEMERAL_CHANNEL_LENGTH = 34;
 const ADMIN_CHANNEL_LENGTH = 33;
 const CHECKPOINT_PATTERN = /^cp\|(([A-Za-z0-9+\/=]+)\|)?/;
 
-// TODO: to improve
-// It’s a 1-2 so far
+// Use consistentHash for that
 let getCoreId = function(channelName) {
-    if (Env.core_cache[channelName]) {
-        return Env.core_cache[channelName];
+    if (typeof (Env.numberCores) !== 'number') {
+        console.error('getCoreId: invalid number of cores', Env.numberCores);
+        return void 0;
     }
-    let open_connections = Object.keys(Env.core_cache).length;
-    let total_cores = Config.infra.core.length;
-    let next_core = 'core:' + (open_connections % total_cores);
-    return Env.core_cache[channelName] = next_core;
+    let key = Buffer.from(channelName.slice(0, 8));
+    let coreId = 'core:' + jumpConsistentHash(key, Env.numberCores);
+    return coreId;
 };
 
 let onChannelClose = function(channelName) {
@@ -67,7 +66,6 @@ let onChannelClose = function(channelName) {
             delete Env.user_channel_cache[userId][toRemove];
         }
     });
-    delete Env.core_cache[channelName];
     delete Env.openConnections[channelName];
 };
 let onChannelMessage = function(Server, channel, msgStruct, cb) {
@@ -170,7 +168,6 @@ let onSessionClose = function(userId, reason) {
     // cleanup leftover channels
     Env.user_channel_cache[userId].forEach(channelName => {
         Env.interface.sendEvent(getCoreId(channelName), 'DROP_CHANNEL', { channelName, userId });
-        delete Env.core_cache[channelName];
     });
     delete Env.user_channel_cache[userId];
 };
@@ -235,6 +232,7 @@ let Server = ChainpadServer.create(new WebSocketServer({ server: httpServer }))
     .register(hkId, onDirectMessage);
 
 Config.myId = 'ws:' + idx;
+Env.numberCores = Config.infra.core.length;
 
 let channelContainsUserHandle = function(args, cb) {
     let channelName = args.channelName;
