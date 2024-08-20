@@ -6,7 +6,7 @@
  * current timestamp as soon as it receives them.
  */
 
-const test = require("node:test").test;
+const test = require("node:test");
 const assert = require("node:assert");
 const Interface = require("../common/interface.js");
 const cli_args = require('minimist')(process.argv.slice(2));
