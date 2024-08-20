@@ -55,9 +55,7 @@ let coreStart = (myId) => {
             interface = _interface;
         });
 
-        let other = 'ws:0';
-
-        let pingHandler = function(args, cb, extra) {
+        let pingHandler = function(args, cb) {
             cb(void 0, { ping: args, pong: (new Date()).getTime() });
         }
 
@@ -83,7 +81,7 @@ let wsStart = (myId) => {
         let timings = [];
 
         let sendPing = () => {
-            return new Promise((resolve, reject) => {
+            return new Promise(resolve => {
                 let leftToRun = 0;
                 for (let i = 0; i < NTRIES * ITERS; i++) {
                     leftToRun++;
@@ -101,7 +99,7 @@ let wsStart = (myId) => {
                         }
                     });
                     if (!outcome) {
-                        return reject(false);
+                        return resolve(false);
                     }
                 }
             });
