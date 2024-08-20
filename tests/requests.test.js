@@ -12,41 +12,40 @@
  * - check consistency
  **/
 
-const test = require("node:test").test;
-const assert = require("node:assert");
+const test = require("node:test");
 
-test("Start a core node", () => {
-    assert.ok(false);
+test("Start a core node", (t) => {
+    t.todo()
 });
 
-test("Start a storage node", () => {
-    assert.ok(false);
+test("Start a storage node", (t) => {
+    t.todo()
 });
 
-test("Initialize a storage", () => {
-    assert.ok(false);
+test("Initialize a storage", (t) => {
+    t.todo()
 });
 
-test("Populate the storage", () => {
-    assert.ok(false);
+test("Populate the storage", (t) => {
+    t.todo()
 });
 
-test("Send patches", () => {
-    assert.ok(false);
+test("Send patches", (t) => {
+    t.todo()
 });
 
-test("Get Metadata", () => {
-    assert.ok(false);
+test("Get Metadata", (t) => {
+    t.todo()
 });
 
-test("Get History", () => {
-    assert.ok(false);
+test("Get History", (t) => {
+    t.todo()
 });
 
-test("Close storage node", () => {
-    assert.ok(false);
+test("Close storage node", (t) => {
+    t.todo()
 });
 
-test("Close core node and exit", () => {
-    assert.ok(false);
+test("Close core node and exit", (t) => {
+    t.todo()
 });
