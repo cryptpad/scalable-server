@@ -34,7 +34,7 @@ let getStorageId = function(channelName) {
         return void 0;
     }
     // We need a 8 byte key
-    let key = Buffer.from(channelName.slice(0,8));
+    let key = Buffer.from(channelName.slice(0, 8));
     let ret = 'storage:' + jumpConsistentHash(key, Env.numberStorages);
     return ret;
 };
@@ -44,7 +44,7 @@ let getWsId = function(userId) {
     return Env.ws_id_cache[userId] ? Env.ws_id_cache[userId] : 'ws:0';
 };
 
-let wsToStorage = function(command, validated) {
+let wsToStorage = function(command, validated, isEvent) {
     return function(args, cb, extra) {
         if (!validated) {
             let s = extra.from.split(':');
@@ -58,9 +58,14 @@ let wsToStorage = function(command, validated) {
 
         let storageId = getStorageId(channelName);
 
-        Env.interface.sendQuery(storageId, command, args, function(response) {
-            cb(response.error, response.data);
-        });
+        if (isEvent) {
+            Env.interface.sendEvent(storageId, command, args);
+        }
+        else {
+            Env.interface.sendQuery(storageId, command, args, function(response) {
+                cb(response.error, response.data);
+            });
+        }
     };
 };
 
@@ -160,13 +165,13 @@ let startServers = function() {
         'CHANNEL_OPEN': channelOpenHandler,
     };
     queriesToStorage.forEach(function(command) {
-        COMMANDS[command] = wsToStorage(command, false);
+        COMMANDS[command] = wsToStorage(command);
     });
     queriesToWs.forEach(function(command) {
         COMMANDS[command] = storageToWs(command);
     });
     eventsToStorage.forEach(function(command) {
-        COMMANDS[command] = EventToStorage(command);
+        COMMANDS[command] = wsToStorage(command, false, true);
     });
 
     interface.handleCommands(COMMANDS)
