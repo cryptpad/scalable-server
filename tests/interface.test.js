@@ -25,6 +25,8 @@ if (cli_args.h || cli_args.help) {
 
 if (!proceed) { return; }
 
+let sleep = (ms) => { return new Promise(resolve => setTimeout(resolve, ms)); };
+
 let Config = {
     infra: {
         core: [{
@@ -44,115 +46,114 @@ let Config = {
     }
 };
 
-let coreStart = async function(myId, _cb) {
-    if (typeof (_cb) !== 'function') { _cb = () => { }; }
+let coreStart = (myId) => {
+    return new Promise((resolve, reject) => {
+        Config.myId = myId;
+        let interface;
+        Interface.init(Config, (err, _interface) => {
+            if (err) { return reject(err); }
+            interface = _interface;
+        });
 
-    Config.myId = myId;
-    let interface;
-    Interface.init(Config, (err, _interface) => {
-        if (err) { _cb(err); }
-        interface = _interface;
+        let other = 'ws:0';
+
+        let pingHandler = function(args, cb, extra) {
+            cb(void 0, { ping: args, pong: (new Date()).getTime() });
+        }
+
+        let COMMANDS = { 'PING': pingHandler };
+        interface.handleCommands(COMMANDS);
+        return resolve(interface);
     });
-
-    let other = 'ws:0';
-
-    let pingHandler = function(args, cb, extra) {
-        cb(void 0, { ping: args, pong: (new Date()).getTime() });
-    }
-
-    let COMMANDS = { 'PING': pingHandler };
-    interface.handleCommands(COMMANDS);
-    _cb(void 0, interface);
 };
 
-let wsStart = async function(myId, _cb) {
-    if (typeof (_cb) !== 'function') { _cb = () => { }; }
-
-    Config.myId = myId;
-    let interface;
-    Interface.connect(Config, (err, _interface) => {
-        if (err) {
-            _cb(err);
-        }
-        interface = _interface;
-    });
-    let other = 'core:0';
-
-    let i = 0;
-    let timings = [];
-
-    let sendPing = function() {
-        interface.sendQuery(other, 'PING', (new Date()).getTime(), function(response) {
-            let now = (new Date()).getTime();
-            let pingTime = response.data.ping;
-            timings[i++ % ITERS] = now - pingTime;
-            if (!(i % ITERS)) {
-                let average = timings.reduce((acc, x) => (acc + x), 0) / ITERS;
-                console.log(`${myId}: Average over ${ITERS}: ${average}ms`)
+let wsStart = (myId) => {
+    return new Promise((resolve, reject) => {
+        Config.myId = myId;
+        let interface;
+        Interface.connect(Config, (err, _interface) => {
+            if (err) {
+                return reject(err);
             }
+            interface = _interface;
         });
-        if (i < NTRIES * ITERS) {
-            setTimeout(sendPing);
-        } else {
-            // TODO: implement disconnects
+        let other = 'core:0';
+
+        let i = 0;
+        let timings = [];
+
+        let sendPing = () => {
+            return new Promise((resolve, reject) => {
+                let leftToRun = 0;
+                for (let i = 0; i < NTRIES * ITERS; i++) {
+                    leftToRun++;
+                    let outcome = interface.sendQuery(other, 'PING', (new Date()).getTime(), function(response) {
+                        let now = (new Date()).getTime();
+                        let pingTime = response.data.ping;
+                        timings[i++ % ITERS] = now - pingTime;
+                        if (!(i % ITERS)) {
+                            let average = timings.reduce((acc, x) => (acc + x), 0) / ITERS;
+                            console.log(`${myId}: Average over ${ITERS}: ${average}ms`)
+                        }
+                        leftToRun--;
+                        if (leftToRun == 0) {
+                            return resolve(true);
+                        }
+                    });
+                    if (!outcome) {
+                        return reject(false);
+                    }
+                }
+            });
+        };
+
+        let disconnect = () => {
             interface.disconnect();
-        }
-    };
+        };
 
-    let reset = function() {
-        i = 0;
-        timings = [];
-    };
+        let reset = function() {
+            i = 0;
+            timings = [];
+        };
 
-    _cb(void 0, { sendPing, reset });
+        return resolve({ sendPing, reset, disconnect });
+    });
 };
 
 let clients = [];
 let server;
 
-test("Initialize a server", () => {
-    coreStart('core:0', (err, _server) => {
-        server = _server;
-        assert.ok(!err);
-    });
+test("Initialize a server", async () => {
+    server = await coreStart('core:0');
+    assert.ok(server);
 });
 
 test("Initialize a client", async () => {
-    await wsStart('ws:0', (err, client) => {
-        assert.ok(!err);
-        clients[0] = client;
-        assert.ok(clients[0]);
-    });
+    let client = await wsStart('ws:0');
+    assert.ok(clients[0] = client);
 });
 
 test("Initialize multiple clients", async () => {
-    await wsStart('ws:1', (err, client) => {
-        assert.ok(!err);
-        clients[1] = client;
-        assert.ok(clients[1]);
-    });
-    await wsStart('ws:2', (err, client) => {
-        assert.ok(!err);
-        clients[2] = client;
-        assert.ok(clients[2]);
-    });
+    let client = await wsStart('ws:1');
+    assert.ok(clients[1] = client);
+    client = await wsStart('ws:2');
+    assert.ok(clients[2] = client);
 });
 
 test("Launch queries", async () => {
-    setTimeout(clients[0].sendPing, 300);
-    // validation?
+    await sleep(100);
+    assert.ok(await clients[0].sendPing());
 });
 
 test("Launch multiple queries", async () => {
     clients[0].reset();
-    for (i = 0; i < 3; i++) {
-        setTimeout(clients[i].sendPing, 600);
+    await sleep(50);
+    for (let i = 0; i < 3; i++) {
+        assert.ok(await clients[i].sendPing());
     };
 });
 
-test("Stop server", async () => {
-    setTimeout(() => {
-        server.disconnect();
-        process.exit(0);
-    }, ITERS * NTRIES + 1000);
+test("Stop server", () => {
+    server.disconnect();
+    process.exit(0);
 });
