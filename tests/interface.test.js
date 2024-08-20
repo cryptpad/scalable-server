@@ -151,7 +151,12 @@ test("Launch multiple queries", async () => {
     };
 });
 
+test("Stop clients", () => {
+    for (let i = 0; i < 3; i++) {
+        clients[i].disconnect();
+    }
+});
+
 test("Stop server", () => {
     server.disconnect();
-    process.exit(0);
-});
+})

@@ -8,7 +8,9 @@ let createHandlers = function(ctx, other) {
         handleMessage(ctx, other, message);
     });
     other.onDisconnect(function(code, reason) {
-        ctx.self.disconnect();
+        if (ctx.self.isOpen()) {
+            ctx.self.disconnect();
+        }
     });
 };
 
@@ -143,10 +145,11 @@ let communicationManager = function(ctx) {
 
     let disconnect = function() {
         Object.keys(ctx.others).forEach(type => {
-            ctx.others[type].forEach(element => {
-                element.disconnect();
+            ctx.others[type].forEach(interface => {
+                interface.disconnect();
             });
         });
+        ctx.self.disconnect();
     };
 
     return { sendEvent, sendQuery, handleCommands, disconnect };

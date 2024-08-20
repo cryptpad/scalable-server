@@ -31,19 +31,26 @@ const socketToClient = function(ws) {
         });
     });
 
+    let isOpen = () => {
+            return ws.readyState !== WebSocket.CLOSED;
+    };
+
     // XXX: maybe add an uid for connections?
     return {
         _ws: ws,
-        send: function(msg) {
+        send: (msg) => {
             ws.send(JSON.stringify(msg));
         },
-        disconnect: function() {
-            ws.close();
+        isOpen,
+        disconnect: () => {
+            if (isOpen()) {
+                ws.close();
+            }
         },
-        onMessage: function(handler) {
+        onMessage: (handler) => {
             handlers.messages.push(handler);
         },
-        onDisconnect: function(handler) {
+        onDisconnect: (handler) => {
             handlers.disconnect.push(handler);
         }
     }
@@ -60,6 +67,7 @@ module.exports = {
             console.error('Error: failed to create server');
             cb('E_INITHTTPSERVER');
         }
+
         httpServer.listen(config.port, config.host, function() {
             let server = new WebSocket.Server({ server: httpServer });
             ctx.self = socketToClient(server);
@@ -67,14 +75,16 @@ module.exports = {
                 // TODO: get data from req to know who we are talking to and handle new connections
                 onNewClient(ctx, socketToClient(ws));
             });
+            ctx.self.onDisconnect(() => { httpServer.close(err => { cb(err); }) });
             cb (void 0, ctx.self)
         });
     },
-    initClient: function(ctx, config, onConnected) {
+    initClient: function(ctx, config, onConnected, cb) {
         config.infra.core.forEach(function(server, id) {
             let socket = new WebSocket('ws://' + server.host + ':' + server.port);
             socket.on('error', function(error) {
                 console.error('Websocket connection error on', server, ':', error);
+                cb(error);
             })
                 .on('open', function() {
                     let client = socketToClient(socket);
@@ -83,6 +93,7 @@ module.exports = {
                     let uid = Util.uid(); // XXX: replace with guid
                     client.send([uid, 'IDENTITY', { type: ctx.myType, idx: ctx.myNumber }]);
                     onConnected(ctx, client);
+                    cb(void 0, ctx.self);
                 })
         });
     }
