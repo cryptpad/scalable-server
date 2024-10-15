@@ -22,9 +22,9 @@ Workers.initialize = (Env, conf, _cb) => {
 
     let incrementTime = (command, start) => {
         if (!command) { return; }
-        var end = +new Date();
-        var T = Env.commandTimers;
-        var diff = (end - start);
+        let end = +new Date();
+        let T = Env.commandTimers;
+        let diff = (end - start);
         T[command] = (T[command] || 0) + (diff / 1000);
     };
 
