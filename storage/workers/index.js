@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-const Util = require("../common-util.js");
-const { fork } = require("child_process");
+const Util = require('../common-util.js');
+const { fork } = require('child_process');
 const Workers = module.exports;
 const PID = process.pid;
 
