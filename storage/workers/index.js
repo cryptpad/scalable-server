@@ -14,6 +14,7 @@ const DEFAULT_QUERY_TIMEOUT = 60000 * 15;
 const Env = {
     Log: {
         error: console.error,
+        debug: console.log,
     }
 };
 
@@ -143,5 +144,53 @@ Workers.initialize = (Env, conf, _cb) => {
             msg._cb = _cb;
             msg._opt = opt;
         });
-    }
+    };
+
+
+    let handleResponse = (state, res) => {
+        if (!res) { return; }
+        // handle log messages before checking if it was addressed to your PID
+        // it might still be useful to know what happened inside an orphaned worker
+        if (res.log) {
+            return void handleLog(res.log, res.label, res.info);
+        }
+        // but don't bother handling things addressed to other processes
+        // since it's basically guaranteed not to work
+        if (res.pid !== PID) {
+            return void Log.error("WRONG_PID", res);
+        }
+
+        if (!res.txid) { return; }
+        response.handle(res.txid, [res.error, res.value]);
+        delete state.tasks[res.txid];
+        if (!queue.length) {
+            if (!drained) {
+                drained = true;
+                Env.Log.debug('WORKER_QUEUE_DRAINED', {
+                    workers: workers.length,
+                });
+            }
+            return;
+        }
+
+        var nextMsg = queue.shift();
+
+        if (!nextMsg || !nextMsg.msg) {
+            return void Env.Log.error('WORKER_QUEUE_EMPTY_MESSAGE', {
+                item: nextMsg,
+            });
+        }
+
+        /*  `nextMsg` was at the top of the queue.
+            We know that a job just finished and all of this code
+            is synchronous, so calling `sendCommand` should take the worker
+            which was just freed up. This is somewhat fragile though, so
+            be careful if you want to modify this block. The risk is that
+            we take something that was at the top of the queue and push it
+            to the back because the following msg took its place. OR, in an
+            even worse scenario, we cycle through the queue but don't run
+            anything.
+        */
+        sendCommand(nextMsg.msg, nextMsg.cb);
+    };
 };
