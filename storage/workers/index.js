@@ -212,7 +212,7 @@ Workers.initialize = (Env, conf, _cb) => {
         worker.send({
             pid: PID,
             txid: txid,
-            config: config,
+            config: conf,
         });
 
         worker.on('message', res => {
