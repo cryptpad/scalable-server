@@ -104,7 +104,7 @@ Workers.initialize = (Env, conf, _cb) => {
         const txid = guid();
         let start = +new Date();
 
-        let cb = Util.once(Util.mkAsync(Util.both(_cb, function(err /*, value */) {
+        let cb = Util.once(Util.mkAsync(Util.both(_cb, (err /*, value */) => {
             incrementTime(msg && msg.command, start);
             if (err !== 'TIMEOUT') { return; }
             Log.debug("WORKER_TIMEOUT_CAUSE", msg);
@@ -140,7 +140,7 @@ Workers.initialize = (Env, conf, _cb) => {
         // Add original callback to message data in case we need
         // to resend the command. setTimeout to avoid interfering
         // with worker.send
-        setTimeout(function() {
+        setTimeout(() => {
             msg._cb = _cb;
             msg._opt = opt;
         });
@@ -173,7 +173,7 @@ Workers.initialize = (Env, conf, _cb) => {
             return;
         }
 
-        var nextMsg = queue.shift();
+        let nextMsg = queue.shift();
 
         if (!nextMsg || !nextMsg.msg) {
             return void Env.Log.error('WORKER_QUEUE_EMPTY_MESSAGE', {
@@ -192,5 +192,76 @@ Workers.initialize = (Env, conf, _cb) => {
             anything.
         */
         sendCommand(nextMsg.msg, nextMsg.cb);
+    };
+
+    const initWorker = (worker, cb) => {
+        const txid = guid();
+
+        const state = {
+            worker: worker,
+            tasks: {},
+            pid: worker.pid, // store the child process's id in an easily accessible location
+        };
+
+        response.expect(txid, err => {
+            if (err) { return void cb(err); }
+            workers.push(state);
+            cb(void 0, state);
+        }, 15000);
+
+        worker.send({
+            pid: PID,
+            txid: txid,
+            config: config,
+        });
+
+        worker.on('message', res => {
+            handleResponse(state, res);
+        });
+
+        let substituteWorker = Util.once(() => {
+            Env.Log.info("SUBSTITUTE_DB_WORKER", '');
+            let idx = workers.indexOf(state);
+            if (idx !== -1) {
+                workers.splice(idx, 1);
+            }
+
+            Object.keys(state.tasks).forEach(txid => {
+                const cb = response.expectation(txid);
+                if (typeof (cb) !== 'function') { return; }
+                const task = state.tasks[txid];
+                if (!task) { return; }
+                response.clear(txid);
+                Log.info('DB_WORKER_RESEND', task);
+                sendCommand(task, task._cb || cb, task._opt);
+            });
+
+            let w = fork(DB_PATH);
+            initWorker(w, err => {
+                if (err) {
+                    throw new Error(err);
+                }
+            });
+        });
+
+        worker.on('exit', () => {
+            substituteWorker();
+            Env.Log.error("DB_WORKER_EXIT", {
+                pid: state.pid,
+            });
+        });
+        worker.on('close', () => {
+            substituteWorker();
+            Env.Log.error("DB_WORKER_CLOSE", {
+                pid: state.pid,
+            });
+        });
+        worker.on('error', err => {
+            substituteWorker();
+            Env.Log.error("DB_WORKER_ERROR", {
+                pid: state.pid,
+                error: err,
+            });
+        });
     };
 };
