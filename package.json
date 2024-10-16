@@ -5,7 +5,7 @@
   "license": "AGPL-3.0+",
   "dependencies": {
     "chainpad-server": "^5.2.0",
-    "express": "~4.20.0",
+    "express": "~4.21.1",
     "fs-extra": "^7.0.0",
     "minimist": "^1.2.8",
     "nthen": "0.1.8",
