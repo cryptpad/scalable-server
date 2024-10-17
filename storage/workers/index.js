@@ -6,6 +6,7 @@ const Util = require('../common-util.js');
 const { fork } = require('child_process');
 const Workers = module.exports;
 const PID = process.pid;
+const OS = require('os');
 
 const PATH = 'storage/workers/worker.js';
 const MAX_JOB = 2;
@@ -15,7 +16,9 @@ const Env = {
     Log: {
         error: console.error,
         debug: console.log,
-    }
+        info: console.log,
+    },
+    maxWorkers: 4, // TODO: change with a computed value from Config
 };
 
 Workers.initialize = (Env, conf, _cb) => {
@@ -232,7 +235,7 @@ Workers.initialize = (Env, conf, _cb) => {
                 const task = state.tasks[txid];
                 if (!task) { return; }
                 response.clear(txid);
-                Log.info('DB_WORKER_RESEND', task);
+                Env.Log.info('DB_WORKER_RESEND', task);
                 sendCommand(task, task._cb || cb, task._opt);
             });
 
@@ -264,4 +267,224 @@ Workers.initialize = (Env, conf, _cb) => {
             });
         });
     };
+
+    nThen(w => {
+        let limit = Env.maxWorkers;
+        let logged;
+
+        OS.cpus().forEach((_, index) => {
+            if (limit && index >= limit) {
+                if (!logged) {
+                    logged = true;
+                    Env.log.info('WORKER_LIMIT', "(Opting not to use availables CPUs beyond " + index + ")");
+                }
+                return;
+            }
+
+            initWorker(fork(DB_PATH), w(err => {
+                if (!err) { return; }
+                w.abort();
+                return void cb(err);
+            }));
+        });
+    }).nThen(() => {
+        Env.computeIndex = function(Env, channel, cb) {
+            Env.store.getWeakLock(channel, function(next) {
+                sendCommand({
+                    channel: channel,
+                    command: 'COMPUTE_INDEX',
+                }, function(err, index) {
+                    next();
+                    cb(err, index);
+                });
+            });
+        };
+
+        Env.computeMetadata = function(channel, cb) {
+            Env.store.getWeakLock(channel, function(next) {
+                sendCommand({
+                    channel: channel,
+                    command: 'COMPUTE_METADATA',
+                }, function(err, metadata) {
+                    next();
+                    cb(err, metadata);
+                });
+            });
+        };
+
+        Env.getOlderHistory = function(channel, oldestKnownHash, toHash, desiredMessages, desiredCheckpoint, cb) {
+            Env.store.getWeakLock(channel, function(next) {
+                sendCommand({
+                    channel: channel,
+                    command: "GET_OLDER_HISTORY",
+                    hash: oldestKnownHash,
+                    toHash: toHash,
+                    desiredMessages: desiredMessages,
+                    desiredCheckpoint: desiredCheckpoint,
+                }, Util.both(next, cb));
+            });
+        };
+
+        Env.getPinState = function(safeKey, cb) {
+            Env.pinStore.getWeakLock(safeKey, function(next) {
+                sendCommand({
+                    key: safeKey,
+                    command: 'GET_PIN_STATE',
+                }, Util.both(next, cb));
+            });
+        };
+
+        Env.getPinActivity = function(safeKey, cb) {
+            Env.pinStore.getWeakLock(safeKey, function(next) {
+                sendCommand({
+                    key: safeKey,
+                    command: 'GET_PIN_ACTIVITY',
+                }, Util.both(next, cb));
+            });
+        };
+
+        Env.getLastChannelTime = function(channel, cb) {
+            sendCommand({
+                command: 'GET_LAST_CHANNEL_TIME',
+                channel: channel,
+            }, cb);
+        };
+
+        Env.getFileSize = function(channel, cb) {
+            sendCommand({
+                command: 'GET_FILE_SIZE',
+                channel: channel,
+            }, cb);
+        };
+
+        Env.getDeletedPads = function(channels, cb) {
+            sendCommand({
+                command: "GET_DELETED_PADS",
+                channels: channels,
+            }, cb);
+        };
+
+        Env.getTotalSize = function(channels, cb) {
+            // we could take out locks for all of these channels,
+            // but it's OK if the size is slightly off
+            sendCommand({
+                command: 'GET_TOTAL_SIZE',
+                channels: channels,
+            }, cb);
+        };
+
+        Env.getMultipleFileSize = function(channels, cb) {
+            sendCommand({
+                command: "GET_MULTIPLE_FILE_SIZE",
+                channels: channels,
+            }, cb);
+        };
+
+        Env.getHashOffset = function(channel, hash, cb) {
+            Env.store.getWeakLock(channel, function(next) {
+                sendCommand({
+                    command: 'GET_HASH_OFFSET',
+                    channel: channel,
+                    hash: hash,
+                }, Util.both(next, cb));
+            });
+        };
+
+        Env.removeOwnedBlob = function(blobId, safeKey, reason, cb) {
+            sendCommand({
+                command: 'REMOVE_OWNED_BLOB',
+                blobId: blobId,
+                safeKey: safeKey,
+                reason: reason
+            }, cb);
+        };
+
+        Env.evictInactive = function(cb) {
+            sendCommand({
+                command: 'EVICT_INACTIVE',
+            }, cb, {
+                timeout: 1000 * 60 * 300, // time out after 300 minutes (5 hours)
+            });
+        };
+
+        Env.runTasks = function(cb) {
+            sendCommand({
+                command: 'RUN_TASKS',
+            }, cb, {
+                timeout: 1000 * 60 * 10, // time out after 10 minutes
+            });
+        };
+
+        Env.writeTask = function(time, command, args, cb) {
+            sendCommand({
+                command: 'WRITE_TASK',
+                time: time,
+                task_command: command,
+                args: args,
+            }, cb);
+        };
+
+        // Synchronous crypto functions
+        Env.validateMessage = function(signedMsg, key, cb) {
+            sendCommand({
+                msg: signedMsg,
+                key: key,
+                command: 'INLINE',
+            }, cb);
+        };
+
+        Env.checkSignature = function(signedMsg, signature, publicKey, cb) {
+            sendCommand({
+                command: 'DETACHED',
+                sig: signature,
+                msg: signedMsg,
+                key: publicKey,
+            }, cb);
+        };
+
+        Env.hashChannelList = function(channels, cb) {
+            sendCommand({
+                command: 'HASH_CHANNEL_LIST',
+                channels: channels,
+            }, cb);
+        };
+
+        Env.completeUpload = function(safeKey, arg, owned, size, cb) {
+            sendCommand({
+                command: "COMPLETE_UPLOAD",
+                owned: owned, // Boolean
+                safeKey: safeKey, // String (public key)
+                arg: arg, // String (file id)
+                size: size, // Number || undefined
+            }, cb);
+        };
+
+        Env.validateAncestorProof = function(proof, cb) {
+            sendCommand({
+                command: 'VALIDATE_ANCESTOR_PROOF',
+                proof: proof,
+            }, cb);
+        };
+
+        Env.validateLoginBlock = function(publicKey, signature, block, cb) {
+            if (!block || !block.length || block.length > Block.MAX_SIZE) {
+                return void setTimeout(function() {
+                    Env.Log.error('E_INVALID_BLOCK_SIZE', {
+                        size: block.length,
+                    });
+
+                    cb('E_INVALID_BLOCK_SIZE');
+                });
+            }
+
+            sendCommand({
+                command: 'VALIDATE_LOGIN_BLOCK',
+                publicKey: publicKey,
+                signature: signature,
+                block: block,
+            }, cb);
+        };
+
+        cb(void 0);
+    });
 };
