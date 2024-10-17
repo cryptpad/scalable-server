@@ -5,7 +5,7 @@ const Util = require("./common-util.js");
 const nThen = require("nthen");
 const HK = require("./hk-util.js");
 
-const create = (Env, basedir) => {
+const create = (Env, baseDir) => {
     let CM = {};
 
     const OPEN_CURLY_BRACE = Buffer.from('{');
@@ -15,8 +15,8 @@ const create = (Env, basedir) => {
     };
 
     File.create({
-        filePath: basedir + '/channel',
-        archivePath: basedir + '/archive',
+        filePath: baseDir + '/channel',
+        archivePath: baseDir + '/archive',
         volumeId: 'channel'
     }, (err, store) => {
         if (err) { console.error('Error in channel creation:', err); }
