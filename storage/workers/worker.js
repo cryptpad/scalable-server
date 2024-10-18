@@ -40,15 +40,15 @@ const COMMANDS = {
     COMPUTE_METADATA: computeMetadata,
 };
 
-process.on('message', function (data) {
+process.on('message', function(data) {
     if (!data || !data.txid || !data.pid) {
         return void process.send({
-            error:'E_INVAL',
+            error: 'E_INVAL',
             data: data,
         });
     }
 
-    const cb = function (err, value) {
+    const cb = function(err, value) {
         process.send({
             error: Util.serializeError(err),
             txid: data.txid,
@@ -58,7 +58,7 @@ process.on('message', function (data) {
     };
 
     if (!ready) {
-        return void init(data.config, function (err) {
+        return void init(data.config, function(err) {
             if (err) { return void cb(Util.serializeError(err)); }
             ready = true;
             cb();
@@ -66,13 +66,13 @@ process.on('message', function (data) {
     }
 
     const command = COMMANDS[data.command];
-    if (typeof(command) !== 'function') {
+    if (typeof (command) !== 'function') {
         return void cb("E_BAD_COMMAND");
     }
     command(data, cb);
 });
 
-process.on('uncaughtException', function (err) {
+process.on('uncaughtException', function(err) {
     console.error('[%s] UNCAUGHT EXCEPTION IN DB WORKER', new Date());
     console.error(err);
     console.error("TERMINATING");
