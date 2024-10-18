@@ -157,7 +157,7 @@ const create = (Env, baseDir) => {
             });
         };
 
-        let computeIndex = function(channelName, cb) {
+        let computeIndex = CM.computeIndex = function(channelName, cb) {
             const CB = Util.once(cb);
 
             var start = 0;

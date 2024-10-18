@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 const Util = require("../common-util.js");
 const ChannelManager = require("../channel_manager.js");
+const Meta = require("../commands/metadata.js");
 
 const Env = {};
 
@@ -17,6 +18,21 @@ const init = (conf, _cb) => {
     };
 
     Env.CM = ChannelManager.create(Env, Env.paths.baseDir);
+};
+
+let computeIndex = (data, cb) => {
+    if (!data || !data.channel) {
+        return void cb(E_NO_CHANNEL);
+    }
+
+    Env.CM.computeIndex(data.channel, cb);
+};
+
+let computeMetadata = (data, cb) => {
+    if (!data || !data.channel) {
+        return void cb(E_NO_CHANNEL);
+    }
+    Meta.computeMetadata(Env, data.channel, cb);
 };
 
 const COMMANDS = {

@@ -6,7 +6,7 @@ const Core = require("./core");
 const Util = require("../common-util");
 const HK = require("../hk-util");
 
-const computeMetadata = function(Env, channel, cb) {
+const computeMetadata = Data.computeMetadata = function(Env, channel, cb) {
     const ref = {};
     const lineHandler = Meta.createLineHandler(ref, Env.Log.error);
     return void Env.CM.readChannelMetadata(channel, lineHandler, function(err) {
