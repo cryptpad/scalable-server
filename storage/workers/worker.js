@@ -6,6 +6,7 @@ const ChannelManager = require("../channel_manager.js");
 const Meta = require("../commands/metadata.js");
 
 const Env = {};
+let ready = false;
 
 const init = (conf, _cb) => {
     const cb = Util.once(Util.mkAsync(_cb));

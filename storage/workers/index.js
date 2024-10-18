@@ -5,6 +5,7 @@
 const Util = require('../common-util.js');
 const { fork } = require('child_process');
 const Workers = module.exports;
+const nThen = require('nthen');
 const PID = process.pid;
 const OS = require('os');
 
@@ -22,7 +23,7 @@ const Env = {
 };
 
 Workers.initialize = (Env, conf, _cb) => {
-    const cb = Util.once(Util.MkAsync(_cb));
+    const cb = Util.once(Util.mkAsync(_cb));
 
     let incrementTime = (command, start) => {
         if (!command) { return; }
@@ -76,7 +77,7 @@ Workers.initialize = (Env, conf, _cb) => {
     };
 
     let drained = true;
-    let sendCommand = (msg, _cb, opt) {
+    let sendCommand = (msg, _cb, opt) => {
         if (!_cb) {
             return void Env.Log.error('WORKER_COMMAND_MISSING_CB', {
                 msg: msg,
@@ -239,7 +240,7 @@ Workers.initialize = (Env, conf, _cb) => {
                 sendCommand(task, task._cb || cb, task._opt);
             });
 
-            let w = fork(DB_PATH);
+            let w = fork(PATH);
             initWorker(w, err => {
                 if (err) {
                     throw new Error(err);
@@ -281,7 +282,7 @@ Workers.initialize = (Env, conf, _cb) => {
                 return;
             }
 
-            initWorker(fork(DB_PATH), w(err => {
+            initWorker(fork(PATH), w(err => {
                 if (!err) { return; }
                 w.abort();
                 return void cb(err);
@@ -289,7 +290,7 @@ Workers.initialize = (Env, conf, _cb) => {
         });
     }).nThen(() => {
         Env.computeIndex = function(Env, channel, cb) {
-            Env.store.getWeakLock(channel, function(next) {
+            Env.CM.getWeakLock(channel, function(next) {
                 sendCommand({
                     channel: channel,
                     command: 'COMPUTE_INDEX',
@@ -301,7 +302,7 @@ Workers.initialize = (Env, conf, _cb) => {
         };
 
         Env.computeMetadata = function(channel, cb) {
-            Env.store.getWeakLock(channel, function(next) {
+            Env.CM.getWeakLock(channel, function(next) {
                 sendCommand({
                     channel: channel,
                     command: 'COMPUTE_METADATA',

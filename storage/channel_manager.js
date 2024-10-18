@@ -157,7 +157,7 @@ const create = (Env, baseDir) => {
             });
         };
 
-        let computeIndex = CM.computeIndex = function(channelName, cb) {
+        CM.computeIndex = function(channelName, cb) {
             const CB = Util.once(cb);
 
             var start = 0;
@@ -310,7 +310,7 @@ const create = (Env, baseDir) => {
         or with a cached index for a channel if it exists
         (along with metadata)
         otherwise it calls back with the index computed by 'computeIndex'
-        
+
         as an added bonus:
         if the channel exists but its index does not then it caches the index
         */
@@ -326,7 +326,7 @@ const create = (Env, baseDir) => {
             }
 
             Env.batchIndexReads(channelName, cb, function(done) {
-                computeIndex(channelName, (err, ret) => {
+                Env.computeIndex(channelName, (err, ret) => {
                     // this is most likely an unrecoverable filesystem error
                     if (err) { return void done(err); }
                     // cache the computed result if possible
@@ -336,6 +336,8 @@ const create = (Env, baseDir) => {
                 });
             });
         };
+
+        CM.getWeakLock = store.getWeakLock;
     });
 
     return CM;

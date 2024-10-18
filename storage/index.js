@@ -9,6 +9,7 @@ const HistoryKeeper = require("./historyKeeper.js");
 const Config = require("../ws-config.js");
 const Interface = require("../common/interface.js");
 const WriteQueue = require("./write-queue.js");
+const Workers = require("./workers/index.js");
 const cli_args = require("minimist")(process.argv.slice(2));
 
 let proceed = true;
@@ -357,7 +358,20 @@ let dropChannelHandler = function(args) {
 
 // Create a store
 let idx = Number(cli_args.id) || 0;
-Env.CM = ChannelManager.create(Env, 'data/' + idx)
+let conf = {
+    baseDir: 'data/' + idx,
+}
+
+// FIX: not working, dependency loop
+nThen(w => {
+    Workers.initialize(Env, conf, w(err => {
+        if (err && err !== 'TIMEOUT') {
+            throw new Error(err);
+        }
+    }))
+}).nThen(() => {
+    Env.CM = ChannelManager.create(Env, conf.baseDir);
+});
 
 // List accepted commands
 let COMMANDS = {
