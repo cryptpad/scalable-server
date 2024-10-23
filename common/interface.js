@@ -9,6 +9,11 @@ let createHandlers = function(ctx, other) {
     });
     other.onDisconnect(function(code, reason) {
         if (ctx.self.isOpen()) {
+            console.log("Disconnecting", {
+                who: other,
+                code: code,
+                reason: reason,
+            });
             ctx.self.disconnect();
         }
     });
