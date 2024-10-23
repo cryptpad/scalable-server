@@ -201,12 +201,12 @@ let connect = function(config, cb) {
 
     let manager = communicationManager(ctx);
 
-    cb(void 0, manager)
+    cb(void 0, manager);
 };
 
 /* This function initializes the different ws servers on the Core components */
 let init = function(config, cb) {
-    if (!cb) { cb = () => { } };
+    if (!cb) { cb = () => { }; };
 
     let ctx = {
         others: {
@@ -249,7 +249,7 @@ let init = function(config, cb) {
 
     let manager = communicationManager(ctx);
 
-    cb(void 0, manager)
+    cb(void 0, manager);
 };
 
 module.exports = { connect, init };

@@ -23,7 +23,7 @@ const init = (conf, _cb) => {
 
 let computeIndex = (data, cb) => {
     if (!data || !data.channel) {
-        return void cb(E_NO_CHANNEL);
+        return void cb('E_NO_CHANNEL');
     }
 
     Env.CM.computeIndex(data.channel, cb);
@@ -31,7 +31,7 @@ let computeIndex = (data, cb) => {
 
 let computeMetadata = (data, cb) => {
     if (!data || !data.channel) {
-        return void cb(E_NO_CHANNEL);
+        return void cb('E_NO_CHANNEL');
     }
     Meta.computeMetadata(Env, data.channel, cb);
 };

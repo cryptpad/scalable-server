@@ -12,6 +12,8 @@ export default [
             indent: ["error", 4],
             "no-useless-escape": "off",
             "no-unused-vars": "warn",
+            "no-undef": "warn",
+            "no-prototype-builtins": "off",
         }
     },
 ];

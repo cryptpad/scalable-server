@@ -57,7 +57,7 @@ let coreStart = (myId) => {
 
         let pingHandler = function(args, cb) {
             cb(void 0, { ping: args, pong: (new Date()).getTime() });
-        }
+        };
 
         let COMMANDS = { 'PING': pingHandler };
         interface.handleCommands(COMMANDS);
@@ -91,7 +91,7 @@ let wsStart = (myId) => {
                         timings[i++ % ITERS] = now - pingTime;
                         if (!(i % ITERS)) {
                             let average = timings.reduce((acc, x) => (acc + x), 0) / ITERS;
-                            console.log(`${myId}: Average over ${ITERS}: ${average}ms`)
+                            console.log(`${myId}: Average over ${ITERS}: ${average}ms`);
                         }
                         leftToRun--;
                         if (leftToRun == 0) {
@@ -159,4 +159,4 @@ test("Stop clients", () => {
 
 test("Stop server", () => {
     server.disconnect();
-})
+});

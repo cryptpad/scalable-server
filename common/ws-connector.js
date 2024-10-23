@@ -18,7 +18,7 @@ const socketToClient = function(ws) {
             } catch (e) {
                 console.error(e);
             }
-        })
+        });
     });
 
     ws.on('close', function(code, reason) {
@@ -32,7 +32,7 @@ const socketToClient = function(ws) {
     });
 
     let isOpen = () => {
-            return ws.readyState !== WebSocket.CLOSED;
+        return ws.readyState !== WebSocket.CLOSED;
     };
 
     // XXX: maybe add an uid for connections?
@@ -53,14 +53,14 @@ const socketToClient = function(ws) {
         onDisconnect: (handler) => {
             handlers.disconnect.push(handler);
         }
-    }
+    };
 };
 
 module.exports = {
     close: function() {
     },
     initServer: function(ctx, config, onNewClient, cb) {
-        if (!cb) { cb = () => { } };
+        if (!cb) { cb = () => { }; };
         let app = Express();
         let httpServer = Http.createServer(app);
         if (!httpServer) {
@@ -75,8 +75,8 @@ module.exports = {
                 // TODO: get data from req to know who we are talking to and handle new connections
                 onNewClient(ctx, socketToClient(ws));
             });
-            ctx.self.onDisconnect(() => { httpServer.close(err => { cb(err); }) });
-            cb (void 0, ctx.self)
+            ctx.self.onDisconnect(() => { httpServer.close(err => { cb(err); }); });
+            cb (void 0, ctx.self);
         });
     },
     initClient: function(ctx, config, onConnected, cb) {
@@ -94,7 +94,7 @@ module.exports = {
                     client.send([uid, 'IDENTITY', { type: ctx.myType, idx: ctx.myNumber }]);
                     onConnected(ctx, client);
                     cb(void 0, ctx.self);
-                })
+                });
         });
     }
-}
+};

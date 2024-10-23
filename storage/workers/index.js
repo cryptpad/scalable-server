@@ -13,17 +13,9 @@ const PATH = 'storage/workers/worker.js';
 const MAX_JOB = 2;
 const DEFAULT_QUERY_TIMEOUT = 60000 * 15;
 
-const Env = {
-    Log: {
-        error: console.error,
-        debug: console.log,
-        info: console.log,
-    },
-    maxWorkers: 4, // TODO: change with a computed value from Config
-};
-
 Workers.initialize = (Env, conf, _cb) => {
     const cb = Util.once(Util.mkAsync(_cb));
+    Env.maxWorkers = 4; // TODO: change with a computed value from Config
 
     let incrementTime = (command, start) => {
         if (!command) { return; }
@@ -34,6 +26,11 @@ Workers.initialize = (Env, conf, _cb) => {
     };
 
     const workers = [];
+
+    const handleLog = function (level, label, info) {
+        if (typeof(Env.Log[level]) !== 'function') { return; }
+        Env.Log[level](label, info);
+    };
 
     const response = Util.response((errLabel, info) => {
         Env.Log.error('HK_DB_WORKER__' + errLabel, info);
@@ -58,7 +55,7 @@ Workers.initialize = (Env, conf, _cb) => {
 
         let L = workers.length;
         if (!L) {
-            Log.error("NO_WORKERS_AVAILABLE", {
+            Env.Log.error("NO_WORKERS_AVAILABLE", {
                 queue: queue.length,
             });
             return -1;
@@ -67,7 +64,7 @@ Workers.initialize = (Env, conf, _cb) => {
         workerOffset = (workerOffset + 1) % L;
 
         let temp;
-        for (i = workerOffset; i < workerOffset + L; i++) {
+        for (let i = workerOffset; i < workerOffset + L; i++) {
             temp = i % L;
             if (workers[temp] && countWorkerTasks(temp) <= MAX_JOB) {
                 return temp;
@@ -111,7 +108,7 @@ Workers.initialize = (Env, conf, _cb) => {
         let cb = Util.once(Util.mkAsync(Util.both(_cb, (err /*, value */) => {
             incrementTime(msg && msg.command, start);
             if (err !== 'TIMEOUT') { return; }
-            Log.debug("WORKER_TIMEOUT_CAUSE", msg);
+            Env.Log.debug("WORKER_TIMEOUT_CAUSE", msg);
             // in the event of a timeout the user will receive an error
             // but the state used to resend a query in the event of a worker crash
             // won't be cleared. This also leaks a slot that could be used to keep
@@ -161,7 +158,7 @@ Workers.initialize = (Env, conf, _cb) => {
         // but don't bother handling things addressed to other processes
         // since it's basically guaranteed not to work
         if (res.pid !== PID) {
-            return void Log.error("WRONG_PID", res);
+            return void Env.Log.error("WRONG_PID", res);
         }
 
         if (!res.txid) { return; }
@@ -277,7 +274,7 @@ Workers.initialize = (Env, conf, _cb) => {
             if (limit && index >= limit) {
                 if (!logged) {
                     logged = true;
-                    Env.log.info('WORKER_LIMIT', "(Opting not to use availables CPUs beyond " + index + ")");
+                    Env.Log.info('WORKER_LIMIT', "(Opting not to use availables CPUs beyond " + index + ")");
                 }
                 return;
             }

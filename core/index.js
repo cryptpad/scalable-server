@@ -30,7 +30,7 @@ let getStorageId = function(channelName) {
         return void 0;
     }
     if (typeof (Env.numberStorages) === 'undefined') {
-        console.error('getStorageId: number of storages undefined')
+        console.error('getStorageId: number of storages undefined');
         return void 0;
     }
     // We need a 8 byte key
@@ -151,7 +151,7 @@ let startServers = function() {
     let interface;
     Interface.init(Config, (err, _interface) => {
         if (err) {
-            console.error('E: interface initialisation error', err)
+            console.error('E: interface initialisation error', err);
             return;
         }
         interface = Env.interface = _interface;
@@ -174,7 +174,7 @@ let startServers = function() {
         COMMANDS[command] = wsToStorage(command, false, true);
     });
 
-    interface.handleCommands(COMMANDS)
+    interface.handleCommands(COMMANDS);
 };
 
 startServers();

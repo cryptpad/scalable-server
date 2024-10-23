@@ -258,7 +258,7 @@ let onChannelMessage = function(channelName, channel, msgStruct, cb) {
             // TODO: expiry verification
         }));
     }).nThen(function(w) {
-        // if there's no validateKey present, skip to the next block
+    // if there's no validateKey present, skip to the next block
         if (!(metadata && metadata.validateKey)) { return; }
 
         // trim the checkpoint indicator off the message if it's present
@@ -281,12 +281,12 @@ let onChannelMessage = function(channelName, channel, msgStruct, cb) {
                     });
                 }
 
-                cb('FAILED VALIDATION')
+                cb('FAILED VALIDATION');
                 return void w.abort();
             }
         });
     }).nThen(function() {
-        // do checkpoint stuff...
+    // do checkpoint stuff...
 
         // 1. get the checkpoint id
         // 2. reject duplicate checkpoints
@@ -317,7 +317,7 @@ let onChannelMessage = function(channelName, channel, msgStruct, cb) {
         // storeMessage
         //console.log(+new Date(), "Storing message");
         Env.CM.storeMessage(channel, JSON.stringify(msgStruct), isCp, HK.getHash(msgStruct[4], Env.Log), time, cb);
-        //console.log(+new Date(), "Message stored");
+    //console.log(+new Date(), "Message stored");
     });
 };
 
@@ -325,34 +325,34 @@ let onDropChannel = function(channelName, userId) {
     delete Env.metadata_cache[channelName];
     delete Env.channel_cache[channelName];
     // delete Env.core_cache[userId];
-}
+};
 
 // Handlers
 let getHistoryHandler = function(args, cb) {
     onGetHistory(args.seq, args.userId, args.parsed, cb);
-}
+};
 
 let getFullHistoryHandler = function(args, cb) {
     onGetFullHistory(args.seq, args.userId, args.parsed, cb);
-}
+};
 
 let getMetaDataHandler = function(args, cb) {
     HistoryKeeper.getMetadata(Env, args.channelName, cb);
-}
+};
 
 let channelOpenHandler = function(args, cb, extra) {
     Env.channel_cache[args.channelName] = Env.channel_cache[args.channelName] || {};
     Env.core_cache[args.userId] = extra.from;
     HistoryKeeper.getMetadata(Env, args.channelName, cb);
-}
+};
 
 let channelMessageHandler = function(args, cb) {
     onChannelMessage(args.channelName, args.channel, args.msgStruct, cb);
-}
+};
 
 let dropChannelHandler = function(args) {
     onDropChannel(args.channelName, args.userId);
-}
+};
 
 /* Start of the node */
 
@@ -360,7 +360,7 @@ let dropChannelHandler = function(args) {
 let idx = Number(cli_args.id) || 0;
 let conf = {
     baseDir: 'data/' + idx,
-}
+};
 
 // FIX: not working, dependency loop
 nThen(w => {
@@ -368,7 +368,7 @@ nThen(w => {
         if (err && err !== 'TIMEOUT') {
             throw new Error(err);
         }
-    }))
+    }));
 }).nThen(() => {
     Env.CM = ChannelManager.create(Env, conf.baseDir);
 });

@@ -11,7 +11,7 @@ HistoryKeeper.getMetadata = function(Env, channelName, _cb) {
     let cb = Util.mkAsync(_cb);
     let metadata = Env.metadata_cache[channelName];
     if (metadata && typeof (metadata) === 'object') {
-        return cb(void 0, metadata)
+        return cb(void 0, metadata);
     }
 
     Meta.getMetadataRaw(Env, channelName, function(err, metadata) {
@@ -24,7 +24,7 @@ HistoryKeeper.getMetadata = function(Env, channelName, _cb) {
         Env.metadata_cache[channelName] = metadata;
         cb(void 0, metadata);
     });
-}
+};
 
 const getHistoryOffset = (Env, channelName, lastKnownHash, _cb) => {
     const cb = Util.once(Util.mkAsync(_cb));
