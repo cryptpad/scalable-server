@@ -22,7 +22,7 @@ const init = (conf, _cb) => {
     };
 
     Env.paths = {
-        baseDir: conf.baseDir,
+        baseDir: conf,
     };
 
     ChannelManager.create(Env, Env.paths.baseDir, cm => {Env.CM = cm; cb();});
