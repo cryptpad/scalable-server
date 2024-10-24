@@ -14,6 +14,7 @@ const MAX_JOB = 2;
 const DEFAULT_QUERY_TIMEOUT = 60000 * 15;
 
 Workers.initialize = (Env, conf, _cb) => {
+    console.log("CM", Env.CM);
     const cb = Util.once(Util.mkAsync(_cb));
     Env.maxWorkers = 4; // TODO: change with a computed value from Config
 
@@ -286,7 +287,7 @@ Workers.initialize = (Env, conf, _cb) => {
             }));
         });
     }).nThen(() => {
-        Env.computeIndex = function(Env, channel, cb) {
+        Env.computeIndex = function(channel, cb) {
             Env.CM.getWeakLock(channel, function(next) {
                 sendCommand({
                     channel: channel,

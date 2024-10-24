@@ -4,9 +4,10 @@ const File = require("./storage/file.js");
 const Util = require("./common-util.js");
 const nThen = require("nthen");
 const HK = require("./hk-util.js");
+const Workers = require("./workers/index.js");
 
-const create = (Env, baseDir) => {
-    let CM = {};
+const create = (Env, baseDir, callback) => {
+    let CM = Env.CM = {};
 
     const OPEN_CURLY_BRACE = Buffer.from('{');
     const CHECKPOINT_PREFIX = Buffer.from('cp|');
@@ -339,7 +340,13 @@ const create = (Env, baseDir) => {
 
         CM.getWeakLock = store.getWeakLock;
          
-        return CM;
+        Workers.initialize(Env, Env.conf, err => {
+            if (err && err !== 'TIMEOUT') {
+                throw new Error(err);
+            }
+        });
+
+        callback(CM);
     });
 };
 
