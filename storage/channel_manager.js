@@ -338,9 +338,9 @@ const create = (Env, baseDir) => {
         };
 
         CM.getWeakLock = store.getWeakLock;
+         
+        return CM;
     });
-
-    return CM;
 };
 
 module.exports = { create };
