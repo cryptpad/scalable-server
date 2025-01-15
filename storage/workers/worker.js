@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 const Util = require("../common-util.js");
-const ChannelManager = require("../channel_manager.js");
 const Meta = require("../commands/metadata.js");
 
 const Env = {
@@ -15,7 +14,7 @@ const Env = {
 };
 let ready = false;
 
-const init = (conf, _cb) => {
+const init = (conf, channelManager, _cb) => {
     const cb = Util.once(Util.mkAsync(_cb));
     if (!conf) {
         return void cb('E_INVALID_CONFIG');
@@ -25,7 +24,7 @@ const init = (conf, _cb) => {
         baseDir: conf,
     };
 
-    ChannelManager.create(Env, Env.paths.baseDir, cm => {Env.CM = cm; cb();});
+    Env.CM = channelManager;
 };
 
 let computeIndex = (data, cb) => {
@@ -66,7 +65,7 @@ process.on('message', function(data) {
     };
 
     if (!ready) {
-        return void init(data.config, function(err) {
+        return void init(data.config, data.channelManager, err => {
             if (err) { return void cb(Util.serializeError(err)); }
             ready = true;
             cb();
