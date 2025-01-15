@@ -9,12 +9,11 @@ const nThen = require('nthen');
 const PID = process.pid;
 const OS = require('os');
 
-const PATH = 'storage/workers/worker.js';
+const PATH = 'storage/workers/worker';
 const MAX_JOB = 2;
 const DEFAULT_QUERY_TIMEOUT = 60000 * 15;
 
 Workers.initialize = (Env, conf, _cb) => {
-    console.log("CM", Env.CM);
     const cb = Util.once(Util.mkAsync(_cb));
     Env.maxWorkers = 4; // TODO: change with a computed value from Config
 
@@ -215,6 +214,7 @@ Workers.initialize = (Env, conf, _cb) => {
             pid: PID,
             txid: txid,
             config: conf,
+            channelManager: Env.CM,
         });
 
         worker.on('message', res => {
