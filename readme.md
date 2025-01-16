@@ -70,7 +70,7 @@ Before first use, you may want to install the dependencies with:
 npm install
 ```
 
-To spawn the default server topology, run the start script:
+To spawn the server topology described in `ws-config.js`, run the start script:
 ```bash
 npm run start
 ```
