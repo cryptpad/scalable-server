@@ -379,7 +379,11 @@ let start = function() {
         }
         interface.handleCommands(COMMANDS);
         Env.interface = interface;
-        console.log(Config.myId, 'started');
+        if (process.send !== undefined) {
+            process.send({type: 'storage', idx, msg: 'READY'});
+        } else {
+            console.log(Config.myId, 'started');
+        }
     });
 };
 

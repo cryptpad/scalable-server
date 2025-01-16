@@ -38,7 +38,11 @@ let Env = {
 let app = Express();
 let httpServer = Http.createServer(app);
 httpServer.listen(publicConfig.port, publicConfig.host, function() {
-    console.log('ws:' + idx + ' started');
+    if (process.send !== undefined) {
+        process.send({type: 'ws', idx, msg: 'READY'});
+    } else {
+        console.log('ws:' + idx + ' started');
+    }
 });
 
 let hkId = "0123456789abcdef";

@@ -175,6 +175,9 @@ let startServers = function() {
     });
 
     interface.handleCommands(COMMANDS)
+    if (process.send !== undefined) {
+        process.send({type: 'core', idx, msg: 'READY'});
+    }
 };
 
 startServers();

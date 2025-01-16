@@ -21,6 +21,6 @@
   },
   "scripts": {
     "tests": "node --test tests/",
-    "start": "sh start.sh"
+    "start": "node index.js"
   }
 }
