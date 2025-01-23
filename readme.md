@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 # Prototype: Scalable Server for CryptPad
 
 This repository contains a distributed server prototype for CryptPad. This is
-still work in progress.
+still in progress exploratory work.
 
 ## Architecture
 
