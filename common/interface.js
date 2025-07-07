@@ -7,7 +7,7 @@ let createHandlers = function(ctx, other) {
     other.onMessage(function(message) {
         handleMessage(ctx, other, message);
     });
-    other.onDisconnect(function(code, reason) {
+    other.onDisconnect(function(_code, _reason) { // XXX: to handle properly in the future
         if (ctx.self.isOpen()) {
             ctx.self.disconnect();
         }
