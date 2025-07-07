@@ -172,10 +172,9 @@ let startServers = function() {
         }
         let interface = Env.interface = _interface;
 
-
         interface.handleCommands(COMMANDS)
         if (process.send !== undefined) {
-            process.send({type: 'core', idx, msg: 'READY'});
+            process.send({ type: 'core', idx, msg: 'READY' });
         }
     });
 };
