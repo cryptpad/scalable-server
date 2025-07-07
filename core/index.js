@@ -148,15 +148,6 @@ let startServers = function() {
     Env.numberStorages = Config.infra.storage.length;
     let idx = Number(cli_args.id) || 0;
     Config.myId = 'core:' + idx;
-    let interface;
-    Interface.init(Config, (err, _interface) => {
-        if (err) {
-            console.error('E: interface initialisation error', err)
-            return;
-        }
-        interface = Env.interface = _interface;
-    });
-
     let queriesToStorage = ['GET_HISTORY', 'GET_METADATA', 'CHANNEL_MESSAGE'];
     let queriesToWs = ['CHANNEL_CONTAINS_USER'];
     let eventsToStorage = ['DROP_CHANNEL',];
@@ -174,10 +165,19 @@ let startServers = function() {
         COMMANDS[command] = wsToStorage(command, false, true);
     });
 
-    interface.handleCommands(COMMANDS)
-    if (process.send !== undefined) {
-        process.send({type: 'core', idx, msg: 'READY'});
-    }
+    Interface.init(Config, (err, _interface) => {
+        if (err) {
+            console.error('E: interface initialisation error', err)
+            return;
+        }
+        let interface = Env.interface = _interface;
+
+
+        interface.handleCommands(COMMANDS)
+        if (process.send !== undefined) {
+            process.send({type: 'core', idx, msg: 'READY'});
+        }
+    });
 };
 
 startServers();

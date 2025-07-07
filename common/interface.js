@@ -192,16 +192,15 @@ let connect = function(config, cb) {
     // Connection to the different core servers
     wsConnector.initClient(ctx, config, createHandlers, (err, selfClient) => {
         if (err) {
-            cb(err);
+            return cb(err);
         }
         if (!selfClient) {
-            cb('E_INITWSCLIENT');
+            return cb('E_INITWSCLIENT');
         }
+        let manager = communicationManager(ctx);
+
+        cb(void 0, manager)
     });
-
-    let manager = communicationManager(ctx);
-
-    cb(void 0, manager)
 };
 
 /* This function initializes the different ws servers on the Core components */
@@ -240,16 +239,15 @@ let init = function(config, cb) {
 
     wsConnector.initServer(ctx, myConfig, createHandlers, (err, selfClient) => {
         if (err) {
-            cb(err);
+            return cb(err);
         }
         if (!selfClient) {
-            cb('E_INITWSSERVER');
+            return cb('E_INITWSSERVER');
         }
+        let manager = communicationManager(ctx);
+
+        return cb(void 0, manager)
     });
-
-    let manager = communicationManager(ctx);
-
-    cb(void 0, manager)
 };
 
 module.exports = { connect, init };
