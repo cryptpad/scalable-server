@@ -53,15 +53,15 @@ let coreStart = (myId) => {
         Interface.init(Config, (err, _interface) => {
             if (err) { return reject(err); }
             interface = _interface;
+
+            let pingHandler = function(args, cb) {
+                cb(void 0, { ping: args, pong: (new Date()).getTime() });
+            }
+
+            let COMMANDS = { 'PING': pingHandler };
+            interface.handleCommands(COMMANDS);
+            return resolve(interface);
         });
-
-        let pingHandler = function(args, cb) {
-            cb(void 0, { ping: args, pong: (new Date()).getTime() });
-        }
-
-        let COMMANDS = { 'PING': pingHandler };
-        interface.handleCommands(COMMANDS);
-        return resolve(interface);
     });
 };
 
