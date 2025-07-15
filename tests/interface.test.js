@@ -74,47 +74,47 @@ let wsStart = (myId) => {
                 return reject(err);
             }
             interface = _interface;
-        });
-        let other = 'core:0';
+            let other = 'core:0';
 
-        let i = 0;
-        let timings = [];
+            let i = 0;
+            let timings = [];
 
-        let sendPing = () => {
-            return new Promise(resolve => {
-                let leftToRun = 0;
-                for (let i = 0; i < NTRIES * ITERS; i++) {
-                    leftToRun++;
-                    let outcome = interface.sendQuery(other, 'PING', (new Date()).getTime(), function(response) {
-                        let now = (new Date()).getTime();
-                        let pingTime = response.data.ping;
-                        timings[i++ % ITERS] = now - pingTime;
-                        if (!(i % ITERS)) {
-                            let average = timings.reduce((acc, x) => (acc + x), 0) / ITERS;
-                            console.log(`${myId}: Average over ${ITERS}: ${average}ms`)
+            let sendPing = () => {
+                return new Promise(resolve => {
+                    let leftToRun = 0;
+                    for (let i = 0; i < NTRIES * ITERS; i++) {
+                        leftToRun++;
+                        let outcome = interface.sendQuery(other, 'PING', (new Date()).getTime(), function(response) {
+                            let now = (new Date()).getTime();
+                            let pingTime = response.data.ping;
+                            timings[i++ % ITERS] = now - pingTime;
+                            if (!(i % ITERS)) {
+                                let average = timings.reduce((acc, x) => (acc + x), 0) / ITERS;
+                                console.log(`${myId}: Average over ${ITERS}: ${average}ms`)
+                            }
+                            leftToRun--;
+                            if (leftToRun == 0) {
+                                return resolve(true);
+                            }
+                        });
+                        if (!outcome) {
+                            return resolve(false);
                         }
-                        leftToRun--;
-                        if (leftToRun == 0) {
-                            return resolve(true);
-                        }
-                    });
-                    if (!outcome) {
-                        return resolve(false);
                     }
-                }
-            });
-        };
+                });
+            };
 
-        let disconnect = () => {
-            interface.disconnect();
-        };
+            let disconnect = () => {
+                interface.disconnect();
+            };
 
-        let reset = function() {
-            i = 0;
-            timings = [];
-        };
+            let reset = function() {
+                i = 0;
+                timings = [];
+            };
 
-        return resolve({ sendPing, reset, disconnect });
+            return resolve({ sendPing, reset, disconnect });
+        });
     });
 };
 
