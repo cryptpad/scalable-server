@@ -102,8 +102,8 @@ module.exports = {
         });
 
         Promise.all(toStart)
-            .then((val) => {
-                if (val.every(el => el)) {
+            .then((client) => {
+                if (client.every(el => el)) {
                     return cb(void 0);
                 } else {
                     return cb('E_INITWSCLIENT');
