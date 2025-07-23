@@ -224,42 +224,48 @@ let onDirectMessage = function(Server, seq, userId, json) {
     });
 };
 
-let Server = ChainpadServer.create(new WebSocketServer({ server: httpServer }))
-    .on('channelClose', onChannelClose)
-    .on('channelMessage', onChannelMessage)
-    .on('channelOpen', onChannelOpen)
-    .on('sessionClose', onSessionClose)
-    .on('sessionOpen', onSessionOpen)
-    .on('error', function(error, label, info) {
-        console.error('ERROR', error);
-    })
-    .register(hkId, onDirectMessage);
+const start = () => {
+    let Server = ChainpadServer.create(new WebSocketServer({ server: httpServer }))
+        .on('channelClose', onChannelClose)
+        .on('channelMessage', onChannelMessage)
+        .on('channelOpen', onChannelOpen)
+        .on('sessionClose', onSessionClose)
+        .on('sessionOpen', onSessionOpen)
+        .on('error', function(error, label, info) {
+            console.error('ERROR', error);
+        })
+        .register(hkId, onDirectMessage);
 
-Config.myId = 'ws:' + idx;
-Env.numberCores = Config.infra.core.length;
+    Config.myId = 'ws:' + idx;
+    Env.numberCores = Config.infra.core.length;
 
-let channelContainsUserHandle = function(args, cb) {
-    let channelName = args.channelName;
-    let userId = args.userId;
+    let channelContainsUserHandle = function(args, cb) {
+        let channelName = args.channelName;
+        let userId = args.userId;
 
-    let Server = Env.openConnections[channelName];
-    if (!Server) {
-        console.error('Error: Server for', channelName, 'not found.');
-        cb('SERVER_NOT_FOUND', void 0);
-    }
+        let Server = Env.openConnections[channelName];
+        if (!Server) {
+            console.error('Error: Server for', channelName, 'not found.');
+            cb('SERVER_NOT_FOUND', void 0);
+        }
 
-    cb(void 0, { response: Server.channelContainsUser(channelName, userId) });
+        cb(void 0, { response: Server.channelContainsUser(channelName, userId) });
+    };
+
+    let COMMANDS = {
+        'CHANNEL_CONTAINS_USER': channelContainsUserHandle,
+    };
+
+    Interface.connect(Config, (err, _interface) => {
+        if (err) {
+            console.error(Config.myId, ' error:', err);
+            return;
+        }
+        Env.interface = _interface;
+        _interface.handleCommands(COMMANDS);
+    });
 };
 
-let COMMANDS = {
-    'CHANNEL_CONTAINS_USER': channelContainsUserHandle,
+module.exports = {
+    start
 };
-
-Interface.connect(Config, (err, interface) => {
-    if (err) {
-        console.error(Config.myId, ' error:', err);
-        return;
-    }
-    Env.interface = interface;
-    interface.handleCommands(COMMANDS);
-});

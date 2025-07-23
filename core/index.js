@@ -170,13 +170,15 @@ let startServers = function() {
             console.error('E: interface initialisation error', err)
             return;
         }
-        let interface = Env.interface = _interface;
+        Env.interface = _interface;
 
-        interface.handleCommands(COMMANDS)
+        _interface.handleCommands(COMMANDS)
         if (process.send !== undefined) {
             process.send({ type: 'core', idx, msg: 'READY' });
         }
     });
 };
 
-startServers();
+module.exports = {
+    start: startServers
+};

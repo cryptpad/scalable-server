@@ -145,8 +145,8 @@ let communicationManager = function(ctx) {
 
     let disconnect = function() {
         Object.keys(ctx.others).forEach(type => {
-            ctx.others[type].forEach(interface => {
-                interface.disconnect();
+            ctx.others[type].forEach(_interface => {
+                _interface.disconnect();
             });
         });
         ctx.self.disconnect();

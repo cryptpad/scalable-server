@@ -372,13 +372,13 @@ let COMMANDS = {
 // Connect to core
 let start = function() {
     Config.myId = 'storage:' + idx;
-    Interface.connect(Config, (err, interface) => {
+    Interface.connect(Config, (err, _interface) => {
         if (err) {
             console.error(Config.myId, ' error:', err);
             return;
         }
-        interface.handleCommands(COMMANDS);
-        Env.interface = interface;
+        _interface.handleCommands(COMMANDS);
+        Env.interface = _interface;
         if (process.send !== undefined) {
             process.send({ type: 'storage', idx, msg: 'READY' });
         } else {
@@ -387,4 +387,6 @@ let start = function() {
     });
 };
 
-start();
+module.exports = {
+    start
+};
