@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2024 XWiki CryptPad Team <contact@cryptpad.org> and contributors
 const Config = require("../ws-config.js");
 const Interface = require("../common/interface.js");
+const WSConnector = require("../common/ws-connector.js");
 const WriteQueue = require("../storage/write-queue.js");
 const Crypto = require("./crypto.js")('sodiumnative');
 const { jumpConsistentHash } = require('../common/consistent-hash.js');
@@ -165,7 +166,7 @@ let startServers = function() {
         COMMANDS[command] = wsToStorage(command, false, true);
     });
 
-    Interface.init(Config, (err, _interface) => {
+    Interface.init(Config, WSConnector, (err, _interface) => {
         if (err) {
             console.error('E: interface initialisation error', err)
             return;

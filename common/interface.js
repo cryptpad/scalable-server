@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2024 XWiki CryptPad Team <contact@cryptpad.org> and contributors
 const Util = require("./common-util.js");
-const wsConnector = require("./ws-connector.js");
 
 let createHandlers = function(ctx, other) {
     other.onMessage(function(message) {
@@ -159,7 +158,7 @@ let communicationManager = function(ctx) {
  * - config: contains ../ws-config.js and a string `myId` identifying the initiator
  * of the connection.
  */
-let connect = function(config, cb) {
+let connect = function(config, connector, cb) {
     if (!cb) { cb = () => { }; }
 
     let ctx = {
@@ -190,7 +189,7 @@ let connect = function(config, cb) {
     }
 
     // Connection to the different core servers
-    wsConnector.initClient(ctx, config, createHandlers, (err, selfClient) => {
+    connector.initClient(ctx, config, createHandlers, (err, selfClient) => {
         if (err) {
             return cb(err);
         }
@@ -204,7 +203,7 @@ let connect = function(config, cb) {
 };
 
 /* This function initializes the different ws servers on the Core components */
-let init = function(config, cb) {
+let init = function(config, connector, cb) {
     if (!cb) { cb = () => { } };
 
     let ctx = {
@@ -237,7 +236,7 @@ let init = function(config, cb) {
         throw new Error('INVALID_SERVER_ID');
     }
 
-    wsConnector.initServer(ctx, myConfig, createHandlers, (err, selfClient) => {
+    connector.initServer(ctx, myConfig, createHandlers, (err, selfClient) => {
         if (err) {
             return cb(err);
         }

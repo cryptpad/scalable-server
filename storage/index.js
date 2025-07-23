@@ -9,6 +9,7 @@ const HistoryKeeper = require("./historyKeeper.js");
 const Config = require("../ws-config.js");
 const Interface = require("../common/interface.js");
 const WriteQueue = require("./write-queue.js");
+const WSConnector = require("../common/ws-connector.js");
 const cli_args = require("minimist")(process.argv.slice(2));
 
 let proceed = true;
@@ -372,7 +373,7 @@ let COMMANDS = {
 // Connect to core
 let start = function() {
     Config.myId = 'storage:' + idx;
-    Interface.connect(Config, (err, _interface) => {
+    Interface.connect(Config, WSConnector, (err, _interface) => {
         if (err) {
             console.error(Config.myId, ' error:', err);
             return;

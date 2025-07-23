@@ -6,6 +6,7 @@ const WebSocketServer = require('ws').Server;
 const ChainpadServer = require('chainpad-server');
 const Config = require("../ws-config.js");
 const Interface = require("../common/interface.js");
+const WSConnector = require("../common/ws-connector.js");
 const Util = require("../common/common-util.js");
 const { jumpConsistentHash } = require('../common/consistent-hash.js');
 const cli_args = require("minimist")(process.argv.slice(2));
@@ -256,7 +257,7 @@ const start = () => {
         'CHANNEL_CONTAINS_USER': channelContainsUserHandle,
     };
 
-    Interface.connect(Config, (err, _interface) => {
+    Interface.connect(Config, WSConnector, (err, _interface) => {
         if (err) {
             console.error(Config.myId, ' error:', err);
             return;
