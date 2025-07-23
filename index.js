@@ -11,9 +11,9 @@ const start_node = (type, id) => {
     // TODO: replace this port computation with something without potential
     // collisions with the config file
     if (type === 'ws') {
-        node_process = fork('websocket/index.js', ['--id', id, '--port', 3000 + id]);
+        node_process = fork('./build/websocket.js', ['--id', id, '--port', 3000 + id]);
     } else {
-        node_process = fork(type + '/index.js', ['--id', id]);
+        node_process = fork('./build/' + type + '.js', ['--id', id]);
     }
     node_process.on('message', (message) => {
         if (message.msg === 'READY') {
@@ -33,7 +33,7 @@ const cores_ready = () => {
 
 Config.infra.core.forEach((_, id) => {
     console.log(`Start: core:${id}`);
-    let core_process = fork('core/index.js', ['--id', id]);
+    let core_process = fork('build/core.js', ['--id', id]);
     cores_pending++;
     core_process.on('message', (message) => {
         if (message.msg === 'READY') {
