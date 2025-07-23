@@ -62,6 +62,7 @@ To create a minimal interface, one can use the following code, assuming you are
 one level above the root of the repository:
 ```javascript
 const Interface = require("../common/interface.js");
+const WSConnector = require("../common/ws-connector.js");
 
 let Config = {
     infra: {
@@ -89,7 +90,7 @@ Config.myId = 'core:0';
 Then, start it with `Interface.init` for a `core` node or `Interface.connect`
 for a `ws` or `storage` node:
 ```javascript
-let interface = Interface.init(Config);
+let interface = Interface.init(Config, WSConnector);
 ```
 
 Now you are able to use the `interface` variable to communicate with other
