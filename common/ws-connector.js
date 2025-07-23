@@ -96,20 +96,20 @@ module.exports = {
                         let uid = Util.uid(); // XXX: replace with guid
                         client.send([uid, 'IDENTITY', { type: ctx.myType, idx: ctx.myNumber }]);
                         onConnected(ctx, client);
-                        resolve(client);
+                        resolve();
                     })
             }));
         });
 
         Promise.all(toStart)
-            .then((client) => {
-                if (client.every(el => el)) {
-                    return cb(void 0);
-                } else {
-                    return cb('E_INITWSCLIENT');
-                }
+            .then(() => {
+                return cb(void 0);
             })
             .catch((err) => {
+                // In case of error, close opened websockets
+                ctx.others.forEach(client => {
+                    client.disconnect();
+                });
                 return cb(err);
             });
     }
