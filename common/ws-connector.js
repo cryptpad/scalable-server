@@ -32,7 +32,7 @@ const socketToClient = function(ws) {
     });
 
     let isOpen = () => {
-            return ws.readyState !== WebSocket.CLOSED;
+        return ws.readyState !== WebSocket.CLOSED;
     };
 
     // XXX: maybe add an uid for connections?
@@ -76,25 +76,41 @@ module.exports = {
                 onNewClient(ctx, socketToClient(ws));
             });
             ctx.self.onDisconnect(() => { httpServer.close(err => { cb(err); }) });
-            cb (void 0, ctx.self)
+            cb(void 0, ctx.self)
         });
     },
     initClient: function(ctx, config, onConnected, cb) {
+        let toStart = [];
+
         config.infra.core.forEach(function(server, id) {
             let socket = new WebSocket('ws://' + server.host + ':' + server.port);
-            socket.on('error', function(error) {
-                console.error('Websocket connection error on', server, ':', error);
-                cb(error);
-            })
-                .on('open', function() {
-                    let client = socketToClient(socket);
-                    ctx.self = client;
-                    ctx.others.core[id] = client;
-                    let uid = Util.uid(); // XXX: replace with guid
-                    client.send([uid, 'IDENTITY', { type: ctx.myType, idx: ctx.myNumber }]);
-                    onConnected(ctx, client);
-                    cb(void 0, ctx.self);
+            toStart.push(new Promise((resolve, reject) => {
+                socket.on('error', function(error) {
+                    console.error('Websocket connection error on', server, ':', error);
+                    reject(error)
                 })
+                    .on('open', function() {
+                        let client = socketToClient(socket);
+                        ctx.self = client;
+                        ctx.others.core[id] = client;
+                        let uid = Util.uid(); // XXX: replace with guid
+                        client.send([uid, 'IDENTITY', { type: ctx.myType, idx: ctx.myNumber }]);
+                        onConnected(ctx, client);
+                        resolve(client);
+                    })
+            }));
         });
+
+        Promise.all(toStart)
+            .then((val) => {
+                if (val.every(el => el)) {
+                    return cb(void 0);
+                } else {
+                    return cb('E_INITWSCLIENT');
+                }
+            })
+            .catch((err) => {
+                return cb(err);
+            });
     }
 }

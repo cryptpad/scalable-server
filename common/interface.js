@@ -193,16 +193,13 @@ let connect = function(config, cb) {
     if (!connector) {
         return cb('E_MISSINGCONNECTOR');
     }
-    connector.initClient(ctx, config, createHandlers, (err, selfClient) => {
+    connector.initClient(ctx, config, createHandlers, (err) => {
         if (err) {
             return cb(err);
         }
-        if (!selfClient) {
-            return cb('E_INITWSCLIENT');
-        }
         let manager = communicationManager(ctx);
 
-        cb(void 0, manager)
+        return cb(void 0, manager)
     });
 };
 
