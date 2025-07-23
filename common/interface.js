@@ -158,7 +158,7 @@ let communicationManager = function(ctx) {
  * - config: contains ../ws-config.js and a string `myId` identifying the initiator
  * of the connection.
  */
-let connect = function(config, connector, cb) {
+let connect = function(config, cb) {
     if (!cb) { cb = () => { }; }
 
     let ctx = {
@@ -189,6 +189,10 @@ let connect = function(config, connector, cb) {
     }
 
     // Connection to the different core servers
+    const { connector } = config;
+    if (!connector) {
+        return cb('E_MISSINGCONNECTOR');
+    }
     connector.initClient(ctx, config, createHandlers, (err, selfClient) => {
         if (err) {
             return cb(err);
@@ -203,7 +207,7 @@ let connect = function(config, connector, cb) {
 };
 
 /* This function initializes the different ws servers on the Core components */
-let init = function(config, connector, cb) {
+let init = function(config, cb) {
     if (!cb) { cb = () => { } };
 
     let ctx = {
@@ -236,6 +240,10 @@ let init = function(config, connector, cb) {
         throw new Error('INVALID_SERVER_ID');
     }
 
+    const { connector } = config;
+    if (!connector) {
+        return cb('E_MISSINGCONNECTOR');
+    }
     connector.initServer(ctx, myConfig, createHandlers, (err, selfClient) => {
         if (err) {
             return cb(err);

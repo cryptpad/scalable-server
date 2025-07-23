@@ -238,6 +238,7 @@ const start = () => {
         .register(hkId, onDirectMessage);
 
     Config.myId = 'ws:' + idx;
+    Config.connector = WSConnector;
     Env.numberCores = Config.infra.core.length;
 
     let channelContainsUserHandle = function(args, cb) {
@@ -257,7 +258,7 @@ const start = () => {
         'CHANNEL_CONTAINS_USER': channelContainsUserHandle,
     };
 
-    Interface.connect(Config, WSConnector, (err, _interface) => {
+    Interface.connect(Config, (err, _interface) => {
         if (err) {
             console.error(Config.myId, ' error:', err);
             return;

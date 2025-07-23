@@ -149,6 +149,7 @@ let startServers = function() {
     Env.numberStorages = Config.infra.storage.length;
     let idx = Number(cli_args.id) || 0;
     Config.myId = 'core:' + idx;
+    Config.connector = WSConnector;
     let queriesToStorage = ['GET_HISTORY', 'GET_METADATA', 'CHANNEL_MESSAGE'];
     let queriesToWs = ['CHANNEL_CONTAINS_USER'];
     let eventsToStorage = ['DROP_CHANNEL',];
@@ -166,7 +167,7 @@ let startServers = function() {
         COMMANDS[command] = wsToStorage(command, false, true);
     });
 
-    Interface.init(Config, WSConnector, (err, _interface) => {
+    Interface.init(Config, (err, _interface) => {
         if (err) {
             console.error('E: interface initialisation error', err)
             return;

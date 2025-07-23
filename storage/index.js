@@ -373,7 +373,8 @@ let COMMANDS = {
 // Connect to core
 let start = function() {
     Config.myId = 'storage:' + idx;
-    Interface.connect(Config, WSConnector, (err, _interface) => {
+    Config.connector = WSConnector;
+    Interface.connect(Config, (err, _interface) => {
         if (err) {
             console.error(Config.myId, ' error:', err);
             return;
