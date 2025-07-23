@@ -78,7 +78,8 @@ let Config = {
             host: 'localhost',
             port: 3011
         }]
-    }
+    },
+    connector: WSConnector
 };
 ```
 
@@ -90,7 +91,7 @@ Config.myId = 'core:0';
 Then, start it with `Interface.init` for a `core` node or `Interface.connect`
 for a `ws` or `storage` node:
 ```javascript
-let interface = Interface.init(Config, WSConnector);
+let interface = Interface.init(Config);
 ```
 
 Now you are able to use the `interface` variable to communicate with other
