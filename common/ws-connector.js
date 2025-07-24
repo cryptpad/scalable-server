@@ -80,26 +80,24 @@ module.exports = {
         });
     },
     initClient: function(ctx, config, onConnected, cb) {
-        let toStart = [];
+        let toStart = config?.infra?.core?.map((server, id) => new Promise((resolve, reject) => {
 
-        config.infra.core.forEach(function(server, id) {
             let socket = new WebSocket('ws://' + server.host + ':' + server.port);
-            toStart.push(new Promise((resolve, reject) => {
-                socket.on('error', function(error) {
+            socket
+                .on('error', function(error) {
                     console.error('Websocket connection error on', server, ':', error);
                     reject(error)
                 })
-                    .on('open', function() {
-                        let client = socketToClient(socket);
-                        ctx.self = client;
-                        ctx.others.core[id] = client;
-                        let uid = Util.uid(); // XXX: replace with guid
-                        client.send([uid, 'IDENTITY', { type: ctx.myType, idx: ctx.myNumber }]);
-                        onConnected(ctx, client);
-                        resolve();
-                    })
-            }));
-        });
+                .on('open', function() {
+                    let client = socketToClient(socket);
+                    ctx.self = client;
+                    ctx.others.core[id] = client;
+                    let uid = Util.uid(); // XXX: replace with guid
+                    client.send([uid, 'IDENTITY', { type: ctx.myType, idx: ctx.myNumber }]);
+                    onConnected(ctx, client);
+                    resolve();
+                })
+        }));
 
         Promise.all(toStart)
             .then(() => {
