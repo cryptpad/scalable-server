@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2024 XWiki CryptPad Team <contact@cryptpad.org> and contributors
+
 const Express = require('express');
 const Http = require('http');
 const WebSocketServer = require('ws').Server;
-const ChainpadServer = require('chainpad-server');
-const Config = require("../ws-config.js");
+//const ChainpadServer = require('chainpad-server');
 const Interface = require("../common/interface.js");
+const Crypto = require('crypto');
 const Util = require("../common/common-util.js");
 const { jumpConsistentHash } = require('../common/consistent-hash.js');
 const cli_args = require("minimist")(process.argv.slice(2));
 
-let proceed = true;
 
 if (cli_args.h || cli_args.help) {
     proceed = false;
@@ -19,39 +19,25 @@ if (cli_args.h || cli_args.help) {
     console.log("\t--id\tSet the websocket node id (default: 0)");
     console.log("\t--host\tSet the websocket listening host (default: ::)");
     console.log("\t--port\tSet the websocket listening port (default: 3000)");
+    return;
 }
 
-if (!proceed) { return; }
-let idx = Number(cli_args.id) || 0;
+const idx = Number(cli_args.id) || 0;
 
-let publicConfig = {
+// XXX move to ws-config
+const publicConfig = {
     host: cli_args.host || '::',
     port: cli_args.port || '3000'
 };
 
-let Env = {
-    LogIp: true,
-    openConnections: {},
-    user_channel_cache: {},
-};
 
-let app = Express();
-let httpServer = Http.createServer(app);
-httpServer.listen(publicConfig.port, publicConfig.host, function() {
-    if (process.send !== undefined) {
-        process.send({type: 'ws', idx, msg: 'READY'});
-    } else {
-        console.log('ws:' + idx + ' started');
-    }
-});
-
-let hkId = "0123456789abcdef";
+const hkId = "0123456789abcdef";
 const EPHEMERAL_CHANNEL_LENGTH = 34;
 const ADMIN_CHANNEL_LENGTH = 33;
 const CHECKPOINT_PATTERN = /^cp\|(([A-Za-z0-9+\/=]+)\|)?/;
 
 // Use consistentHash for that
-let getCoreId = function(channelName) {
+const getCoreId = (channelName) => {
     if (typeof (Env.numberCores) !== 'number') {
         console.error('getCoreId: invalid number of cores', Env.numberCores);
         return void 0;
@@ -60,6 +46,9 @@ let getCoreId = function(channelName) {
     let coreId = 'core:' + jumpConsistentHash(key, Env.numberCores);
     return coreId;
 };
+
+
+
 
 let onChannelClose = function(channelName) {
     let coreId = getCoreId(channelName);
@@ -147,84 +136,374 @@ let onChannelOpen = function(Server, channelName, userId, wait) {
     })
 };
 
-let onSessionClose = function(userId, reason) {
+
+
+
+
+const now = () => {
+    return +new Date();
+};
+const randName = () => {
+    return Crypto.randomBytes(16).toString('hex');
+};
+const createUniqueName = () => {
+    const name = randName();
+    if (typeof(Env.users[name]) === 'undefined') { return name; }
+    return createUniqueName();
+};
+const socketSendable = (socket) => {
+    return socket && socket.readyState === 1;
+};
+const QUEUE_CHR = 1024 * 1024 * 4;
+
+const createLogger = () => {
+    return {
+        info: console.log,
+        verbose: console.info,,
+        error: console.error,
+        warn: console.warn,
+        debug: console.debug
+    };
+};
+
+
+const dropUserChannels = (Env, userId) => {
+    const user = Env.users[userId];
+    if (!user) { return; }
+    user.channels.forEach(channel => {
+        const coreId = getCoreId(channel);
+        Env.interface?.sendEvent(coreId, 'DROP_CHANNEL', {
+            channelName,
+            userId
+        });
+    });
+};
+
+const onSessionOpen = function(Env, userId) {
+    const user = Env.users[userId];
+    if (!user) { return; }
+
+    if (!Env.logIP || !user.ip) { return; }
+    Env.log.info('USER_CONNECTION', {
+        userId: userId,
+        ip: user.ip,
+    });
+};
+const onSessionClose = (Env, userId, reason) => {
+    // Cleanup leftover channels
+    dropUserChannels();
+    delete Env.users[userId];
+
     // Log unexpected errors
-    if (Env.logIP && !['SOCKET_CLOSED', 'INACTIVITY'].includes(reason)) {
-        return void console.info('USER_DISCONNECTED_ERROR', {
+    if (Env.logIP &&
+        !['SOCKET_CLOSED', 'INACTIVITY'].includes(reason)) {
+        return void Env.log.info('USER_DISCONNECTED_ERROR', {
             userId: userId,
             reason: reason
         });
     }
-    if (['BAD_MESSAGE', 'SEND_MESSAGE_FAIL_2'].indexOf(reason) !== -1) {
-        if (reason && reason.code === 'ECONNRESET') { return; }
-        return void console.error('SESSION_CLOSE_WITH_ERROR', {
+    if (['BAD_MESSAGE', 'SEND_MESSAGE_FAIL_2'].includes(reason)) {
+        return void Env.log.error('SESSION_CLOSE_WITH_ERROR', {
             userId: userId,
             reason: reason,
         });
     }
 
-    if (['SOCKET_CLOSED', 'SOCKET_ERROR'].includes(reason)) { return; }
-    console.verbose('SESSION_CLOSE_ROUTINE', {
+    if (['SOCKET_CLOSED', 'SOCKET_ERROR'].includes(reason)) {
+        return;
+    }
+    Env.log.verbose('SESSION_CLOSE_ROUTINE', {
         userId: userId,
         reason: reason,
     });
+};
+const historyCommands = [
+    'GET_HISTORY', 'GET_HISTORY_RANGE', 'GET_FULL_HISTORY'
+];
 
-    // cleanup leftover channels
-    Env.user_channel_cache[userId].forEach(channelName => {
-        Env.interface.sendEvent(getCoreId(channelName), 'DROP_CHANNEL', { channelName, userId });
-    });
-    delete Env.user_channel_cache[userId];
+
+const WEBSOCKET_CLOSING = 2;
+const WEBSOCKET_CLOSED = 3;
+const dropUser = (Env, user, reason) => {
+    if (!user || !user.socket) { return; }
+    if (user.socket.readyState !== WEBSOCKET_CLOSING
+        && user.socket.readyState !== WEBSOCKET_CLOSED) {
+        try {
+            user.socket.close();
+        } catch (e) {
+            Env.log.error(e, 'FAIL_TO_DISCONNECT', { id: user.id, });
+            try {
+                user.socket.terminate();
+            } catch (ee) {
+                Env.log.error(ee, 'FAIL_TO_TERMINATE', {
+                    id: user.id
+                });
+            }
+        }
+    }
+    onSessionClose(Env, user.id, reason);
 };
 
-let onSessionOpen = function(userId, ip) {
-    Env.user_channel_cache[userId] = [];
+const sendMsg = (Env, user, msg) => {
+    return new Promise((resolve, reject) => {
+        // don't bother trying to send if the user doesn't
+        // exist anymore
+        if (!user) { return void reject("NO_USER"); }
+        // or if you determine that it's unsendable
+        if (!socketSendable(user.socket)) {
+            return void reject("UNSENDABLE");
+        }
 
-    // TODO: log IPs if needed
-    if (!Env.logIP) { return; }
-    console.log('USER_CONNECTION', {
-        userId: userId,
-        ip: ip,
+        try {
+            const strMsg = JSON.stringify(msg);
+            user.inQueue += strMsg.length;
+            user.sendMsgCallbacks.push(resolve);
+            user.socket.send(strMsg, () => {
+                user.inQueue -= strMsg.length;
+                if (user.inQueue > QUEUE_CHR) { return; }
+                const smcb = user.sendMsgCallbacks;
+                user.sendMsgCallbacks = [];
+                try {
+                    smcb.forEach((cb)=>{cb();});
+                } catch (e) {
+                    Env.log.error(e, 'SEND_MESSAGE_FAIL');
+                }
+            });
+        } catch (e) {
+            // call back any pending callbacks before you
+            // drop the user
+            reject(e);
+            Env.log.error(e, 'SEND_MESSAGE_FAIL_2');
+            dropUser(Env, user, 'SEND_MESSAGE_FAIL_2');
+        }
     });
 };
 
-let onDirectMessage = function(Server, seq, userId, json) {
+const onHKMessage = (Env, seq, user, json) => {
     let parsed = Util.tryParse(json[2]);
     if (!parsed) {
-        console.error("HK_PARSE_CLIENT_MESSAGE", json);
+        Env.log.error("HK_PARSE_CLIENT_MESSAGE", json);
         return;
     }
 
-    // if (typeof(directMessageCommands[first]) !== 'function') {
-    // it's either an unsupported command or an RPC call
-    // TODO: to handle
-    // console.error('NOT_IMPLEMENTED', first);
-    // }
+    const first = parsed[0];
 
-    let first = parsed[0];
-    let channelName = parsed[1];
+    if (!historyCommands.includes(first)) {
+        // it's either an unsupported command or an RPC call
+        // TODO: to handle
+        Env.log.error('NOT_IMPLEMENTED', first);
+        throw new Error("TODO RPC");
+    }
+
+    const channelName = parsed[1];
+    const userId = user.id;
 
     let coreId = getCoreId(channelName);
-    Env.interface.sendQuery(coreId, first, { seq, userId, parsed, channelName }, function(answer) {
+    Env.interface.sendQuery(coreId, first, {
+        seq, userId, parsed, channelName
+    }, answer => {
         let toSend = answer.data.toSend;
         let error = answer.error;
-        if (error) {
-            return;
-        }
-        if (!toSend) {
-            return;
-        }
+
+        Server.send(userId, [seq, 'ACK']);
+
+        if (error) { return; }
+        if (!toSend) { return; }
 
         // TODO: sanity check on toSend
-
         // TODO: to batch
-        Server.send(userId, [seq, 'ACK']);
         toSend.forEach(function(message) {
-            Server.send(userId, message);
+            sendMsg(Env, user, message);
         });
     });
 };
+const handleMsg = (Env, args) => {
+    let obj = args.obj;
+    let seq = args.seq;
+    let user = args.user;
+    let json = args.json;
+
+    if (obj === hkId) {
+        return void onHKMessage(Env, seq, user, json);
+    }
+
+    /* XXX TODO
+     *  - obj can be a user or a channel
+     *  - we can only send "MSG" to channels we have already joined
+     *  - if obj is not in our user.channels
+     *      - ask the selected CORE to send the message to a user
+     *        with "obj" as ID
+     *          - if this user doesn't exist, just ignore
+     *          - if this user exist, send from CORE to correct WS
+     *  - if obj is one of our user.channels, treat as a channel msg
+     *      - we still need to send ti to the core but in a
+     *        different way
+     */
+
+    
+
+    /*
+    if (obj && !ctx.channels[obj] && !ctx.users[obj]) {
+        ctx.emit.error(new Error('NF_ENOENT'), 'NF_ENOENT', {
+            user: isDefined(user && user.id)? user.id: 'MISSING',
+            json: json || 'MISSING',
+        });
+        return void sendMsg(ctx, user, [seq, 'ERROR', 'enoent', obj]);
+    }
+
+    let target;
+    json.unshift(user.id);
+    if ((target = ctx.channels[obj])) {
+        return void sendChannelMessage(ctx, target, json, function (err) {
+            if (err) { return void sendMsg(ctx, user, [seq, 'ERROR']); }
+            sendMsg(ctx, user, [seq, 'ACK']);
+        });
+    }
+
+    sendMsg(ctx, user, [seq, 'ACK']);
+
+    if ((target = ctx.users[obj])) {
+        json.unshift(0);
+        return void sendMsg(ctx, target, json);
+    }
+    */
+};
+const handlePing = (Env, args) => {
+    sendMsg(Env, args.user, [args.seq, 'ACK']);
+};
+const commands = {
+    JOIN: handleJoin,
+    MSG: handleMsg,
+    LEAVE: handleLeave,
+    PING: handlePing,
+};
+const handleMessage = (Env, user, msg) => {
+    // this parse is safe because handleMessage
+    // is only ever called in a try-catch
+    let json = JSON.parse(msg);
+    let seq = json.shift();
+    let cmd = json[0];
+
+    user.timeOfLastMessage = now();
+    user.pingOutstanding = false;
+
+    if (typeof(commands[cmd]) !== 'function') { return; }
+    commands[cmd](Env, {
+        user, json, seq,
+        obj: json[1],
+    });
+};
+
+const initServerHandlers = (Env) => {
+    if (!Env.wss) { throw new Error('No WebSocket Server'); }
+    Env.wss.on('connection', (socket, req) => {
+        // refuse new connections if the server is shutting down
+        if (!Env.active) { return; }
+        if (!socket.upgradeReq) { socket.upgradeReq = req; }
+
+        const ip = (req.headers && req.headers['x-real-ip'])
+                      || req.socket.remoteAddress || '';
+        const user = {
+            socket: socket,
+            id: createUniqueName(),
+            timeOfLastMessage: now(),
+            pingOutstanding: false,
+            inQueue: 0,
+            ip: ip.replace(/^::ffff:/, ''),
+            sendMsgCallbacks: [],
+            channels: []
+        };
+        Env.users[user.id] = user;
+        sendMsg(Env, user, [0, '', 'IDENT', user.id]);
+
+        onSessionOpen(Env, user.id, user.ip);
+
+        /*
+        XXX TODO
+        socket.on('message', message => {
+            try {
+                handleMessage(ctx, user, message);
+            } catch (e) {
+                Env.log.error(e, 'NETFLUX_BAD_MESSAGE', {
+                    user: user.id,
+                    message: message,
+                });
+                dropUser(Env, user, 'BAD_MESSAGE');
+            }
+        });
+        socket.on('close', function () {
+            dropUser(Env, user, 'SOCKET_CLOSED');
+        });
+        socket.on('error', function (err) {
+            emit.error(err, 'NETFLUX_WEBSOCKET_ERROR');
+            dropUser(Env, user, 'SOCKET_ERROR');
+        });
+        */
+    });
+
+};
+
+const initServer = (Env) => {
+    return new Promise((resolve, reject) => {
+        const app = Express();
+        const httpServer = Http.createServer(app);
+        httpServer.listen(publicConfig.port, publicConfig.host,() => {
+            if (process.send !== undefined) {
+                process.send({type: 'ws', idx, msg: 'READY'});
+            } else {
+                console.log('ws:' + idx + ' started');
+            }
+        });
+        Env.wss = new WebSocketServer({ server: httpServer });
+        initServerHandlers(Env);
+        resolve();
+    });
+};
+
+const shutdown = (Env) => {
+    if (!Env.wss) { return; }
+    Env.active = false;
+    Env.wss.close();
+    delete Env.wss;
+};
 
 const start = () => {
+    const Env = {
+        myId: `ws:${idx}`,
+        LogIp: true,
+        openConnections: {},
+        user_channel_cache: {},
+        log: createLogger(),
+        users: {}
+    };
+
+    const wsPromise = new Promise((resolve, reject) => {
+        initServer(Env).then(resolve).catch(reject);
+    });
+    const configPromise = new Promise((resolve, reject) => {
+        const config = require("../ws-config.js");
+        config.myId = Env.myId;
+        Env.config = config;
+        Env.numberCores = config.infra.core.length;
+        resolve(config);
+    });
+    Promise.all([
+        wsPromise,
+        configPromise
+    ]).then((values) => {
+        const config = values[0];
+        Interface.connect(config, (err, _interface) => {
+            if (err) {
+                console.error(Config.myId, ' error:', err);
+                return;
+            }
+            Env.interface = _interface;
+            _interface.handleCommands(COMMANDS);
+        });
+    });
+
+/*
+
     let Server = ChainpadServer.create(new WebSocketServer({ server: httpServer }))
         .on('channelClose', onChannelClose)
         .on('channelMessage', onChannelMessage)
@@ -235,9 +514,6 @@ const start = () => {
             console.error('ERROR', error);
         })
         .register(hkId, onDirectMessage);
-
-    Config.myId = 'ws:' + idx;
-    Env.numberCores = Config.infra.core.length;
 
     let channelContainsUserHandle = function(args, cb) {
         let channelName = args.channelName;
@@ -255,15 +531,7 @@ const start = () => {
     let COMMANDS = {
         'CHANNEL_CONTAINS_USER': channelContainsUserHandle,
     };
-
-    Interface.connect(Config, (err, _interface) => {
-        if (err) {
-            console.error(Config.myId, ' error:', err);
-            return;
-        }
-        Env.interface = _interface;
-        _interface.handleCommands(COMMANDS);
-    });
+*/
 };
 
 module.exports = {
