@@ -3,10 +3,9 @@
 const Config = require("../ws-config.js");
 const Interface = require("../common/interface.js");
 const WSConnector = require("../common/ws-connector.js");
-const WriteQueue = require("../storage/write-queue.js");
-const Crypto = require("./crypto.js")('sodiumnative');
 const { jumpConsistentHash } = require('../common/consistent-hash.js');
 const cli_args = require("minimist")(process.argv.slice(2));
+const WorkerModule = require("../common/worker-module.js");
 
 let proceed = true;
 
@@ -20,7 +19,6 @@ if (cli_args.h || cli_args.help) {
 if (!proceed) { return; }
 
 let Env = {
-    queueValidation: WriteQueue(),
     ws_id_cache: {},
 };
 
@@ -103,33 +101,9 @@ let EventToStorage = function(command) {
     };
 };
 
-let onValidateMessage = (msg, vk, cb) => {
-    let signedMsg;
-    try {
-        signedMsg = Crypto.decodeBase64(msg);
-    } catch (e) {
-        return void cb('E_BAD_MESSAGE');
-    }
-
-    let validateKey;
-    try {
-        validateKey = Crypto.decodeBase64(vk);
-    } catch (e) {
-        return void cb('E_BADKEY');
-    }
-
-    const validated = Crypto.sigVerify(signedMsg, validateKey);
-    if (!validated) {
-        return void cb('FAILED');
-    }
-    cb();
-};
-
-let validateMessageHandler = (args, cb) => {
-    Env.queueValidation(args.channelName, function(next) {
-        next();
-        onValidateMessage(args.signedMsg, args.validateKey, cb);
-    });
+// XXX: is there a cleaner way to pass workers?
+let validateMessageHandler = (workers) => (args, cb) => {
+    workers.send('VALIDATE_MESSAGE', args, cb);
 };
 
 let channelOpenHandler = function(args, cb, extra) {
@@ -145,16 +119,41 @@ let channelOpenHandler = function(args, cb, extra) {
     wsToStorage('CHANNEL_OPEN', true)(args, cb, extra);
 };
 
+const createLogger = () => {
+    return {
+        info: console.log,
+        verbose: console.info,
+        error: console.error,
+        warn: console.warn,
+        debug: console.debug
+    };
+};
+
 let startServers = function() {
     Env.numberStorages = Config.infra.storage.length;
     let idx = Number(cli_args.id) || 0;
     Config.myId = 'core:' + idx;
     Config.connector = WSConnector;
+
+    const workerConfig = {
+        Log: createLogger(),
+        workerPath: './core/worker.js',
+        maxWorkers: 1,
+        maxJobs: 4,
+        commandTimers: {}, // time spent on each command
+        config: {
+        },
+        Env: { // Serialized Env (Environment.serialize)
+        }
+    };
+
+    const workers = WorkerModule(workerConfig);
+
     let queriesToStorage = ['GET_HISTORY', 'GET_METADATA', 'CHANNEL_MESSAGE'];
     let queriesToWs = ['CHANNEL_CONTAINS_USER'];
     let eventsToStorage = ['DROP_CHANNEL',];
     let COMMANDS = {
-        'VALIDATE_MESSAGE': validateMessageHandler,
+        'VALIDATE_MESSAGE': validateMessageHandler(workers),
         'CHANNEL_OPEN': channelOpenHandler,
     };
     queriesToStorage.forEach(function(command) {
