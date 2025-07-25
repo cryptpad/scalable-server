@@ -22,6 +22,9 @@ if (cli_args.h || cli_args.help) {
 
 if (!proceed) { return; }
 
+const EPHEMERAL_CHANNEL_LENGTH = 34;
+const ADMIN_CHANNEL_LENGTH = 33;
+
 let Env = {
     id: "0123456789abcdef",
     publicKeyLength: 32,
@@ -29,7 +32,6 @@ let Env = {
     metadata_cache: {},
     channel_cache: {},
     cache_checks: {},
-    core_cache: {},
 
     queueStorage: WriteQueue(),
 
@@ -197,7 +199,7 @@ let onGetHistory = function(seq, userId, parsed, cb) {
             }
 
             if (msgCount === 0 && !metadata_cache[channelName]) {
-                Env.interface.sendQuery(getCoreId(userId), 'CHANNEL_CONTAINS_USER', { channelName, userId }, function(answer) {
+                Env.interface.sendQuery(getCoreId(channelName), 'CHANNEL_CONTAINS_USER', { channelName, userId }, function(answer) {
                     let err = answer.error;
                     if (err) {
                         console.error('Error: can’t check channelContainsUser:', err, '-', channelName, userId);
@@ -242,16 +244,43 @@ let onGetFullHistory = function(seq, userId, parsed, cb) {
     cb(error, toSend);
 };
 
-let onChannelMessage = function(channelName, channel, msgStruct, cb) {
-    channel.id = channelName;
+let onChannelMessage = function(channel, msgStruct, cb) {
     let userId = msgStruct[1];
     const isCp = /^cp\|/.test(msgStruct[4]);
     const CHECKPOINT_PATTERN = /^cp\|(([A-Za-z0-9+\/=]+)\|)?/;
+    const channelData = Env.channel_cache[channel] || {};
+
+    if (channel.length === EPHEMERAL_CHANNEL_LENGTH) {
+        // XXX
+        return void cb(void 0, {
+            users: channelData.users,
+            message: msgStruct
+        });
+    }
+
+    // Admin channel: we can only write from private message (RPC)
+    if (channel.id.length === ADMIN_CHANNEL_LENGTH &&
+        msgStruct[1] !== null) {
+        return void cb('ERESTRICTED_ADMIN');
+    }
+
+    let cpId;
+    if (isCp) {
+        // id becomes either null or an array or results...
+        cpId = CHECKPOINT_PATTERN.exec(msgStruct[4]);
+        if (Array.isArray(cpId) && cpId[2] &&
+            cpId[2] === channel.lastSavedCp) {
+            // Reject duplicate checkpoints: no error and message
+            // not sent to others
+            return void cb();
+        }
+    }
+
     let metadata;
     nThen(function(w) {
-        HistoryKeeper.getMetadata(Env, channelName, w(function(err, _metadata) {
-            // if there's no channel metadata then it can't be an expiring channel
-            // nor can we possibly validate it
+        HistoryKeeper.getMetadata(Env, channel, w(function(err, _metadata) {
+            // if there's no channel metadata then it can't be an
+            // expiring channel nor can we possibly validate it
             if (!_metadata) { return; }
             metadata = _metadata;
             // TODO: expiry verification
@@ -260,52 +289,38 @@ let onChannelMessage = function(channelName, channel, msgStruct, cb) {
         // if there's no validateKey present, skip to the next block
         if (!(metadata && metadata.validateKey)) { return; }
 
-        // trim the checkpoint indicator off the message if it's present
-        let signedMsg = (isCp) ? msgStruct[4].replace(CHECKPOINT_PATTERN, '') : msgStruct[4];
+        // trim the checkpoint indicator off the message
+        const signedMsg = isCp ? msgStruct[4].replace(CHECKPOINT_PATTERN, '') : msgStruct[4];
 
         // Validate Message
-        let coreId = getCoreId(userId);
-        Env.interface.sendQuery(coreId, 'VALIDATE_MESSAGE', { signedMsg, validateKey: metadata.validateKey, channelName }, function(answer) {
+        const coreId = getCoreId(channel);
+        Env.interface.sendQuery(coreId, 'VALIDATE_MESSAGE', {
+            signedMsg,
+            validateKey: metadata.validateKey,
+            channel
+        }, w(answer => {
             let err = answer.error;
-            if (!err) {
-                return w();
+            if (!err) { return; }
+            if (err === 'FAILED') {
+                // we log this case, but not others for some reason
+                Env.Log.error("HK_SIGNED_MESSAGE_REJECTED", {
+                    channel,
+                    validateKey: metadata.validayKey,
+                    message: signedMsg,
+                });
             }
-            else {
-                if (err === 'FAILED') {
-                    // we log this case, but not others for some reason
-                    console.error("HK_SIGNED_MESSAGE_REJECTED", {
-                        channel: channel.id,
-                        validateKey: metadata.validayKey,
-                        message: signedMsg,
-                    });
-                }
 
-                cb('FAILED VALIDATION')
-                return void w.abort();
-            }
-        });
+            cb('FAILED VALIDATION')
+            return void w.abort();
+        }));
     }).nThen(function() {
-        // do checkpoint stuff...
-
-        // 1. get the checkpoint id
-        // 2. reject duplicate checkpoints
-
         if (isCp) {
-            // if the message is a checkpoint we will have already validated
-            // that it isn't a duplicate. remember its id so that we can
-            // repeat this process for the next incoming checkpoint
-            // WARNING: the fact that we only check the most recent checkpoints
-            // is a potential source of bugs if one editor has high latency and
-            // pushes a duplicate of an earlier checkpoint than the latest which
-            // has been pushed by editors with low latency
-            //
-            // FIXME
-            let id = CHECKPOINT_PATTERN.exec(msgStruct[4]);
-            if (Array.isArray(id) && id[2]) {
+            // This cp is not a duplicate (already checked before).
+            // Remember its ID to make sure we won't push duplicates
+            // of this one later.
+            if (Array.isArray(cpId) && cpId[2]) {
                 // Store new checkpoint hash
-                // there's a FIXME above which concerns a reference to `lastSavedCp`
-                // this is a hacky place to store important data.
-                channel.lastSavedCp = id[2];
+                channelData.lastSavedCp = cpId[2];
             }
         }
 
@@ -315,7 +330,13 @@ let onChannelMessage = function(channelName, channel, msgStruct, cb) {
 
         // storeMessage
         //console.log(+new Date(), "Storing message");
-        Env.CM.storeMessage(channel, JSON.stringify(msgStruct), isCp, HK.getHash(msgStruct[4], Env.Log), time, cb);
+        Env.CM.storeMessage(channel, JSON.stringify(msgStruct), isCp, HK.getHash(msgStruct[4], Env.Log), time, err => {
+            if (err) { return void cb(err); }
+            cb(void 0, {
+                users: channelData.users,
+                message: msgStruct
+            });
+        });
         //console.log(+new Date(), "Message stored");
     });
 };
@@ -323,7 +344,6 @@ let onChannelMessage = function(channelName, channel, msgStruct, cb) {
 let onDropChannel = function(channelName, userId) {
     delete Env.metadata_cache[channelName];
     delete Env.channel_cache[channelName];
-    // delete Env.core_cache[userId];
 }
 
 // Handlers
@@ -339,19 +359,65 @@ let getMetaDataHandler = function(args, cb) {
     HistoryKeeper.getMetadata(Env, args.channelName, cb);
 }
 
-let channelOpenHandler = function(args, cb, extra) {
-    Env.channel_cache[args.channelName] = Env.channel_cache[args.channelName] || {};
-    Env.core_cache[args.userId] = extra.from;
-    HistoryKeeper.getMetadata(Env, args.channelName, cb);
-}
-
 let channelMessageHandler = function(args, cb) {
-    onChannelMessage(args.channelName, args.channel, args.msgStruct, cb);
+    onChannelMessage(args.channel, args.msgStruct, cb);
 }
 
-let dropChannelHandler = function(args) {
-    onDropChannel(args.channelName, args.userId);
-}
+const joinChannelHandler = (args, cb, extra) => {
+    const { channel, userId } = args;
+
+    const channelData = Env.channel_cache[channel] ||= {
+        users: []
+    };
+    const _users = channelData.users.slice();
+    if (!channelData.users.includes(userId)) {
+        channelData.users.push(userId);
+    }
+    HistoryKeeper.getMetadata(Env, channel, (err, metadata) => {
+        // XXX handle allow list
+        if (err) {
+            console.error('HK_METADATA_ERR', {
+                channel, error: err,
+            });
+        }
+
+        if (metadata?.selfdestruct) {
+            // XXX TODO
+            throw new Error('NOT IMPLEMENTED');
+        }
+        // XXX selfDestructTo
+
+        if (!metadata?.restricted) {
+            // the channel doesn't have metadata, or it does and
+            // it's not restricted: either way, let them join.
+            return void cb(void 0, _users);
+        }
+
+        // channel is restricted
+        throw new Error('NOT IMPLEMENTED');
+    });
+};
+
+const dropUserHandler = (args) => {
+    const { channels, userId } = args;
+    channels.forEach(channel => {
+        const cache = Env.channel_cache[channel];
+        // Check if the channel exists in this storage
+        if (!cache || !Array.isArray(cache.users)) { return; }
+
+        // Check if the user is a member of this channel
+        const idx = cache.users.indexOf(userId);
+        if (idx === -1) { return; }
+
+        // Remove the user
+        cache.users.splice(idx, 1);
+
+        // Clean the channel if no remaining members
+        if (!cache.users.length) {
+            onDropChannel(channel);
+        }
+    });
+};
 
 /* Start of the node */
 
@@ -362,11 +428,11 @@ Env.CM = ChannelManager.create(Env, 'data/' + idx)
 // List accepted commands
 let COMMANDS = {
     'GET_HISTORY': getHistoryHandler,
-    'CHANNEL_OPEN': channelOpenHandler,
+    'JOIN_CHANNEL': joinChannelHandler,
     'GET_METADATA': getMetaDataHandler,
     'GET_FULL_HISTORY': getFullHistoryHandler,
     'CHANNEL_MESSAGE': channelMessageHandler,
-    'DROP_CHANNEL': dropChannelHandler,
+    'DROP_USER': dropUserHandler,
 };
 
 // Connect to core

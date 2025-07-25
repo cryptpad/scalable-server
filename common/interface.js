@@ -152,7 +152,24 @@ let communicationManager = function(ctx) {
         ctx.self.disconnect();
     };
 
-    return { sendEvent, sendQuery, handleCommands, disconnect };
+    const broadcast = (type, command, args, cb) => {
+        const all = ctx.others[type] || {};
+        const promises = [];
+        Object.keys(all).forEach(idx => {
+            const id = `${type}:${idx}`;
+            const p = new Promise((resolve, reject) => {
+                sendQuery(destId, command, args, answer => {
+                    resolve(answer);
+                });
+            });
+            promises.push(p);
+        });
+        Promises.all(promises).then(values => {
+            cb(values);
+        });
+    };
+
+    return { sendEvent, sendQuery, handleCommands, disconnect, broadcast };
 };
 
 /* Creates a connection to another node.

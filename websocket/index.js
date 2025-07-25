@@ -4,7 +4,6 @@
 const Express = require('express');
 const Http = require('http');
 const WebSocketServer = require('ws').Server;
-//const ChainpadServer = require('chainpad-server');
 const Interface = require("../common/interface.js");
 const Crypto = require('crypto');
 const Util = require("../common/common-util.js");
@@ -13,7 +12,6 @@ const cli_args = require("minimist")(process.argv.slice(2));
 
 
 if (cli_args.h || cli_args.help) {
-    proceed = false;
     console.log(`Usage ${process.argv[1]}:`);
     console.log("\t--help, -h\tDisplay this help");
     console.log("\t--id\tSet the websocket node id (default: 0)");
@@ -61,83 +59,6 @@ let onChannelClose = function(channelName) {
     });
     delete Env.openConnections[channelName];
 };
-let onChannelMessage = function(Server, channel, msgStruct, cb) {
-    if (typeof (cb) !== "function") { cb = function() { }; }
-    let channelName = channel.id;
-    if (!channelName) {
-        console.error('INVALID CHANNEL');
-        return;
-    }
-
-    /// Sanitizing before sending to Storage
-    // don't store messages if the channel id indicates that it's an ephemeral message
-    if (channelName.length === EPHEMERAL_CHANNEL_LENGTH) {
-        return void cb();
-    }
-
-    // Admin channel. We can only write to this one from private message (RPC)
-    if (channel.id.length === ADMIN_CHANNEL_LENGTH && msgStruct[1] !== null) {
-        return void cb('ERESTRICTED_ADMIN');
-    }
-
-    const isCp = /^cp\|/.test(msgStruct[4]);
-    let id;
-    if (isCp) {
-        // id becomes either null or an array or results...
-        id = CHECKPOINT_PATTERN.exec(msgStruct[4]);
-        // FIXME: relying on this data to be stored on an in-memory structure
-        // managed by a dependency is fragile. We should put this somewhere
-        // more straightforward and reliable.
-        if (Array.isArray(id) && id[2] && id[2] === channel.lastSavedCp) {
-            // Reject duplicate checkpoints
-            return void cb();
-            // not an error? the checkpoint is already here so we can assume it's stored
-            //return void cb('DUPLICATE');
-        }
-    }
-
-    let coreId = getCoreId(channelName);
-
-    Env.interface.sendQuery(coreId, 'CHANNEL_MESSAGE', { channelName, channel, msgStruct }, function(answer) {
-        let error = answer.error;
-        if (error) {
-            cb(error);
-            return;
-        }
-        cb();
-    });
-};
-
-let onChannelOpen = function(Server, channelName, userId, wait) {
-    let next = wait();
-
-    let sendHKJoinMessage = function() {
-        Server.send(userId, [
-            0,
-            hkId,
-            'JOIN',
-            channelName
-        ]);
-    };
-
-    let cb = function(err, info) {
-        next(err, info, sendHKJoinMessage);
-    };
-
-    let coreId = getCoreId(channelName);
-
-    Env.openConnections[channelName] = Server;
-    if (Env.user_channel_cache[userId].findIndex(name => name === channelName) === -1) {
-        Env.user_channel_cache[userId].push(channelName);
-    }
-
-    Env.interface.sendQuery(coreId, 'CHANNEL_OPEN', { id: hkId, userId, channelName }, function(response) {
-        cb(response.error, response.data);
-    })
-};
-
-
-
 
 
 const now = () => {
@@ -159,7 +80,7 @@ const QUEUE_CHR = 1024 * 1024 * 4;
 const createLogger = () => {
     return {
         info: console.log,
-        verbose: console.info,,
+        verbose: console.info,
         error: console.error,
         warn: console.warn,
         debug: console.debug
@@ -170,10 +91,13 @@ const createLogger = () => {
 const dropUserChannels = (Env, userId) => {
     const user = Env.users[userId];
     if (!user) { return; }
+    const sent = [];
     user.channels.forEach(channel => {
         const coreId = getCoreId(channel);
-        Env.interface?.sendEvent(coreId, 'DROP_CHANNEL', {
-            channelName,
+        if (sent.includes(coreId)) { return; }
+        sent.push(coreId);
+        Env.interface?.sendEvent(coreId, 'DROP_USER', {
+            channels: user.channels,
             userId
         });
     });
@@ -305,7 +229,7 @@ const onHKMessage = (Env, seq, user, json) => {
         let toSend = answer.data.toSend;
         let error = answer.error;
 
-        Server.send(userId, [seq, 'ACK']);
+        sendMsg(Env, user, [seq, 'ACK']);
 
         if (error) { return; }
         if (!toSend) { return; }
@@ -315,6 +239,37 @@ const onHKMessage = (Env, seq, user, json) => {
         toSend.forEach(function(message) {
             sendMsg(Env, user, message);
         });
+    });
+};
+const handleChannelMessage = (Env, channel, msgStruct, cb) => {
+    if (typeof (cb) !== "function") { cb = function() { }; }
+
+/*
+    // XXX handle in storage module
+    if (channelName.length === EPHEMERAL_CHANNEL_LENGTH) {
+        return void cb();
+    }
+*/
+    // XXX handle CP duplicate in storage module
+
+    // Admin channel. We can only write to this one from private message (RPC)
+    if (channel.id.length === ADMIN_CHANNEL_LENGTH
+        && msgStruct[1] !== null) {
+        return void cb('ERESTRICTED_ADMIN');
+    }
+
+
+    const coreId = getCoreId(channel);
+
+    Env.interface.sendQuery(coreId, 'CHANNEL_MESSAGE', {
+        channel,
+        msgStruct
+    }, answer => {
+        if (answer?.error) {
+            cb(answer.error);
+            return;
+        }
+        cb();
     });
 };
 const handleMsg = (Env, args) => {
@@ -327,46 +282,75 @@ const handleMsg = (Env, args) => {
         return void onHKMessage(Env, seq, user, json);
     }
 
-    /* XXX TODO
-     *  - obj can be a user or a channel
-     *  - we can only send "MSG" to channels we have already joined
-     *  - if obj is not in our user.channels
-     *      - ask the selected CORE to send the message to a user
-     *        with "obj" as ID
-     *          - if this user doesn't exist, just ignore
-     *          - if this user exist, send from CORE to correct WS
-     *  - if obj is one of our user.channels, treat as a channel msg
-     *      - we still need to send ti to the core but in a
-     *        different way
-     */
+    const coreId = getCoreId(obj);
 
-    
-
-    /*
-    if (obj && !ctx.channels[obj] && !ctx.users[obj]) {
-        ctx.emit.error(new Error('NF_ENOENT'), 'NF_ENOENT', {
-            user: isDefined(user && user.id)? user.id: 'MISSING',
-            json: json || 'MISSING',
-        });
-        return void sendMsg(ctx, user, [seq, 'ERROR', 'enoent', obj]);
-    }
-
-    let target;
-    json.unshift(user.id);
-    if ((target = ctx.channels[obj])) {
-        return void sendChannelMessage(ctx, target, json, function (err) {
-            if (err) { return void sendMsg(ctx, user, [seq, 'ERROR']); }
-            sendMsg(ctx, user, [seq, 'ACK']);
-        });
-    }
-
-    sendMsg(ctx, user, [seq, 'ACK']);
-
-    if ((target = ctx.users[obj])) {
+    const handleUserMessage = () => {
+        json.unshift(user.id);
         json.unshift(0);
-        return void sendMsg(ctx, target, json);
+        Env.interface.sendQuery(coreId, 'USER_MESSAGE', {
+            userId: user.id,
+            message: json
+        }, answer => {
+            sendMsg(Env, user, [seq, 'ACK']);
+        });
+    };
+    const handleChannelMessage = () => {
+        json.unshift(user.id);
+        handleChannelMessage(Env, obj, json, err => {
+            if (err) { return sendMsg(Env, user, [seq, 'ERROR']); }
+            sendMsg(Env, user, [seq, 'ACK']);
+        });
+    };
+
+    // XXX handle invalid "obj" format (channel or ephemeral)
+
+    if (user.channels.includes(obj)) {
+        return void handleChannelMessage();
     }
-    */
+
+    handleUserMessage();
+};
+const handleJoin = function (ctx, args) {
+    let obj = args.obj;
+    let user = args.user;
+    let seq = args.seq;
+    let channel = obj;
+    const userId = user.id;
+
+    const coreId = getCoreId(channel);
+    Env.interface.sendQuery(coreId, 'JOIN_CHANNEL', {
+        userId: userId,
+        channel
+    }, answer => {
+        let error = answer.error;
+        let users = answer.data;
+        if (error) {
+            return sendMsg(Env, user, [seq, 'ERROR', error]);
+        }
+
+        // Add channel to our local list
+        user.channels.push(channel);
+
+        sendMsg(Env, user, [seq, 'JACK']);
+
+        // Send HK id XXX to remove
+        sendMsg(Env, user, [0, hkId, 'JOIN', channel]);
+
+        // No userlist for admin channels (broadcast to all users)
+        if (chan.id.length === ADMIN_CHANNEL_LENGTH) {
+            // Complete the userlist by sending your ID
+            return sendMsg(Env, user, [0, userId, 'JOIN', channel]);
+        }
+
+        // Send other members' ID
+        users.forEach(id => {
+            if (id === userId) { return; }
+            sendMsg(Env, user, [0, id, 'JOIN', channel]);
+        });
+
+        // Send your own JOIN message to know the userlist is complete
+        sendMsg(Env, user, [0, userId, 'JOIN', channel]);
+    });
 };
 const handlePing = (Env, args) => {
     sendMsg(Env, args.user, [args.seq, 'ACK']);
@@ -374,7 +358,7 @@ const handlePing = (Env, args) => {
 const commands = {
     JOIN: handleJoin,
     MSG: handleMsg,
-    LEAVE: handleLeave,
+    //LEAVE: handleLeave, // XXX
     PING: handlePing,
 };
 const handleMessage = (Env, user, msg) => {
@@ -391,6 +375,33 @@ const handleMessage = (Env, user, msg) => {
     commands[cmd](Env, {
         user, json, seq,
         obj: json[1],
+    });
+};
+
+const onUserMessage = (Env, args, cb) => { // Query
+    const { userId, message } = args;
+
+    const user = Env.users[userId];
+    if (!user) {
+        return void cb('ENOENT');
+    }
+
+    sendMsg(Env, user, message).then(() => {
+        cb();
+    }).catch(() => {
+        cb('UNSENDABLE');
+    });
+};
+const onChannelMessage = (Env, args) => { // Event
+    const { users, message } = args;
+
+    message.unshift(0);
+
+    users.forEach(id => {
+        const user = Env.users[id];
+        if (!user) { return; }
+        if (message[1] === id) { return; } // don't send to yourself
+        sendMsg(Env, user, message);
     });
 };
 
@@ -418,11 +429,9 @@ const initServerHandlers = (Env) => {
 
         onSessionOpen(Env, user.id, user.ip);
 
-        /*
-        XXX TODO
         socket.on('message', message => {
             try {
-                handleMessage(ctx, user, message);
+                handleMessage(Env, user, message);
             } catch (e) {
                 Env.log.error(e, 'NETFLUX_BAD_MESSAGE', {
                     user: user.id,
@@ -435,10 +444,9 @@ const initServerHandlers = (Env) => {
             dropUser(Env, user, 'SOCKET_CLOSED');
         });
         socket.on('error', function (err) {
-            emit.error(err, 'NETFLUX_WEBSOCKET_ERROR');
+            Env.log.error(err, 'NETFLUX_WEBSOCKET_ERROR');
             dropUser(Env, user, 'SOCKET_ERROR');
         });
-        */
     });
 
 };
@@ -467,6 +475,7 @@ const shutdown = (Env) => {
     delete Env.wss;
 };
 
+
 const start = () => {
     const Env = {
         myId: `ws:${idx}`,
@@ -475,6 +484,18 @@ const start = () => {
         user_channel_cache: {},
         log: createLogger(),
         users: {}
+    };
+
+    const callWithEnv = f => {
+        return function () {
+            [].unshift.call(arguments, Env);
+            return f.apply(null, arguments);
+        };
+    };
+
+    const COMMANDS = {
+        'USER_MESSAGE': callWithEnv(onUserMessage),
+        'CHANNEL_MESSAGE': callWithEnv(onChannelMessage)
     };
 
     const wsPromise = new Promise((resolve, reject) => {
@@ -488,8 +509,8 @@ const start = () => {
         resolve(config);
     });
     Promise.all([
-        wsPromise,
-        configPromise
+        configPromise,
+        wsPromise
     ]).then((values) => {
         const config = values[0];
         Interface.connect(config, (err, _interface) => {

@@ -7,21 +7,28 @@ const Crypto = require("./crypto.js")('sodiumnative');
 const { jumpConsistentHash } = require('../common/consistent-hash.js');
 const cli_args = require("minimist")(process.argv.slice(2));
 
-let proceed = true;
-
 if (cli_args.h || cli_args.help) {
-    proceed = false;
     console.log(`Usage ${process.argv[1]}:`);
     console.log("\t--help, -h\tDisplay this help");
     console.log("\t--id\tSet the core node id (default: 0)");
+    return;
 }
-
-if (!proceed) { return; }
 
 let Env = {
     queueValidation: WriteQueue(),
     ws_id_cache: {},
 };
+
+const isWsCmd = id => {
+    return /^ws:/.test(id);
+};
+const isStorageCmd = id => {
+    return /^storage:/.test(id);
+};
+const isValidChannel = str => {
+    return /^[a-zA-Z0-9]{32,33,34}$/.test(str);
+};
+
 
 // TODO: implement storage migration later (in /storage/)
 let getStorageId = function(channelName) {
@@ -102,7 +109,7 @@ let EventToStorage = function(command) {
     };
 };
 
-let onValidateMessage = (msg, vk, cb) => {
+const onValidateMessage = (msg, vk, cb) => {
     let signedMsg;
     try {
         signedMsg = Crypto.decodeBase64(msg);
@@ -124,24 +131,93 @@ let onValidateMessage = (msg, vk, cb) => {
     cb();
 };
 
-let validateMessageHandler = (args, cb) => {
-    Env.queueValidation(args.channelName, function(next) {
-        next();
-        onValidateMessage(args.signedMsg, args.validateKey, cb);
+const validateMessageHandler = (args, cb) => {
+    Env.queueValidation(args.channelName, next => {
+        onValidateMessage(args.signedMsg, args.validateKey, err => {
+            next();
+            if (err) { return void cb(err); }
+            cb();
+        });
     });
 };
 
-let channelOpenHandler = function(args, cb, extra) {
-    let s = extra.from.split(':');
-    if (s[0] !== 'ws') {
-        console.error('Error:', command, 'received from unauthorized server:', args, extra);
-        cb('UNAUTHORIZED_USER', void 0);
-        return;
-    }
-    // TODO: clear in somewhere
-    Env.ws_id_cache[args.userId] = extra.from;
+const sendChannelMessage = (users, message) => {
+    const sent = [];
+    users.forEach(id => {
+        const wsId = getWsId(userId);
+        if (!wsId || sent.includes(wsId)) { return; }
+        sent.push(wsId);
+        Env.interface.sendEvent(wsId, 'CHANNEL_MESSAGE', {
+            users,
+            message
+        });
+    });
+};
 
-    wsToStorage('CHANNEL_OPEN', true)(args, cb, extra);
+// Event: when a user is disconnected, remove it from all its channels
+const dropUser = (args, _cb, extra) => {
+    if (!isWsCmd(extra.from)) { return; }
+
+    const { channels, userId } = args;
+    if (!userId || !Array.isArray(channels)) { return; }
+
+    const sent = [];
+    channels.forEach(channel => {
+        const storageId = getStorageId(channel);
+        if (sent.includes(storageId)) { return; }
+        sent.push(storageId);
+        Env.interface.sendEvent(storageId, 'DROP_USER', args);
+    });
+
+    delete Env.ws_id_cache[userId];
+};
+
+const joinChannel = (args, cb, extra) => {
+    if (!isWsCmd(extra.from)) { return void cb('UNAUTHORIZED'); }
+
+    const { channel, userId } = args;
+    if (!userId || !isValidChannel(channel)) {
+        return void cb('EINVAL');
+    }
+
+    Env.ws_id_cache[userId] = extra.from;
+    wsToStorage('JOIN_CHANNEL', true)(args, cb, extra);
+
+    const storageId = getStorageId(channel);
+    Env.interface.sendQuery(storageId, 'JOIN_CHANNEL', args, res => {
+        if (res.error) { return void cb(res.error); }
+        const users = res.data;
+
+        const message = [ userId, 'JOIN', channel ];
+        sendChannelMessage(users, message);
+
+        cb(void 0, users);
+    });
+};
+
+const onUserMessage = (args, cb) => {
+    Env.interface.broadcast('ws', 'USER_MESSAGE', args, values => {
+        // If all responses return an error, message has failed
+        if (values.every(obj => {
+            return obj?.error;
+        })) {
+            return void cb('ERROR');
+        }
+        // Otherwise, success
+        cb();
+    });
+};
+const onChannelMessage = (args, cb) => {
+    const { channel, msgStruct } = args;
+    const storageId = getStorageId(channel);
+    Env.interface.sendQuery(storageId, 'CHANNEL_MESSAGE', args, r => {
+        if (r.error) { return void cb(r.error); }
+        const { users, message }  = r.data;
+
+        sendChannelMessage(users, message);
+
+        cb();
+    });
 };
 
 let startServers = function() {
@@ -150,10 +226,13 @@ let startServers = function() {
     Config.myId = 'core:' + idx;
     let queriesToStorage = ['GET_HISTORY', 'GET_METADATA', 'CHANNEL_MESSAGE'];
     let queriesToWs = ['CHANNEL_CONTAINS_USER'];
-    let eventsToStorage = ['DROP_CHANNEL',];
+    //let eventsToStorage = ['DROP_USER'];
+    let eventsToStorage = [];
     let COMMANDS = {
+        'DROP_USER': dropUser,
+        'JOIN_CHANNEL': joinChannel,
+        'USER_MESSAGE': onUserMessage,
         'VALIDATE_MESSAGE': validateMessageHandler,
-        'CHANNEL_OPEN': channelOpenHandler,
     };
     queriesToStorage.forEach(function(command) {
         COMMANDS[command] = wsToStorage(command);
