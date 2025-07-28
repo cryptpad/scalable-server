@@ -10,6 +10,7 @@ const Config = require("../ws-config.js");
 const Interface = require("../common/interface.js");
 const WriteQueue = require("./write-queue.js");
 const cli_args = require("minimist")(process.argv.slice(2));
+const { jumpConsistentHash } = require('../common/consistent-hash.js');
 
 let proceed = true;
 
@@ -38,6 +39,8 @@ let Env = {
     batchIndexReads: BatchRead("HK_GET_INDEX"),
     batchMetadata: BatchRead('GET_METADATA'),
 
+    numberCores: Config.infra.core.length,
+
     Log: {
         info: console.log,
         error: console.error,
@@ -46,9 +49,10 @@ let Env = {
     },
 };
 
-// TODO: to fix
-let getCoreId = function(userId) {
-    return Env.core_cache[userId] ? Env.core_cache[userId] : 'core:0';
+const getCoreId = (channelName) => {
+    let key = Buffer.from(channelName.slice(0, 8));
+    let coreId = 'core:' + jumpConsistentHash(key, Env.numberCores);
+    return coreId;
 };
 
 Env.checkCache = function(channel) {
@@ -259,7 +263,7 @@ let onChannelMessage = function(channel, msgStruct, cb) {
     }
 
     // Admin channel: we can only write from private message (RPC)
-    if (channel.id.length === ADMIN_CHANNEL_LENGTH &&
+    if (channel.length === ADMIN_CHANNEL_LENGTH &&
         msgStruct[1] !== null) {
         return void cb('ERESTRICTED_ADMIN');
     }
@@ -341,10 +345,11 @@ let onChannelMessage = function(channel, msgStruct, cb) {
     });
 };
 
-let onDropChannel = function(channelName, userId) {
+const onDropChannel = function(channelName, userId) {
     delete Env.metadata_cache[channelName];
     delete Env.channel_cache[channelName];
-}
+    // XXX selfdestruct integration
+};
 
 // Handlers
 let getHistoryHandler = function(args, cb) {
@@ -360,7 +365,7 @@ let getMetaDataHandler = function(args, cb) {
 }
 
 let channelMessageHandler = function(args, cb) {
-    onChannelMessage(args.channel, args.msgStruct, cb);
+    onChannelMessage(args.channelName, args.msgStruct, cb);
 }
 
 const joinChannelHandler = (args, cb, extra) => {
@@ -397,6 +402,23 @@ const joinChannelHandler = (args, cb, extra) => {
         throw new Error('NOT IMPLEMENTED');
     });
 };
+const leaveChannelHandler = (args, cb, extra) => {
+    const { channel, userId } = args;
+
+    const channelData = Env.channel_cache[channel];
+    const users = channelData?.users;
+    if (!Array.isArray(users)) {
+        return void cb('ENOENT');
+    }
+    if (!users.includes(userId)) {
+        return void cb('NOT_IN_CHAN');
+    }
+    users.splice(users.indexOf(userId), 1);
+
+    if (!users.length) { onDropChannel(channel); }
+
+    cb(void 0, users);
+};
 
 const dropUserHandler = (args) => {
     const { channels, userId } = args;
@@ -429,6 +451,7 @@ Env.CM = ChannelManager.create(Env, 'data/' + idx)
 let COMMANDS = {
     'GET_HISTORY': getHistoryHandler,
     'JOIN_CHANNEL': joinChannelHandler,
+    'LEAVE_CHANNEL': leaveChannelHandler,
     'GET_METADATA': getMetaDataHandler,
     'GET_FULL_HISTORY': getFullHistoryHandler,
     'CHANNEL_MESSAGE': channelMessageHandler,

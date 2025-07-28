@@ -26,7 +26,7 @@ const isStorageCmd = id => {
     return /^storage:/.test(id);
 };
 const isValidChannel = str => {
-    return /^[a-zA-Z0-9]{32,33,34}$/.test(str);
+    return /^[a-f0-9]?[a-f0-9]{32,33}$/.test(str);
 };
 
 
@@ -94,20 +94,6 @@ let storageToWs = function(command) {
     };
 };
 
-let EventToStorage = function(command) {
-    return function(args, _cb, extra) {
-        let s = extra.from.split(':');
-        if (s[0] !== 'ws') {
-            console.error('Error:', command, 'received from unauthorized server:', args, extra);
-            return;
-        }
-        let channelName = args.channelName;
-
-        let storageId = getStorageId(channelName);
-
-        Env.interface.sendEvent(storageId, command, args);
-    };
-};
 
 const onValidateMessage = (msg, vk, cb) => {
     let signedMsg;
@@ -144,7 +130,7 @@ const validateMessageHandler = (args, cb) => {
 const sendChannelMessage = (users, message) => {
     const sent = [];
     users.forEach(id => {
-        const wsId = getWsId(userId);
+        const wsId = getWsId(id);
         if (!wsId || sent.includes(wsId)) { return; }
         sent.push(wsId);
         Env.interface.sendEvent(wsId, 'CHANNEL_MESSAGE', {
@@ -181,7 +167,6 @@ const joinChannel = (args, cb, extra) => {
     }
 
     Env.ws_id_cache[userId] = extra.from;
-    wsToStorage('JOIN_CHANNEL', true)(args, cb, extra);
 
     const storageId = getStorageId(channel);
     Env.interface.sendQuery(storageId, 'JOIN_CHANNEL', args, res => {
@@ -192,6 +177,25 @@ const joinChannel = (args, cb, extra) => {
         sendChannelMessage(users, message);
 
         cb(void 0, users);
+    });
+};
+const leaveChannel = (args, cb, extra) => {
+    if (!isWsCmd(extra.from)) { return void cb('UNAUTHORIZED'); }
+
+    const { channel, userId } = args;
+    if (!userId || !isValidChannel(channel)) {
+        return void cb('EINVAL');
+    }
+
+    const storageId = getStorageId(channel);
+    Env.interface.sendQuery(storageId, 'LEAVE_CHANNEL', args, res => {
+        if (res.error) { return void cb(res.error); }
+        const users = res.data;
+
+        const message = [ userId, 'LEAVE', channel ];
+        sendChannelMessage(users, message);
+
+        cb();
     });
 };
 
@@ -207,18 +211,6 @@ const onUserMessage = (args, cb) => {
         cb();
     });
 };
-const onChannelMessage = (args, cb) => {
-    const { channel, msgStruct } = args;
-    const storageId = getStorageId(channel);
-    Env.interface.sendQuery(storageId, 'CHANNEL_MESSAGE', args, r => {
-        if (r.error) { return void cb(r.error); }
-        const { users, message }  = r.data;
-
-        sendChannelMessage(users, message);
-
-        cb();
-    });
-};
 
 let startServers = function() {
     Env.numberStorages = Config.infra.storage.length;
@@ -231,6 +223,7 @@ let startServers = function() {
     let COMMANDS = {
         'DROP_USER': dropUser,
         'JOIN_CHANNEL': joinChannel,
+        'LEAVE_CHANNEL': leaveChannel,
         'USER_MESSAGE': onUserMessage,
         'VALIDATE_MESSAGE': validateMessageHandler,
     };
@@ -249,6 +242,7 @@ let startServers = function() {
             console.error('E: interface initialisation error', err)
             return;
         }
+        console.log("Core started", Config.myId);
         Env.interface = _interface;
 
         _interface.handleCommands(COMMANDS)

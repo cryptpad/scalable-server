@@ -35,29 +35,10 @@ const ADMIN_CHANNEL_LENGTH = 33;
 const CHECKPOINT_PATTERN = /^cp\|(([A-Za-z0-9+\/=]+)\|)?/;
 
 // Use consistentHash for that
-const getCoreId = (channelName) => {
-    if (typeof (Env.numberCores) !== 'number') {
-        console.error('getCoreId: invalid number of cores', Env.numberCores);
-        return void 0;
-    }
+const getCoreId = (Env, channelName) => {
     let key = Buffer.from(channelName.slice(0, 8));
     let coreId = 'core:' + jumpConsistentHash(key, Env.numberCores);
     return coreId;
-};
-
-
-
-
-let onChannelClose = function(channelName) {
-    let coreId = getCoreId(channelName);
-    Object.keys(Env.user_channel_cache).forEach(userId => {
-        let toRemove = Env.user_channel_cache[userId].findIndex(name => name === channelName)
-        if (toRemove !== -1) {
-            Env.interface.sendEvent(coreId, 'DROP_CHANNEL', { channelName, userId });
-            delete Env.user_channel_cache[userId][toRemove];
-        }
-    });
-    delete Env.openConnections[channelName];
 };
 
 
@@ -67,10 +48,10 @@ const now = () => {
 const randName = () => {
     return Crypto.randomBytes(16).toString('hex');
 };
-const createUniqueName = () => {
+const createUniqueName = (Env) => {
     const name = randName();
     if (typeof(Env.users[name]) === 'undefined') { return name; }
-    return createUniqueName();
+    return createUniqueName(Env);
 };
 const socketSendable = (socket) => {
     return socket && socket.readyState === 1;
@@ -93,7 +74,7 @@ const dropUserChannels = (Env, userId) => {
     if (!user) { return; }
     const sent = [];
     user.channels.forEach(channel => {
-        const coreId = getCoreId(channel);
+        const coreId = getCoreId(Env, channel);
         if (sent.includes(coreId)) { return; }
         sent.push(coreId);
         Env.interface?.sendEvent(coreId, 'DROP_USER', {
@@ -115,7 +96,7 @@ const onSessionOpen = function(Env, userId) {
 };
 const onSessionClose = (Env, userId, reason) => {
     // Cleanup leftover channels
-    dropUserChannels();
+    dropUserChannels(Env, userId);
     delete Env.users[userId];
 
     // Log unexpected errors
@@ -169,6 +150,7 @@ const dropUser = (Env, user, reason) => {
 };
 
 const sendMsg = (Env, user, msg) => {
+    Env.log.debug('Sending', msg);
     return new Promise((resolve, reject) => {
         // don't bother trying to send if the user doesn't
         // exist anymore
@@ -222,7 +204,7 @@ const onHKMessage = (Env, seq, user, json) => {
     const channelName = parsed[1];
     const userId = user.id;
 
-    let coreId = getCoreId(channelName);
+    let coreId = getCoreId(Env, channelName);
     Env.interface.sendQuery(coreId, first, {
         seq, userId, parsed, channelName
     }, answer => {
@@ -253,16 +235,16 @@ const handleChannelMessage = (Env, channel, msgStruct, cb) => {
     // XXX handle CP duplicate in storage module
 
     // Admin channel. We can only write to this one from private message (RPC)
-    if (channel.id.length === ADMIN_CHANNEL_LENGTH
+    if (channel.length === ADMIN_CHANNEL_LENGTH
         && msgStruct[1] !== null) {
         return void cb('ERESTRICTED_ADMIN');
     }
 
 
-    const coreId = getCoreId(channel);
+    const coreId = getCoreId(Env, channel);
 
     Env.interface.sendQuery(coreId, 'CHANNEL_MESSAGE', {
-        channel,
+        channelName: channel,
         msgStruct
     }, answer => {
         if (answer?.error) {
@@ -282,9 +264,9 @@ const handleMsg = (Env, args) => {
         return void onHKMessage(Env, seq, user, json);
     }
 
-    const coreId = getCoreId(obj);
+    const coreId = getCoreId(Env, obj);
 
-    const handleUserMessage = () => {
+    const onUserMessage = () => {
         json.unshift(user.id);
         json.unshift(0);
         Env.interface.sendQuery(coreId, 'USER_MESSAGE', {
@@ -294,7 +276,7 @@ const handleMsg = (Env, args) => {
             sendMsg(Env, user, [seq, 'ACK']);
         });
     };
-    const handleChannelMessage = () => {
+    const onChannelMessage = () => {
         json.unshift(user.id);
         handleChannelMessage(Env, obj, json, err => {
             if (err) { return sendMsg(Env, user, [seq, 'ERROR']); }
@@ -305,19 +287,19 @@ const handleMsg = (Env, args) => {
     // XXX handle invalid "obj" format (channel or ephemeral)
 
     if (user.channels.includes(obj)) {
-        return void handleChannelMessage();
+        return void onChannelMessage();
     }
 
-    handleUserMessage();
+    onUserMessage();
 };
-const handleJoin = function (ctx, args) {
+const handleJoin = (Env, args) => {
     let obj = args.obj;
     let user = args.user;
     let seq = args.seq;
     let channel = obj;
     const userId = user.id;
 
-    const coreId = getCoreId(channel);
+    const coreId = getCoreId(Env, channel);
     Env.interface.sendQuery(coreId, 'JOIN_CHANNEL', {
         userId: userId,
         channel
@@ -331,13 +313,13 @@ const handleJoin = function (ctx, args) {
         // Add channel to our local list
         user.channels.push(channel);
 
-        sendMsg(Env, user, [seq, 'JACK']);
+        sendMsg(Env, user, [seq, 'JACK', channel]);
 
         // Send HK id XXX to remove
         sendMsg(Env, user, [0, hkId, 'JOIN', channel]);
 
         // No userlist for admin channels (broadcast to all users)
-        if (chan.id.length === ADMIN_CHANNEL_LENGTH) {
+        if (channel.length === ADMIN_CHANNEL_LENGTH) {
             // Complete the userlist by sending your ID
             return sendMsg(Env, user, [0, userId, 'JOIN', channel]);
         }
@@ -352,13 +334,32 @@ const handleJoin = function (ctx, args) {
         sendMsg(Env, user, [0, userId, 'JOIN', channel]);
     });
 };
+const handleLeave = (Env, args) => {
+    let obj = args.obj;
+    let user = args.user;
+    let seq = args.seq;
+
+    const userId = user.id;
+
+    const coreId = getCoreId(Env, channel);
+    Env.interface.sendQuery(coreId, 'LEAVE_CHANNEL', {
+        userId,
+        channel
+    }, answer => {
+        let error = answer.error;
+        if (error) {
+            return sendMsg(Env, user, [seq, 'ERROR', error, obj]);
+        }
+        sendMsg(Env, user, [seq, 'ACK']);
+    });
+};
 const handlePing = (Env, args) => {
     sendMsg(Env, args.user, [args.seq, 'ACK']);
 };
 const commands = {
     JOIN: handleJoin,
     MSG: handleMsg,
-    //LEAVE: handleLeave, // XXX
+    LEAVE: handleLeave,
     PING: handlePing,
 };
 const handleMessage = (Env, user, msg) => {
@@ -416,7 +417,7 @@ const initServerHandlers = (Env) => {
                       || req.socket.remoteAddress || '';
         const user = {
             socket: socket,
-            id: createUniqueName(),
+            id: createUniqueName(Env),
             timeOfLastMessage: now(),
             pingOutstanding: false,
             inQueue: 0,
@@ -429,7 +430,9 @@ const initServerHandlers = (Env) => {
 
         onSessionOpen(Env, user.id, user.ip);
 
+
         socket.on('message', message => {
+            Env.log.debug('Receiving', JSON.parse(message));
             try {
                 handleMessage(Env, user, message);
             } catch (e) {
@@ -459,7 +462,7 @@ const initServer = (Env) => {
             if (process.send !== undefined) {
                 process.send({type: 'ws', idx, msg: 'READY'});
             } else {
-                console.log('ws:' + idx + ' started');
+                Env.log.info('ws:' + idx + ' started');
             }
         });
         Env.wss = new WebSocketServer({ server: httpServer });
@@ -483,6 +486,7 @@ const start = () => {
         openConnections: {},
         user_channel_cache: {},
         log: createLogger(),
+        active: true,
         users: {}
     };
 
@@ -515,44 +519,14 @@ const start = () => {
         const config = values[0];
         Interface.connect(config, (err, _interface) => {
             if (err) {
-                console.error(Config.myId, ' error:', err);
+                Env.log.error(Config.myId, ' error:', err);
                 return;
             }
+            Env.log.info('WS started', Env.myId);
             Env.interface = _interface;
             _interface.handleCommands(COMMANDS);
         });
     });
-
-/*
-
-    let Server = ChainpadServer.create(new WebSocketServer({ server: httpServer }))
-        .on('channelClose', onChannelClose)
-        .on('channelMessage', onChannelMessage)
-        .on('channelOpen', onChannelOpen)
-        .on('sessionClose', onSessionClose)
-        .on('sessionOpen', onSessionOpen)
-        .on('error', function(error, label, info) {
-            console.error('ERROR', error);
-        })
-        .register(hkId, onDirectMessage);
-
-    let channelContainsUserHandle = function(args, cb) {
-        let channelName = args.channelName;
-        let userId = args.userId;
-
-        let Server = Env.openConnections[channelName];
-        if (!Server) {
-            console.error('Error: Server for', channelName, 'not found.');
-            cb('SERVER_NOT_FOUND', void 0);
-        }
-
-        cb(void 0, { response: Server.channelContainsUser(channelName, userId) });
-    };
-
-    let COMMANDS = {
-        'CHANNEL_CONTAINS_USER': channelContainsUserHandle,
-    };
-*/
 };
 
 module.exports = {
