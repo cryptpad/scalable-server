@@ -3,10 +3,9 @@
 const Config = require("../ws-config.js");
 const Interface = require("../common/interface.js");
 const WSConnector = require("../common/ws-connector.js");
-const WriteQueue = require("../storage/write-queue.js");
-const Crypto = require("./crypto.js")('sodiumnative');
 const { jumpConsistentHash } = require('../common/consistent-hash.js');
 const cli_args = require("minimist")(process.argv.slice(2));
+const WorkerModule = require("../common/worker-module.js");
 
 if (cli_args.h || cli_args.help) {
     console.log(`Usage ${process.argv[1]}:`);
@@ -16,7 +15,6 @@ if (cli_args.h || cli_args.help) {
 }
 
 let Env = {
-    queueValidation: WriteQueue(),
     ws_id_cache: {},
 };
 
@@ -95,37 +93,8 @@ let storageToWs = function(command) {
     };
 };
 
-
-const onValidateMessage = (msg, vk, cb) => {
-    let signedMsg;
-    try {
-        signedMsg = Crypto.decodeBase64(msg);
-    } catch (e) {
-        return void cb('E_BAD_MESSAGE');
-    }
-
-    let validateKey;
-    try {
-        validateKey = Crypto.decodeBase64(vk);
-    } catch (e) {
-        return void cb('E_BADKEY');
-    }
-
-    const validated = Crypto.sigVerify(signedMsg, validateKey);
-    if (!validated) {
-        return void cb('FAILED');
-    }
-    cb();
-};
-
 const validateMessageHandler = (args, cb) => {
-    Env.queueValidation(args.channelName, next => {
-        onValidateMessage(args.signedMsg, args.validateKey, err => {
-            next();
-            if (err) { return void cb(err); }
-            cb();
-        });
-    });
+    Env.workers.send('VALIDATE_MESSAGE', args, cb);
 };
 
 const sendChannelMessage = (users, message) => {
@@ -213,14 +182,38 @@ const onUserMessage = (args, cb) => {
     });
 };
 
+const createLogger = () => {
+    return {
+        info: console.log,
+        verbose: console.info,
+        error: console.error,
+        warn: console.warn,
+        debug: console.debug
+    };
+};
+
 let startServers = function() {
     Env.numberStorages = Config.infra.storage.length;
     let idx = Number(cli_args.id) || 0;
     Config.myId = 'core:' + idx;
     Config.connector = WSConnector;
+
+    const workerConfig = {
+        Log: createLogger(),
+        workerPath: './core/worker.js',
+        maxWorkers: 1,
+        maxJobs: 4,
+        commandTimers: {}, // time spent on each command
+        config: {
+        },
+        Env: { // Serialized Env (Environment.serialize)
+        }
+    };
+
+    Env.workers = WorkerModule(workerConfig);
+
     let queriesToStorage = ['GET_HISTORY', 'GET_METADATA', 'CHANNEL_MESSAGE'];
     let queriesToWs = ['CHANNEL_CONTAINS_USER'];
-    //let eventsToStorage = ['DROP_USER'];
     let eventsToStorage = [];
     let COMMANDS = {
         'DROP_USER': dropUser,
