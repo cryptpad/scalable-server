@@ -32,7 +32,7 @@ const socketToClient = function(ws) {
     });
 
     let isOpen = () => {
-            return ws.readyState !== WebSocket.CLOSED;
+        return ws.readyState !== WebSocket.CLOSED;
     };
 
     // XXX: maybe add an uid for connections?
@@ -76,16 +76,18 @@ module.exports = {
                 onNewClient(ctx, socketToClient(ws));
             });
             ctx.self.onDisconnect(() => { httpServer.close(err => { cb(err); }) });
-            cb (void 0, ctx.self)
+            cb(void 0, ctx.self)
         });
     },
     initClient: function(ctx, config, onConnected, cb) {
-        config.infra.core.forEach(function(server, id) {
+        let toStart = config?.infra?.core?.map((server, id) => new Promise((resolve, reject) => {
+
             let socket = new WebSocket('ws://' + server.host + ':' + server.port);
-            socket.on('error', function(error) {
-                console.error('Websocket connection error on', server, ':', error);
-                cb(error);
-            })
+            socket
+                .on('error', function(error) {
+                    console.error('Websocket connection error on', server, ':', error);
+                    reject(error)
+                })
                 .on('open', function() {
                     let client = socketToClient(socket);
                     ctx.self = client;
@@ -93,8 +95,20 @@ module.exports = {
                     let uid = Util.uid(); // XXX: replace with guid
                     client.send([uid, 'IDENTITY', { type: ctx.myType, idx: ctx.myNumber }]);
                     onConnected(ctx, client);
-                    cb(void 0, ctx.self);
+                    resolve();
                 })
-        });
+        }));
+
+        Promise.all(toStart)
+            .then(() => {
+                return cb(void 0);
+            })
+            .catch((err) => {
+                // In case of error, close opened websockets
+                ctx.others.forEach(client => {
+                    client.disconnect();
+                });
+                return cb(err);
+            });
     }
 }
