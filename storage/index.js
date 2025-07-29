@@ -273,7 +273,7 @@ let onChannelMessage = function(channel, msgStruct, cb) {
         // id becomes either null or an array or results...
         cpId = CHECKPOINT_PATTERN.exec(msgStruct[4]);
         if (Array.isArray(cpId) && cpId[2] &&
-            cpId[2] === channel.lastSavedCp) {
+            cpId[2] === channelData.lastSavedCp) {
             // Reject duplicate checkpoints: no error and message
             // not sent to others
             return void cb();
