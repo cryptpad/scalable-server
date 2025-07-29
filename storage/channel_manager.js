@@ -220,17 +220,16 @@ const create = (Env, basedir) => {
 
         CM.storeMessage = function(channel, msg, isCp, optionalMessageHash, time, cb) {
             // TODO: check why channel.id disappears in the middle
-            const id = channel.id;
             const Log = Env.log;
             if (typeof (cb) !== "function") { cb = function() { }; }
 
-            Env.queueStorage(id, next => {
+            Env.queueStorage(channel, next => {
                 const msgBin = Buffer.from(msg + '\n', 'utf8');
                 // Store the message first, and update the index only once it's stored.
                 // store.messageBin can be async so updating the index first may
                 // result in a wrong cpIndex
                 nThen(waitFor => {
-                    store.messageBin(id, msgBin, waitFor(function(err) {
+                    store.messageBin(channel, msgBin, waitFor(function(err) {
                         if (err) {
                             waitFor.abort();
                             Env.Log.error("HK_STORE_MESSAGE_ERROR", err.message);
@@ -246,7 +245,7 @@ const create = (Env, basedir) => {
                         }
                     }));
                 }).nThen(waitFor => {
-                    getIndex(Env, id, waitFor((err, index) => {
+                    getIndex(Env, channel, waitFor((err, index) => {
                         if (err) {
                             Log.warn("HK_STORE_MESSAGE_INDEX", err.stack);
                             // non-critical, we'll be able to get the channel index later

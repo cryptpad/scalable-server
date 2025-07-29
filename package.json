@@ -4,7 +4,6 @@
   "version": "0.0.1",
   "license": "AGPL-3.0+",
   "dependencies": {
-    "chainpad-server": "^5.2.0",
     "express": "~4.21.2",
     "fs-extra": "^7.0.0",
     "minimist": "^1.2.8",
