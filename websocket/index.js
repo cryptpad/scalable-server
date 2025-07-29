@@ -243,6 +243,8 @@ const handleChannelMessage = (Env, channel, msgStruct, cb) => {
 
     const coreId = getCoreId(Env, channel);
 
+    msgStruct.unshift(0);
+
     Env.interface.sendQuery(coreId, 'CHANNEL_MESSAGE', {
         channelName: channel,
         msgStruct
