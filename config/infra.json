@@ -1,0 +1,38 @@
+{
+    "websocket": [
+        {
+            "host": "localhost",
+            "port": 3010,
+            "index": 0
+        },
+        {
+            "host": "localhost",
+            "port": 3015,
+            "index": 1
+        }
+    ],
+    "core": [
+        {
+            "host": "localhost",
+            "port": 3011,
+            "index": 0
+        },
+        {
+            "host": "localhost",
+            "port": 3012,
+            "index": 1
+        }
+    ],
+    "storage": [
+        {
+            "host": "localhost",
+            "port": 3014,
+            "index": 0
+        },
+        {
+            "host": "localhost",
+            "port": 3016,
+            "index": 1
+        }
+    ]
+}

@@ -30,7 +30,7 @@ const getPlugins = () => {
         nodeResolve({
         }),
         commonjs({
-            ignore:['../ws-config.js', 'sodium-native', 'crypto', 'node:http', 'node:https'] // required by tweetnacl for node
+            ignore:['config/*.json', 'sodium-native', 'crypto', 'node:http', 'node:https'] // required by tweetnacl for node
         }),
     ];
 };

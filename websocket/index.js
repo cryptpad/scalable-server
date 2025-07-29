@@ -9,25 +9,6 @@ const WSConnector = require("../common/ws-connector.js");
 const Crypto = require('crypto');
 const Util = require("../common/common-util.js");
 const { jumpConsistentHash } = require('../common/consistent-hash.js');
-const cli_args = require("minimist")(process.argv.slice(2));
-
-
-if (cli_args.h || cli_args.help) {
-    console.log(`Usage ${process.argv[1]}:`);
-    console.log("\t--help, -h\tDisplay this help");
-    console.log("\t--id\tSet the websocket node id (default: 0)");
-    console.log("\t--host\tSet the websocket listening host (default: ::)");
-    console.log("\t--port\tSet the websocket listening port (default: 3000)");
-    return;
-}
-
-const idx = Number(cli_args.id) || 0;
-
-// XXX move to ws-config
-const publicConfig = {
-    host: cli_args.host || '::',
-    port: cli_args.port || '3000'
-};
 
 
 const hkId = "0123456789abcdef";
@@ -457,14 +438,14 @@ const initServerHandlers = (Env) => {
 };
 
 const initServer = (Env) => {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         const app = Express();
         const httpServer = Http.createServer(app);
-        httpServer.listen(publicConfig.port, publicConfig.host,() => {
+        httpServer.listen(Env.public.port, Env.public.host,() => {
             if (process.send !== undefined) {
-                process.send({type: 'ws', idx, msg: 'READY'});
+                process.send({type: 'websocket', index: Env.config.index, msg: 'READY'});
             } else {
-                Env.log.info('ws:' + idx + ' started');
+                Env.log.info('websocket:' + Env.config.index + ' started');
             }
         });
         Env.wss = new WebSocketServer({ server: httpServer });
@@ -481,15 +462,20 @@ const shutdown = (Env) => {
 };
 
 
-const start = () => {
+const start = (config) => {
+    config.connector = WSConnector;
+    const index = config.index;
     const Env = {
-        myId: `ws:${idx}`,
+        myId: config.myId,
         LogIp: true,
         openConnections: {},
         user_channel_cache: {},
         log: createLogger(),
         active: true,
-        users: {}
+        users: {},
+        config,
+        numberCores: config?.infra?.core?.length,
+        public: config?.public?.websocket?.[index],
     };
 
     const callWithEnv = f => {
@@ -504,32 +490,17 @@ const start = () => {
         'CHANNEL_MESSAGE': callWithEnv(onChannelMessage)
     };
 
-    const wsPromise = new Promise((resolve, reject) => {
-        initServer(Env).then(resolve).catch(reject);
-    });
-    const configPromise = new Promise((resolve, reject) => {
-        const config = require("../ws-config.js");
-        config.myId = Env.myId;
-        config.connector = WSConnector;
-        Env.config = Util.clone(config);
-        Env.numberCores = config.infra.core.length;
-        resolve(config);
-    });
-    Promise.all([
-        configPromise,
-        wsPromise
-    ]).then((values) => {
-        const config = values[0];
+    initServer(Env).then(() => {
         Interface.connect(config, (err, _interface) => {
             if (err) {
-                Env.log.error(Config.myId, ' error:', err);
+                Env.log.error(config.myId, ' error:', err);
                 return;
             }
             Env.log.info('WS started', Env.myId);
             Env.interface = _interface;
             _interface.handleCommands(COMMANDS);
         });
-    });
+    }).catch((e) => { return Env.log.error('Error:', e)});
 };
 
 module.exports = {

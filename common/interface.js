@@ -227,7 +227,7 @@ let init = function(config, cb) {
     let ctx = {
         others: {
             storage: [],
-            ws: []
+            websocket: []
         },
         commands: {},
     };

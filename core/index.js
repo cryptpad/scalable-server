@@ -1,25 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2024 XWiki CryptPad Team <contact@cryptpad.org> and contributors
-const Config = require("../ws-config.js");
 const Interface = require("../common/interface.js");
 const WSConnector = require("../common/ws-connector.js");
 const { jumpConsistentHash } = require('../common/consistent-hash.js');
-const cli_args = require("minimist")(process.argv.slice(2));
 const WorkerModule = require("../common/worker-module.js");
-
-if (cli_args.h || cli_args.help) {
-    console.log(`Usage ${process.argv[1]}:`);
-    console.log("\t--help, -h\tDisplay this help");
-    console.log("\t--id\tSet the core node id (default: 0)");
-    return;
-}
 
 let Env = {
     ws_id_cache: {},
 };
 
 const isWsCmd = id => {
-    return /^ws:/.test(id);
+    return /^websocket:/.test(id);
 };
 const isStorageCmd = id => {
     return /^storage:/.test(id);
@@ -47,14 +38,14 @@ let getStorageId = function(channelName) {
 
 // TODO: to fix (probably in websocket nodes)
 let getWsId = function(userId) {
-    return Env.ws_id_cache[userId] ? Env.ws_id_cache[userId] : 'ws:0';
+    return Env.ws_id_cache[userId] ? Env.ws_id_cache[userId] : 'websocket:0';
 };
 
 let wsToStorage = function(command, validated, isEvent) {
     return function(args, cb, extra) {
         if (!validated) {
             let s = extra.from.split(':');
-            if (s[0] !== 'ws') {
+            if (s[0] !== 'websocket') {
                 console.error('Error:', command, 'received from unauthorized server:', args, extra);
                 cb('UNAUTHORIZED_USER', void 0);
                 return;
@@ -170,7 +161,7 @@ const leaveChannel = (args, cb, extra) => {
 };
 
 const onUserMessage = (args, cb) => {
-    Env.interface.broadcast('ws', 'USER_MESSAGE', args, values => {
+    Env.interface.broadcast('websocket', 'USER_MESSAGE', args, values => {
         // If all responses return an error, message has failed
         if (values.every(obj => {
             return obj?.error;
@@ -192,11 +183,9 @@ const createLogger = () => {
     };
 };
 
-let startServers = function() {
-    Env.numberStorages = Config.infra.storage.length;
-    let idx = Number(cli_args.id) || 0;
-    Config.myId = 'core:' + idx;
-    Config.connector = WSConnector;
+let startServers = function(config) {
+    Env.numberStorages = config.infra.storage.length;
+    config.connector = WSConnector;
 
     const workerConfig = {
         Log: createLogger(),
@@ -232,17 +221,17 @@ let startServers = function() {
         COMMANDS[command] = wsToStorage(command, false, true);
     });
 
-    Interface.init(Config, (err, _interface) => {
+    Interface.init(config, (err, _interface) => {
         if (err) {
             console.error('E: interface initialisation error', err)
             return;
         }
-        console.log("Core started", Config.myId);
+        console.log("Core started", config.myId);
         Env.interface = _interface;
 
         _interface.handleCommands(COMMANDS)
         if (process.send !== undefined) {
-            process.send({ type: 'core', idx, msg: 'READY' });
+            process.send({ type: 'core', index: config.index, msg: 'READY' });
         }
     });
 };

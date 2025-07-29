@@ -6,49 +6,15 @@ const nThen = require("nthen");
 const BatchRead = require("./batch-read.js");
 const HK = require("./hk-util.js");
 const HistoryKeeper = require("./historyKeeper.js");
-const Config = require("../ws-config.js");
 const Interface = require("../common/interface.js");
 const WriteQueue = require("./write-queue.js");
 const WSConnector = require("../common/ws-connector.js");
-const cli_args = require("minimist")(process.argv.slice(2));
 const { jumpConsistentHash } = require('../common/consistent-hash.js');
-
-let proceed = true;
-
-if (cli_args.h || cli_args.help) {
-    proceed = false;
-    console.log(`Usage ${process.argv[1]}:`);
-    console.log("\t--help, -h\tDisplay this help");
-    console.log("\t--id\tSet the storage node id (default: 0)");
-}
-
-if (!proceed) { return; }
 
 const EPHEMERAL_CHANNEL_LENGTH = 34;
 const ADMIN_CHANNEL_LENGTH = 33;
 
-let Env = {
-    id: "0123456789abcdef",
-    publicKeyLength: 32,
-
-    metadata_cache: {},
-    channel_cache: {},
-    cache_checks: {},
-
-    queueStorage: WriteQueue(),
-
-    batchIndexReads: BatchRead("HK_GET_INDEX"),
-    batchMetadata: BatchRead('GET_METADATA'),
-
-    numberCores: Config.infra.core.length,
-
-    Log: {
-        info: console.log,
-        error: console.error,
-        warn: console.warn,
-        verbose: () => { },
-    },
-};
+let Env = {};
 
 const getCoreId = (channelName) => {
     let key = Buffer.from(channelName.slice(0, 8));
@@ -444,10 +410,6 @@ const dropUserHandler = (args) => {
 
 /* Start of the node */
 
-// Create a store
-let idx = Number(cli_args.id) || 0;
-Env.CM = ChannelManager.create(Env, 'data/' + idx)
-
 // List accepted commands
 let COMMANDS = {
     'GET_HISTORY': getHistoryHandler,
@@ -460,20 +422,39 @@ let COMMANDS = {
 };
 
 // Connect to core
-let start = function() {
-    Config.myId = 'storage:' + idx;
-    Config.connector = WSConnector;
-    Interface.connect(Config, (err, _interface) => {
+let start = function(config) {
+    Env.id= "0123456789abcdef";
+    Env.publicKeyLength= 32;
+    Env.metadata_cache= {};
+    Env.channel_cache= {};
+    Env.cache_checks= {};
+    Env.queueStorage= WriteQueue();
+    Env.batchIndexReads= BatchRead("HK_GET_INDEX");
+    Env.batchMetadata= BatchRead('GET_METADATA');
+
+    Env.numberCores= config?.infra?.core?.length;
+
+    Env.Log = {
+        info: console.log,
+        error: console.error,
+        warn: console.warn,
+        verbose: () => { },
+    };
+
+    Env.CM = ChannelManager.create(Env, 'data/' + config.index);
+
+    config.connector = WSConnector;
+    Interface.connect(config, (err, _interface) => {
         if (err) {
-            console.error(Config.myId, ' error:', err);
+            console.error(config.myId, ' error:', err);
             return;
         }
         _interface.handleCommands(COMMANDS);
         Env.interface = _interface;
         if (process.send !== undefined) {
-            process.send({ type: 'storage', idx, msg: 'READY' });
+            process.send({ type: 'storage', index: config.index, msg: 'READY' });
         } else {
-            console.log(Config.myId, 'started');
+            console.log(config.myId, 'started');
         }
     });
 };
