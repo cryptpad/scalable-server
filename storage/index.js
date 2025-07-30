@@ -423,18 +423,18 @@ let COMMANDS = {
 
 // Connect to core
 let start = function(config) {
-    const {myId, index, infra} = config;
+    const { myId, index, infra } = config;
 
-    Env.id= "0123456789abcdef";
-    Env.publicKeyLength= 32;
-    Env.metadata_cache= {};
-    Env.channel_cache= {};
-    Env.cache_checks= {};
-    Env.queueStorage= WriteQueue();
-    Env.batchIndexReads= BatchRead("HK_GET_INDEX");
-    Env.batchMetadata= BatchRead('GET_METADATA');
+    Env.id = "0123456789abcdef";
+    Env.publicKeyLength = 32;
+    Env.metadata_cache = {};
+    Env.channel_cache = {};
+    Env.cache_checks = {};
+    Env.queueStorage = WriteQueue();
+    Env.batchIndexReads = BatchRead("HK_GET_INDEX");
+    Env.batchMetadata = BatchRead('GET_METADATA');
 
-    Env.numberCores= infra?.core?.length;
+    Env.numberCores = infra?.core?.length;
 
     Env.Log = {
         info: console.log,
