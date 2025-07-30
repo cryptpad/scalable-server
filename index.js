@@ -54,26 +54,30 @@ const cores_ready = () => {
     });
 };
 
-const corePromises = infraConfig?.core.map((_, index) => new Promise((resolve) => {
-    console.log(`Starting: core:${index}`);
-    let core_process = fork('build/core.js');
-    const init_config = {
-        name: `core:${index}`,
-        index,
-        config: {
-            server: serverConfig,
-            infra: infraConfig,
-        }
-    };
-    core_process.send(init_config);
-    core_process.on('message', (message) => {
-        if (message.msg === 'READY') {
-            Log.info(`Started: core:${message.index}`);
-            return resolve();
-        }
-    });
-}));
+const startCores = () => {
+    const corePromises = infraConfig?.core.map((_, index) => new Promise((resolve) => {
+        console.log(`Starting: core:${index}`);
+        let core_process = fork('build/core.js');
+        const init_config = {
+            name: `core:${index}`,
+            index,
+            config: {
+                server: serverConfig,
+                infra: infraConfig,
+            }
+        };
+        core_process.send(init_config);
+        core_process.on('message', (message) => {
+            if (message.msg === 'READY') {
+                Log.info(`Started: core:${message.index}`);
+                return resolve();
+            }
+        });
+    }));
 
-Promise.all(corePromises)
-    .then(() => { cores_ready(); })
-    .catch((e) => { return Log.error(e); });
+    Promise.all(corePromises)
+        .then(() => { cores_ready(); })
+        .catch((e) => { return Log.error(e); });
+};
+
+startCores();
