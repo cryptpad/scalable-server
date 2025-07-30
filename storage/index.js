@@ -423,6 +423,8 @@ let COMMANDS = {
 
 // Connect to core
 let start = function(config) {
+    const {myId, index, infra} = config;
+
     Env.id= "0123456789abcdef";
     Env.publicKeyLength= 32;
     Env.metadata_cache= {};
@@ -432,7 +434,7 @@ let start = function(config) {
     Env.batchIndexReads= BatchRead("HK_GET_INDEX");
     Env.batchMetadata= BatchRead('GET_METADATA');
 
-    Env.numberCores= config?.infra?.core?.length;
+    Env.numberCores= infra?.core?.length;
 
     Env.Log = {
         info: console.log,
@@ -441,20 +443,25 @@ let start = function(config) {
         verbose: () => { },
     };
 
-    Env.CM = ChannelManager.create(Env, 'data/' + config.index);
+    Env.CM = ChannelManager.create(Env, 'data/' + index);
 
-    config.connector = WSConnector;
-    Interface.connect(config, (err, _interface) => {
+    const interfaceConfig = {
+        connector: WSConnector,
+        index,
+        infra,
+        myId
+    };
+    Interface.connect(interfaceConfig, (err, _interface) => {
         if (err) {
-            console.error(config.myId, ' error:', err);
+            console.error(interfaceConfig.myId, ' error:', err);
             return;
         }
         _interface.handleCommands(COMMANDS);
         Env.interface = _interface;
         if (process.send !== undefined) {
-            process.send({ type: 'storage', index: config.index, msg: 'READY' });
+            process.send({ type: 'storage', index: interfaceConfig.index, msg: 'READY' });
         } else {
-            console.log(config.myId, 'started');
+            console.log(interfaceConfig.myId, 'started');
         }
     });
 };

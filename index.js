@@ -14,25 +14,28 @@ if (cli_args.h || cli_args.help) {
     return;
 }
 
-let config = require('./config/config.json');
-const infra = require('./config/infra.json');
-config.infra = infra;
+let serverConfig = require('./config/config.json');
+const infraConfig = require('./config/infra.json');
 
 const Log = {
+    debug: console.debug,
     error: console.error,
-    info: console.info,
-    log: console.log,
-    warn: console.warn,
+    info: console.log,
+    verbose: console.info,
+    warn: console.warn
 };
 
 const start_node = (type, index) => {
-    Log.log(`Starting: ${type}:${index}`);
+    Log.info(`Starting: ${type}:${index}`);
     let node_process;
     node_process = fork('./build/' + type + '.js');
     const init_config = {
         name: `${type}:${index}`,
         index,
-        config
+        config: {
+            server: serverConfig,
+            infra: infraConfig
+        }
     };
     node_process.send(init_config);
     node_process.on('message', (message) => {
@@ -43,26 +46,29 @@ const start_node = (type, index) => {
 };
 
 const cores_ready = () => {
-    config?.infra?.websocket?.forEach((_, index) => {
+    infraConfig?.websocket?.forEach((_, index) => {
         start_node('websocket', index);
     });
-    config?.infra?.storage?.forEach((_, index) => {
+    infraConfig?.storage?.forEach((_, index) => {
         start_node('storage', index);
     });
 };
 
-const corePromises = config?.infra?.core.map((_, index) => new Promise((resolve) => {
+const corePromises = infraConfig?.core.map((_, index) => new Promise((resolve) => {
     console.log(`Starting: core:${index}`);
     let core_process = fork('build/core.js');
     const init_config = {
         name: `core:${index}`,
         index,
-        config
+        config: {
+            server: serverConfig,
+            infra: infraConfig,
+        }
     };
     core_process.send(init_config);
     core_process.on('message', (message) => {
         if (message.msg === 'READY') {
-            console.log(`Started: core:${message.index}`);
+            Log.info(`Started: core:${message.index}`);
             return resolve();
         }
     });

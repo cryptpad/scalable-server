@@ -184,7 +184,15 @@ const createLogger = () => {
 };
 
 let startServers = function(config) {
+    let { myId, index, server, infra } = config;
     Env.numberStorages = config.infra.storage.length;
+    const interfaceConfig = {
+        connector: WSConnector,
+        infra,
+        server,
+        myId,
+        index
+    };
     config.connector = WSConnector;
 
     const workerConfig = {
@@ -221,7 +229,7 @@ let startServers = function(config) {
         COMMANDS[command] = wsToStorage(command, false, true);
     });
 
-    Interface.init(config, (err, _interface) => {
+    Interface.init(interfaceConfig, (err, _interface) => {
         if (err) {
             console.error('E: interface initialisation error', err)
             return;

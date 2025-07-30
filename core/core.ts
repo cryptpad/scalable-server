@@ -1,8 +1,11 @@
 import * as Core from './index.js';
 
 process.on('message', (message: Message) => {
-	let config = message?.config;
-	config.myId = message?.name;
-	config.index = message?.index;
-	Core.start(config);
+	let { server, infra } = message?.config;
+	Core.start({
+		myId: message?.name,
+		index: message?.index,
+		server,
+		infra
+	});
 });

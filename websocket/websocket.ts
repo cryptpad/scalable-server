@@ -1,9 +1,11 @@
 import * as WebSocket from './index.js';
 
 process.on('message', (message: Message) => {
-	let config = message?.config;
-	config.myId = message.name;
-	config.index = message.index;
-	WebSocket.start(config);
+	let { server, infra } = message?.config;
+	WebSocket.start({
+		myId: message?.name,
+		index: message?.index,
+		server,
+		infra
+	});
 });
-

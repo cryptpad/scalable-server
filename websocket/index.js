@@ -463,19 +463,25 @@ const shutdown = (Env) => {
 
 
 const start = (config) => {
-    config.connector = WSConnector;
-    const index = config.index;
+    const {myId, index, server, infra} = config;
+    const interfaceConfig = {
+        connector: WSConnector,
+        index,
+        infra,
+        myId,
+        public: server?.public
+    };
     const Env = {
-        myId: config.myId,
+        myId: interfaceConfig.myId,
         LogIp: true,
         openConnections: {},
         user_channel_cache: {},
         log: createLogger(),
         active: true,
         users: {},
-        config,
-        numberCores: config?.infra?.core?.length,
-        public: config?.public?.websocket?.[index],
+        config: interfaceConfig,
+        numberCores: infra?.core?.length,
+        public: server?.public?.websocket?.[index],
     };
 
     const callWithEnv = f => {
@@ -491,9 +497,9 @@ const start = (config) => {
     };
 
     initServer(Env).then(() => {
-        Interface.connect(config, (err, _interface) => {
+        Interface.connect(interfaceConfig, (err, _interface) => {
             if (err) {
-                Env.log.error(config.myId, ' error:', err);
+                Env.log.error(interfaceConfig.myId, ' error:', err);
                 return;
             }
             Env.log.info('WS started', Env.myId);
