@@ -4,7 +4,6 @@
 const { fork } = require('child_process')
 const cli_args = require("minimist")(process.argv.slice(2));
 
-
 // XXX:  add some process to start nodes individually
 if (cli_args.h || cli_args.help) {
     console.log(`Usage ${process.argv[1]}:`);
@@ -25,7 +24,8 @@ const Log = {
     warn: console.warn
 };
 
-const start_node = (type, index) => {
+const start_node = (type, index, cb) => {
+    if (typeof (cb) !== 'function') { cb = () => { }; };
     Log.info(`Starting: ${type}:${index}`);
     let node_process;
     node_process = fork('./build/' + type + '.js');
@@ -40,7 +40,8 @@ const start_node = (type, index) => {
     node_process.send(init_config);
     node_process.on('message', (message) => {
         if (message.msg === 'READY') {
-            console.log(`Started: ${type}:${message.index}`);
+            Log.info(`Started: ${type}:${message.index}`);
+            cb();
         }
     });
 };
@@ -55,23 +56,13 @@ const cores_ready = () => {
 };
 
 const startCores = () => {
-    const corePromises = infraConfig?.core.map((_, index) => new Promise((resolve) => {
-        console.log(`Starting: core:${index}`);
-        let core_process = fork('build/core.js');
-        const init_config = {
-            name: `core:${index}`,
-            index,
-            config: {
-                server: serverConfig,
-                infra: infraConfig,
+    const corePromises = infraConfig?.core.map((_, index) => new Promise((resolve, reject) => {
+        start_node('core', index, (err) => {
+            if (err) {
+                Log.error(err);
+                return reject(err);
             }
-        };
-        core_process.send(init_config);
-        core_process.on('message', (message) => {
-            if (message.msg === 'READY') {
-                Log.info(`Started: core:${message.index}`);
-                return resolve();
-            }
+            return resolve();
         });
     }));
 
