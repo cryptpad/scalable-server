@@ -1,7 +1,5 @@
 import * as Storage from './index.js';
 
-import * as WebSocket from './index.js';
-
 type Message = { name: string, index: number, config: { myId: string, index: number } }
 
 process.on('message', (message: Message) => {
