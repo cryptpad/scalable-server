@@ -2,17 +2,6 @@
 // SPDX-FileCopyrightText: 2024 XWiki CryptPad Team <contact@cryptpad.org> and contributors
 const Util = require("./common-util.js");
 
-let createHandlers = function(ctx, other) {
-    other.onMessage(function(message) {
-        handleMessage(ctx, other, message);
-    });
-    other.onDisconnect(function(_code, _reason) { // XXX: to handle properly in the future
-        if (ctx.self.isOpen()) {
-            ctx.self.disconnect();
-        }
-    });
-};
-
 let findDestFromId = function(ctx, destId) {
     let destPath = destId.split(':');
     return Util.find(ctx.others, destPath);
@@ -80,6 +69,18 @@ let handleMessage = function(ctx, other, message) {
         });
     }
 };
+
+let createHandlers = function(ctx, other) {
+    other.onMessage(function(message) {
+        handleMessage(ctx, other, message);
+    });
+    other.onDisconnect(function(_code, _reason) { // XXX: to handle properly in the future
+        if (ctx.self.isOpen()) {
+            ctx.self.disconnect();
+        }
+    });
+};
+
 
 let guid = function(ctx) {
     let uid = Util.uid();
