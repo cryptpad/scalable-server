@@ -8,8 +8,8 @@ const cli_args = require("minimist")(process.argv.slice(2));
 if (cli_args.h || cli_args.help) {
     console.log(`Usage ${process.argv[1]}:`);
     console.log("\t--help, -h\tDisplay this help");
-    console.log("\t--type\tSet the core type (if unset, starts every core)");
-    console.log("\t--id\tSet the core node id (default: 0)");
+    console.log("\t--type,-t\tSet the core type (if unset, starts every core)");
+    console.log("\t--index,-i\tSet the core node index (default: 0)");
     return;
 }
 
@@ -70,5 +70,17 @@ const startCores = () => {
         .then(() => { cores_ready(); })
         .catch((e) => { return Log.error(e); });
 };
+
+// Start process
+
+if (cli_args.type || cli_args.t) {
+    const type = cli_args.type || cli_args.t;
+    const index = Number(cli_args.index || cli_args.i || 0);
+    console.log(index);
+    start_node(type, index, (err) => {
+        if (err) { return Log.error(err); }
+    });
+    return;
+}
 
 startCores();
