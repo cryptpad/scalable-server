@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 const { fork } = require('child_process')
 const cli_args = require("minimist")(process.argv.slice(2));
+const Crypto = require('crypto');
 
 // XXX:  add some process to start nodes individually
 if (cli_args.h || cli_args.help) {
@@ -60,6 +61,13 @@ const cores_ready = () => {
 };
 
 const startCores = () => {
+    // XXX: add a better way to generate the node shared key
+    if (!serverConfig?.private?.nodes_key) {
+        if (!serverConfig?.private) {
+            serverConfig.private = { };
+        }
+        serverConfig.private.nodes_key = Buffer.from(Crypto.randomBytes(32), 'base64');
+    }
     const corePromises = infraConfig?.core.map((_, index) => new Promise((resolve, reject) => {
         start_node('core', index, true, (err) => {
             if (err) {
