@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2024 XWiki CryptPad Team <contact@cryptpad.org> and contributors
 const Util = require("./common-util.js");
+const Crypto = require("../core/crypto.js")("sodiumnative");
 
 let findDestFromId = function(ctx, destId) {
     let destPath = destId.split(':');
@@ -45,16 +46,38 @@ let handleMessage = function(ctx, other, message) {
     if (!fromId) {
         if (type !== 'IDENTITY') {
             // TODO: close the connection
-            console.log("Unidentified message received", message);
+            console.error("Unidentified message received", message);
             return;
         }
-        // TODO: sanity checks
-        ctx.others[data.type][data.idx] = other;
+        const { type: rcvType, idx } = data;
+        const challenge = new Uint8Array(data.challenge.data);
+        const nonce = new Uint8Array(data.nonce.data);
+        const schallenge = String(challenge);
+
+        // Check for reused challenges
+        if (ctx.ChallengesCache[schallenge]) {
+            return console.error("Reused challenge");
+        }
+        // Buffer.from is needed for compatibility with tweetnacl
+        const msg = Buffer.from(Crypto.secretboxOpen(challenge, nonce, ctx.nodes_key));
+        if (!msg) {
+            return console.error("Bad challenge answer");
+        }
+        let [challType, challIndex, challTimestamp] = String(msg).split(':');
+        if (Number(Date.now()) - Number(challTimestamp) > ctx.ChallengeLifetime || rcvType !== challType || idx !== Number(challIndex)) {
+            return console.error("Bad challenge answer");
+        }
+
+        // Challenge caching once it’s validated
+        ctx.ChallengesCache[schallenge] = true;
+        setTimeout(() => { delete ctx.ChallengesCache[schallenge]; }, ctx.ChallengeLifetime);
+
+        ctx.others[rcvType][idx] = other;
         return;
     }
 
     if (type !== 'MESSAGE') {
-        console.log("Unexpected message type", message);
+        console.error("Unexpected message type", type, ', message:', data);
         return;
     }
 
@@ -88,8 +111,6 @@ let guid = function(ctx) {
 };
 
 let communicationManager = function(ctx) {
-    let myId = ctx.myId;
-
     let sendEvent = function(destId, command, args) {
         let dest = findDestFromId(ctx, destId);
         if (!dest) {
@@ -184,6 +205,7 @@ let connect = function(config, cb) {
             core: []
         },
         commands: [],
+        nodes_key: Crypto.decodeBase64(config?.server?.private?.nodes_key)
     };
     ctx.myId = config.myId;
 
@@ -231,6 +253,9 @@ let init = function(config, cb) {
             websocket: []
         },
         commands: {},
+        nodes_key: Crypto.decodeBase64(config?.server?.private?.nodes_key),
+        ChallengesCache: {},
+        ChallengeLifetime: 30 * 1000 // 30 seconds
     };
     ctx.myId = config.myId;
 

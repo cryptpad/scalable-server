@@ -423,7 +423,7 @@ let COMMANDS = {
 
 // Connect to core
 let start = function(config) {
-    const { myId, index, infra } = config;
+    const { myId, index, infra, server } = config;
 
     Env.id = "0123456789abcdef";
     Env.publicKeyLength = 32;
@@ -449,6 +449,7 @@ let start = function(config) {
         connector: WSConnector,
         index,
         infra,
+        server,
         myId
     };
     Interface.connect(interfaceConfig, (err, _interface) => {

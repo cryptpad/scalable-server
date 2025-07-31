@@ -468,6 +468,7 @@ const start = (config) => {
         connector: WSConnector,
         index,
         infra,
+        server,
         myId,
         public: server?.public
     };
