@@ -35,7 +35,7 @@ const start_node = (type, index, do_fork, cb) => {
         infra: infraConfig
     };
 
-    Log.info(`Starting: ${type}:${index}`);
+    Log.info(`Starting: ${init_config.myId}`);
     if (do_fork) {
         let node_process = fork(node_file);
         node_process.send(init_config);
