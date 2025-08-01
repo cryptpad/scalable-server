@@ -88,6 +88,9 @@ const startCores = () => {
 if (cliArgs.type || cliArgs.t) {
     const type = cliArgs.type || cliArgs.t;
     const index = Number(cliArgs.index || cliArgs.i || 0);
+    if (!serverConfig?.private?.nodes_key) {
+        throw Error('E_MISSINGKEY');
+    }
     startNode(type, index, false, (err) => {
         if (err) { return Log.error(err); }
     });
