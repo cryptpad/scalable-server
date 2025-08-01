@@ -25,34 +25,38 @@ const Log = {
     warn: console.warn
 };
 
-const start_node = (type, index, cb) => {
+const start_node = (type, index, do_fork, cb) => {
     if (typeof (cb) !== 'function') { cb = () => { }; };
-    Log.info(`Starting: ${type}:${index}`);
-    let node_process;
-    node_process = fork('./build/' + type + '.js');
+
+    const node_file = './build/' + type + '.js';
     const init_config = {
-        name: `${type}:${index}`,
+        myId: `${type}:${index}`,
         index,
-        config: {
-            server: serverConfig,
-            infra: infraConfig
-        }
+        server: serverConfig,
+        infra: infraConfig
     };
-    node_process.send(init_config);
-    node_process.on('message', (message) => {
-        if (message.msg === 'READY') {
-            Log.info(`Started: ${type}:${message.index}`);
-            cb();
-        }
-    });
+
+    Log.info(`Starting: ${init_config.myId}`);
+    if (do_fork) {
+        let node_process = fork(node_file);
+        node_process.send(init_config);
+        node_process.on('message', (message) => {
+            if (message.msg === 'READY') {
+                Log.info(`Started: ${type}:${message.index}`);
+                cb();
+            }
+        });
+    } else {
+        require(node_file).start(init_config);
+    }
 };
 
 const cores_ready = () => {
     infraConfig?.websocket?.forEach((_, index) => {
-        start_node('websocket', index);
+        start_node('websocket', index, true);
     });
     infraConfig?.storage?.forEach((_, index) => {
-        start_node('storage', index);
+        start_node('storage', index, true);
     });
 };
 
@@ -65,7 +69,7 @@ const startCores = () => {
         serverConfig.private.nodes_key = Buffer.from(Crypto.randomBytes(32), 'base64');
     }
     const corePromises = infraConfig?.core.map((_, index) => new Promise((resolve, reject) => {
-        start_node('core', index, (err) => {
+        start_node('core', index, true, (err) => {
             if (err) {
                 Log.error(err);
                 return reject(err);
@@ -84,8 +88,7 @@ const startCores = () => {
 if (cli_args.type || cli_args.t) {
     const type = cli_args.type || cli_args.t;
     const index = Number(cli_args.index || cli_args.i || 0);
-    console.log(index);
-    start_node(type, index, (err) => {
+    start_node(type, index, false, (err) => {
         if (err) { return Log.error(err); }
     });
     return;
