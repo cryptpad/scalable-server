@@ -55,7 +55,7 @@ let handleMessage = function(ctx, other, message) {
         }
         if (type !== 'IDENTITY') {
             // TODO: close the connection
-            console.error("Unidentified message received", message);
+            console.error("Unidentified message received", message.toString());
             return;
         }
         const { type: rcvType, idx } = data;
@@ -90,7 +90,7 @@ let handleMessage = function(ctx, other, message) {
     }
 
     if (type !== 'MESSAGE') {
-        console.error("Unexpected message type", type, ', message:', data);
+        console.error(ctx.myId, "Unexpected message type", type, ', message:', data);
         return;
     }
 
