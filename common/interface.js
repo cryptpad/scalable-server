@@ -25,7 +25,7 @@ let findIdFromDest = function(ctx, dest) {
 const newConnection = (ctx, other, txid, type, data) => {
     if (type === 'ACCEPT') {
         const coreId = ctx.pendingConnections?.[txid];
-        const [acceptName, acceptIndex] = data.split(':'); // XXX: to clean
+        const [acceptName, acceptIndex] = data.split(':'); // XXX: more robust code
         if (typeof (coreId) === 'undefined' || acceptName !== 'core' || Number(acceptIndex) !== coreId) {
             return console.error(ctx.myId, ': unknown connection accepted');
         }
@@ -42,6 +42,7 @@ const newConnection = (ctx, other, txid, type, data) => {
     const nonce = new Uint8Array(Buffer.from(nonceBase64, 'base64'));
 
     // Check for reused challenges
+    // XXX: handle rejection
     if (ctx.ChallengesCache[challengeBase64]) {
         return console.error("Reused challenge");
     }
@@ -54,11 +55,15 @@ const newConnection = (ctx, other, txid, type, data) => {
     // This requires servers to be time-synchronised to avoid “Challenge in
     // the future” issue.
     let challengeLife = Number(Date.now()) - Number(challTimestamp)
-    if (challengeLife < 0 || challengeLife > ctx.ChallengeLifetime || rcvType !== challType || idx !== Number(challIndex)) {
+    if (challengeLife < 0 || challengeLife > ctx.ChallengeLifetime ||
+        rcvType !== challType || idx !== Number(challIndex)) {
+        // XXX: handle rejection + be sure to send the same error in both cases
+        // to forbid adversary from knowing too much
         return console.error("Bad challenge answer");
     }
 
     // Challenge caching once it’s validated
+    // TODO: authenticate the answer
     ctx.ChallengesCache[challengeBase64] = true;
     setTimeout(() => { delete ctx.ChallengesCache[challengeBase64]; }, ctx.ChallengeLifetime);
     other.send([txid, 'ACCEPT', ctx.myId]);
