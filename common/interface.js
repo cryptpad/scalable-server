@@ -64,7 +64,10 @@ let handleMessage = function(ctx, other, message) {
             return console.error("Bad challenge answer");
         }
         let [challType, challIndex, challTimestamp] = String(msg).split(':');
-        if (Number(Date.now()) - Number(challTimestamp) > ctx.ChallengeLifetime || rcvType !== challType || idx !== Number(challIndex)) {
+        // This requires servers to be time-synchronised to avoid “Challenge in
+        // the future” issue.
+        let challengeLife = Number(Date.now()) - Number(challTimestamp)
+        if (challengeLife < 0 || challengeLife > ctx.ChallengeLifetime || rcvType !== challType || idx !== Number(challIndex)) {
             return console.error("Bad challenge answer");
         }
 
