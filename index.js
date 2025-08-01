@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 const { fork } = require('child_process')
-const cli_args = require("minimist")(process.argv.slice(2));
 const Crypto = require('crypto');
+const cliArgs = require("minimist")(process.argv.slice(2));
 
 // XXX:  add some process to start nodes individually
-if (cli_args.h || cli_args.help) {
+if (cliArgs.h || cliArgs.help) {
     console.log(`Usage ${process.argv[1]}:`);
     console.log("\t--help, -h\tDisplay this help");
     console.log("\t--type,-t\tSet the core type (if unset, starts every core)");
@@ -25,38 +25,38 @@ const Log = {
     warn: console.warn
 };
 
-const start_node = (type, index, do_fork, cb) => {
+const startNode = (type, index, forking, cb) => {
     if (typeof (cb) !== 'function') { cb = () => { }; };
 
-    const node_file = './build/' + type + '.js';
-    const init_config = {
+    const nodeFile = './build/' + type + '.js';
+    const initConfig = {
         myId: `${type}:${index}`,
         index,
         server: serverConfig,
         infra: infraConfig
     };
 
-    Log.info(`Starting: ${init_config.myId}`);
-    if (do_fork) {
-        let node_process = fork(node_file);
-        node_process.send(init_config);
-        node_process.on('message', (message) => {
+    Log.info(`Starting: ${initConfig.myId}`);
+    if (forking) {
+        let nodeProcess = fork(nodeFile);
+        nodeProcess.send(initConfig);
+        nodeProcess.on('message', (message) => {
             if (message.msg === 'READY') {
                 Log.info(`Started: ${type}:${message.index}`);
                 cb();
             }
         });
     } else {
-        require(node_file).start(init_config);
+        require(nodeFile).start(initConfig);
     }
 };
 
-const cores_ready = () => {
+const coresReady = () => {
     infraConfig?.websocket?.forEach((_, index) => {
-        start_node('websocket', index, true);
+        startNode('websocket', index, true);
     });
     infraConfig?.storage?.forEach((_, index) => {
-        start_node('storage', index, true);
+        startNode('storage', index, true);
     });
 };
 
@@ -69,7 +69,7 @@ const startCores = () => {
         serverConfig.private.nodes_key = Buffer.from(Crypto.randomBytes(32), 'base64');
     }
     const corePromises = infraConfig?.core.map((_, index) => new Promise((resolve, reject) => {
-        start_node('core', index, true, (err) => {
+        startNode('core', index, true, (err) => {
             if (err) {
                 Log.error(err);
                 return reject(err);
@@ -79,16 +79,16 @@ const startCores = () => {
     }));
 
     Promise.all(corePromises)
-        .then(() => { cores_ready(); })
+        .then(() => { coresReady(); })
         .catch((e) => { return Log.error(e); });
 };
 
 // Start process
 
-if (cli_args.type || cli_args.t) {
-    const type = cli_args.type || cli_args.t;
-    const index = Number(cli_args.index || cli_args.i || 0);
-    start_node(type, index, false, (err) => {
+if (cliArgs.type || cliArgs.t) {
+    const type = cliArgs.type || cliArgs.t;
+    const index = Number(cliArgs.index || cliArgs.i || 0);
+    startNode(type, index, false, (err) => {
         if (err) { return Log.error(err); }
     });
     return;
