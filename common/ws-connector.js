@@ -3,9 +3,6 @@
 const WebSocket = require("ws");
 const Express = require("express");
 const Http = require("http");
-const Util = require("./common-util.js");
-const NodeCrypto = require("crypto");
-const Crypto = require("../core/crypto.js")("sodiumnative");
 
 const socketToClient = function(ws) {
     let handlers = ws.__handlers = {
@@ -38,6 +35,7 @@ const socketToClient = function(ws) {
     };
 
     // XXX: maybe add an uid for connections?
+    // add onAuthenticated
     return {
         _ws: ws,
         send: (msg) => {
@@ -93,14 +91,7 @@ module.exports = {
                 .on('open', function() {
                     let client = socketToClient(socket);
                     ctx.self = client;
-                    ctx.others.core[id] = client;
-                    let uid = Util.uid(); // XXX: replace with guid
-
-                    // Identify with challenge
-                    const nonce = NodeCrypto.randomBytes(24);
-                    const msg = Buffer.from(`${ctx.myType}:${ctx.myNumber}:${String(Date.now())}`, 'utf-8');
-                    const challenge = Crypto.secretbox(msg, nonce, ctx.nodes_key);
-                    client.send([uid, 'IDENTITY', { type: ctx.myType, idx: ctx.myNumber, nonce, challenge }]);
+                    ctx.pendingCore = id;
                     onConnected(ctx, client);
                     resolve();
                 })

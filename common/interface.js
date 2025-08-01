@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2024 XWiki CryptPad Team <contact@cryptpad.org> and contributors
 const Util = require("./common-util.js");
 const Crypto = require("../core/crypto.js")("sodiumnative");
+const NodeCrypto = require("crypto");
 
 let findDestFromId = function(ctx, destId) {
     let destPath = destId.split(':');
@@ -44,6 +45,14 @@ let handleMessage = function(ctx, other, message) {
 
     let fromId = findIdFromDest(ctx, other);
     if (!fromId) {
+        if (type === 'ACCEPT') {
+            const coreId = ctx.pendingConnections?.[txid];
+            if (typeof(coreId) === 'undefined') {
+                return console.error(ctx.myId, ': unknown connection accepted');
+            }
+            ctx.others.core[coreId] = other;
+            return;
+        }
         if (type !== 'IDENTITY') {
             // TODO: close the connection
             console.error("Unidentified message received", message);
@@ -74,6 +83,7 @@ let handleMessage = function(ctx, other, message) {
         // Challenge caching once it’s validated
         ctx.ChallengesCache[schallenge] = true;
         setTimeout(() => { delete ctx.ChallengesCache[schallenge]; }, ctx.ChallengeLifetime);
+        other.send([txid, 'ACCEPT']);
 
         ctx.others[rcvType][idx] = other;
         return;
@@ -106,6 +116,19 @@ let createHandlers = function(ctx, other) {
         }
     });
 };
+
+const onConnected = (ctx, other) => {
+    let uid = Util.uid(); // XXX: replace with guid
+    ctx.pendingConnections[uid] = ctx.pendingCore;
+    delete ctx.pendingCore;
+
+    // Identify with challenge
+    const nonce = NodeCrypto.randomBytes(24);
+    const msg = Buffer.from(`${ctx.myType}:${ctx.myNumber}:${String(Date.now())}`, 'utf-8');
+    const challenge = Crypto.secretbox(msg, nonce, ctx.nodes_key);
+    createHandlers(ctx, other);
+    other.send([uid, 'IDENTITY', { type: ctx.myType, idx: ctx.myNumber, nonce, challenge }]);
+}
 
 
 let guid = function(ctx) {
@@ -208,7 +231,8 @@ let connect = function(config, cb) {
             core: []
         },
         commands: [],
-        nodes_key: Crypto.decodeBase64(config?.server?.private?.nodes_key)
+        nodes_key: Crypto.decodeBase64(config?.server?.private?.nodes_key),
+        pendingConnections : {}
     };
     ctx.myId = config.myId;
 
@@ -236,7 +260,7 @@ let connect = function(config, cb) {
     if (!connector) {
         return cb('E_MISSINGCONNECTOR');
     }
-    connector.initClient(ctx, config, createHandlers, (err) => {
+    connector.initClient(ctx, config, onConnected, (err) => {
         if (err) {
             return cb(err);
         }
