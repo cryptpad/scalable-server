@@ -22,6 +22,51 @@ let findIdFromDest = function(ctx, dest) {
     return found;
 };
 
+const newConnection = (ctx, other, txid, type, data) => {
+    if (type === 'ACCEPT') {
+        const coreId = ctx.pendingConnections?.[txid];
+        const [acceptName, acceptIndex] = data.split(':'); // XXX: to clean
+        if (typeof (coreId) === 'undefined' || acceptName !== 'core' || Number(acceptIndex) !== coreId) {
+            return console.error(ctx.myId, ': unknown connection accepted');
+        }
+        ctx.others.core[coreId] = other;
+        return;
+    }
+    if (type !== 'IDENTITY') {
+        // TODO: close the connection
+        console.error("Unidentified message received", message.toString());
+        return;
+    }
+    const { type: rcvType, idx, challenge: challengeBase64, nonce: nonceBase64 } = data;
+    const challenge = new Uint8Array(Buffer.from(challengeBase64, 'base64'));
+    const nonce = new Uint8Array(Buffer.from(nonceBase64, 'base64'));
+
+    // Check for reused challenges
+    if (ctx.ChallengesCache[challengeBase64]) {
+        return console.error("Reused challenge");
+    }
+    // Buffer.from is needed for compatibility with tweetnacl
+    const msg = Buffer.from(Crypto.secretboxOpen(challenge, nonce, ctx.nodes_key));
+    if (!msg) {
+        return console.error("Bad challenge answer");
+    }
+    let [challType, challIndex, challTimestamp] = String(msg).split(':');
+    // This requires servers to be time-synchronised to avoid “Challenge in
+    // the future” issue.
+    let challengeLife = Number(Date.now()) - Number(challTimestamp)
+    if (challengeLife < 0 || challengeLife > ctx.ChallengeLifetime || rcvType !== challType || idx !== Number(challIndex)) {
+        return console.error("Bad challenge answer");
+    }
+
+    // Challenge caching once it’s validated
+    ctx.ChallengesCache[challengeBase64] = true;
+    setTimeout(() => { delete ctx.ChallengesCache[challengeBase64]; }, ctx.ChallengeLifetime);
+    other.send([txid, 'ACCEPT', ctx.myId]);
+
+    ctx.others[rcvType][idx] = other;
+    return;
+};
+
 let handleMessage = function(ctx, other, message) {
     let response = ctx.response;
 
@@ -45,48 +90,7 @@ let handleMessage = function(ctx, other, message) {
 
     let fromId = findIdFromDest(ctx, other);
     if (!fromId) {
-        if (type === 'ACCEPT') {
-            const coreId = ctx.pendingConnections?.[txid];
-            const [ acceptName, acceptIndex ] = data.split(':'); // XXX: to clean
-            if (typeof(coreId) === 'undefined' || acceptName !== 'core' || Number(acceptIndex) !== coreId) {
-                return console.error(ctx.myId, ': unknown connection accepted');
-            }
-            ctx.others.core[coreId] = other;
-            return;
-        }
-        if (type !== 'IDENTITY') {
-            // TODO: close the connection
-            console.error("Unidentified message received", message.toString());
-            return;
-        }
-        const { type: rcvType, idx, challenge: challengeBase64, nonce: nonceBase64 } = data;
-        const challenge = new Uint8Array(Buffer.from(challengeBase64, 'base64'));
-        const nonce = new Uint8Array(Buffer.from(nonceBase64, 'base64'));
-
-        // Check for reused challenges
-        if (ctx.ChallengesCache[challengeBase64]) {
-            return console.error("Reused challenge");
-        }
-        // Buffer.from is needed for compatibility with tweetnacl
-        const msg = Buffer.from(Crypto.secretboxOpen(challenge, nonce, ctx.nodes_key));
-        if (!msg) {
-            return console.error("Bad challenge answer");
-        }
-        let [challType, challIndex, challTimestamp] = String(msg).split(':');
-        // This requires servers to be time-synchronised to avoid “Challenge in
-        // the future” issue.
-        let challengeLife = Number(Date.now()) - Number(challTimestamp)
-        if (challengeLife < 0 || challengeLife > ctx.ChallengeLifetime || rcvType !== challType || idx !== Number(challIndex)) {
-            return console.error("Bad challenge answer");
-        }
-
-        // Challenge caching once it’s validated
-        ctx.ChallengesCache[challengeBase64] = true;
-        setTimeout(() => { delete ctx.ChallengesCache[challengeBase64]; }, ctx.ChallengeLifetime);
-        other.send([txid, 'ACCEPT', ctx.myId ]);
-
-        ctx.others[rcvType][idx] = other;
-        return;
+        return newConnection(ctx, other, txid, type, data);
     }
 
     if (type !== 'MESSAGE') {
