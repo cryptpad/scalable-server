@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2024 XWiki CryptPad Team <contact@cryptpad.org> and contributors
 const Util = require("./common-util.js");
-const Crypto = require("../core/crypto.js")("sodiumnative");
+const Crypto = require("./crypto.js")("sodiumnative");
 const NodeCrypto = require("crypto");
 
 let findDestFromId = function(ctx, destId) {
