@@ -47,7 +47,8 @@ let handleMessage = function(ctx, other, message) {
     if (!fromId) {
         if (type === 'ACCEPT') {
             const coreId = ctx.pendingConnections?.[txid];
-            if (typeof(coreId) === 'undefined') {
+            const [ acceptName, acceptIndex ] = data.split(':'); // XXX: to clean
+            if (typeof(coreId) === 'undefined' || acceptName !== 'core' || Number(acceptIndex) !== coreId) {
                 return console.error(ctx.myId, ': unknown connection accepted');
             }
             ctx.others.core[coreId] = other;
