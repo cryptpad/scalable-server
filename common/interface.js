@@ -58,13 +58,12 @@ let handleMessage = function(ctx, other, message) {
             console.error("Unidentified message received", message.toString());
             return;
         }
-        const { type: rcvType, idx } = data;
-        const challenge = new Uint8Array(data.challenge.data);
-        const nonce = new Uint8Array(data.nonce.data);
-        const schallenge = String(challenge);
+        const { type: rcvType, idx, challenge: challengeBase64, nonce: nonceBase64 } = data;
+        const challenge = new Uint8Array(Buffer.from(challengeBase64, 'base64'));
+        const nonce = new Uint8Array(Buffer.from(nonceBase64, 'base64'));
 
         // Check for reused challenges
-        if (ctx.ChallengesCache[schallenge]) {
+        if (ctx.ChallengesCache[challengeBase64]) {
             return console.error("Reused challenge");
         }
         // Buffer.from is needed for compatibility with tweetnacl
@@ -81,9 +80,9 @@ let handleMessage = function(ctx, other, message) {
         }
 
         // Challenge caching once it’s validated
-        ctx.ChallengesCache[schallenge] = true;
-        setTimeout(() => { delete ctx.ChallengesCache[schallenge]; }, ctx.ChallengeLifetime);
-        other.send([txid, 'ACCEPT']);
+        ctx.ChallengesCache[challengeBase64] = true;
+        setTimeout(() => { delete ctx.ChallengesCache[challengeBase64]; }, ctx.ChallengeLifetime);
+        other.send([txid, 'ACCEPT', ctx.myId ]);
 
         ctx.others[rcvType][idx] = other;
         return;
@@ -125,9 +124,9 @@ const onConnected = (ctx, other) => {
     // Identify with challenge
     const nonce = NodeCrypto.randomBytes(24);
     const msg = Buffer.from(`${ctx.myType}:${ctx.myNumber}:${String(Date.now())}`, 'utf-8');
-    const challenge = Crypto.secretbox(msg, nonce, ctx.nodes_key);
+    const challenge = Crypto.secretbox(msg, nonce, ctx.nodes_key).toString('base64');
     createHandlers(ctx, other);
-    other.send([uid, 'IDENTITY', { type: ctx.myType, idx: ctx.myNumber, nonce, challenge }]);
+    other.send([uid, 'IDENTITY', { type: ctx.myType, idx: ctx.myNumber, nonce: nonce.toString('base64'), challenge }]);
 }
 
 
