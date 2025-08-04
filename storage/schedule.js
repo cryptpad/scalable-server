@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-var WriteQueue = require("./write-queue");
+var WriteQueue = require("../common/write-queue");
 var Util = require("./common-util");
 
 /*  This module provides implements a FIFO scheduler

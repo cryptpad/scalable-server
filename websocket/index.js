@@ -132,7 +132,7 @@ const dropUser = (Env, user, reason) => {
 };
 
 const sendMsgPromise = (Env, user, msg) => {
-    Env.log.debug('Sending', msg);
+    Env.log.debug('Sending', msg, 'to', user.id);
     return new Promise((resolve, reject) => {
         // don't bother trying to send if the user doesn't
         // exist anymore
@@ -413,7 +413,7 @@ const initServerHandlers = (Env) => {
 
 
         socket.on('message', message => {
-            Env.log.debug('Receiving', JSON.parse(message));
+            Env.log.debug('Receiving', JSON.parse(message), 'from', user.id);
             try {
                 handleMessage(Env, user, message);
             } catch (e) {

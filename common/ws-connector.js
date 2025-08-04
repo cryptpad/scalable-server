@@ -82,6 +82,7 @@ module.exports = {
     initClient: function(ctx, config, onConnected, cb) {
         let toStart = config?.infra?.core?.map((server, id) => new Promise((resolve, reject) => {
 
+            // XXX wss protocol and domain without port?
             let socket = new WebSocket('ws://' + server.host + ':' + server.port);
             socket
                 .on('error', function(error) {

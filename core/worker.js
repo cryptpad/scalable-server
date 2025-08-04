@@ -1,5 +1,5 @@
 const Util = require("../common/common-util");
-const WriteQueue = require("../storage/write-queue.js");
+const WriteQueue = require("../common/write-queue.js");
 const Crypto = require("./crypto.js")('sodiumnative');
 
 const COMMANDS = {};
@@ -7,7 +7,6 @@ let Env = {};
 // XXX: was in Env before, maybe not needed anymore and can be here?
 // XXX: cannot be passed via Env from core/index.js (one instance per worker
 // XXX: is needed
-let queueValidation = WriteQueue();
 
 const init = (config, cb) => {
     cb();
@@ -38,10 +37,7 @@ let onValidateMessage = (msg, vk, cb) => {
 
 
 COMMANDS.VALIDATE_MESSAGE = (data, cb) => {
-    queueValidation(data.channelName, function(next) {
-        next();
-        onValidateMessage(data.signedMsg, data.validateKey, cb);
-    });
+    onValidateMessage(data.signedMsg, data.validateKey, cb);
 };
 
 

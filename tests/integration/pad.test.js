@@ -1,0 +1,213 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2025 XWiki CryptPad Team <contact@cryptpad.org> and contributors
+
+/* Integration test about basic pad usage.
+ * Multiple users will connect to different websocket nodes and
+ * join the same pad. We'll make sure they all receive the correct
+ * JOIN, MSG and LEAVE messages as weell as the pad history.
+ */
+
+
+const Crypto = require('node:crypto');
+
+const WebSocket = require("ws");
+const Netflux = require("netflux-websocket");
+
+const infra = require('../../config/infra.json');
+const config = require('../../config/config.json');
+
+const nbUsers = 5;
+const users = {};
+
+const wss = infra.websocket;
+const wsCfg = config?.public?.websocket;
+
+const padId = Crypto.randomBytes(16).toString('hex');
+
+const getWsURL = (index) => {
+    // Index inside infra array
+    const wssIndex = index % wss.length;
+    // Index inside public config array
+    const wsIndex =  wss[wssIndex].index;
+    // Public config
+    const ws = wsCfg[wsIndex];
+
+    const wsUrl = new URL('ws://localhost:3000');
+    if (ws.host && ws.port) {
+        wsUrl.host = ws.host;
+        wsUrl.port = ws.port;
+        wsUrl.protocol = ws.protocol || 'ws:';
+    } else {
+        wsUrl.href = ws.href;
+    }
+    return wsUrl.href;
+};
+
+const connectUser = index => {
+    const f = () => {
+        return new WebSocket(getWsURL(index));
+    };
+    return Netflux.connect('', f);
+};
+
+const startUsers = () => {
+    return new Promise((resolve, reject) => {
+        const all = []
+        for (let i=0; i<nbUsers; i++) {
+            all.push(connectUser(i));
+        }
+        Promise.all(all).then(values => {
+            values.forEach((network, i) => {
+                users[i] = {
+                    network: network
+                };
+            });
+            resolve();
+        }).catch(reject);
+    });
+};
+
+
+const joinPad = () => {
+    let res, rej;
+    const prom  = new Promise((resolve, reject) => {
+        res = resolve;
+        rej = reject;
+    });
+
+    const all = Object.values(users).map(({network}) => {
+        return network.join(padId);
+    });
+
+    Promise.all(all).then(webChannels => {
+        webChannels.forEach((wc, idx) => {
+            const hist = [];
+            users[idx].wc = wc;
+            users[idx].id = wc.myID;
+            users[idx].history = hist;
+            wc.on('message', (msg, sender) => {
+                hist.push({
+                    user: sender, msg
+                });
+            });
+        });
+        setTimeout(() => {
+            // Timeout here to make sure all users have received
+            // all JOIN messages (race condition possible due to
+            // the use of multiple ws nodes)
+            res();
+        }, 100);
+    }).catch(rej);
+
+    return prom;
+};
+
+const messages = [];
+
+const sendPadMessage = (user) => {
+    const rdm = Crypto.randomBytes(48).toString('hex');
+    const msg = `test-${user.id}-${rdm}`;
+    return new Promise((res, rej) => {
+        user.wc.bcast(msg).then(() => {
+            messages.push({ user: user.id, msg });
+            user.history.push({ user: user.id, msg });
+            setTimeout(() => {
+                // Timeout here to make sure all users have received
+                // all messages (race condition possible due to
+                // the use of multiple ws nodes)
+                res();
+            }, 200);
+        }).catch(rej);
+    });
+};
+const sendMessages = () => {
+    let all = Object.values(users).map(user => Promise.all([
+        sendPadMessage(user),
+        sendPadMessage(user)
+    ]));
+    return Promise.all(all);
+};
+
+const checkUsers = () => {
+    return new Promise((resolve, reject) => {
+        Object.values(users).every(user => {
+            const lag = user?.network?.getLag?.();
+            if (typeof(lag) !== "number") {
+                // reject if one user doesn't have a valid network;
+                return void reject(new Error("CHECK_USERS_EINVAL"));
+            }
+            return true;
+        });
+        // resolve if they all have a valid network and lag value
+        resolve();
+    });
+};
+
+const checkPad = () => {
+    return new Promise((resolve, reject) => {
+        Object.values(users).every(user => {
+            try {
+                const network = user.network;
+                const id = user.id;
+                const wc = network.webChannels[0];
+                const members = wc?.members;
+                if (!Array.isArray(members)) {
+                    throw new Error("PAD_WC_ERROR");
+                }
+                if (members.length !== (nbUsers + 1)) {
+                    throw new Error("PAD_MEMBERS_ERROR");
+                }
+                if (!id) {
+                    throw new Error("PAD_MYID_ERROR");
+                }
+            } catch (e) {
+                reject(e);
+                return false;
+            }
+            return true;
+        });
+        // resolve if they all have a valid webchannel
+        resolve();
+    });
+};
+
+const checkMessages = () => {
+    return new Promise((resolve, reject) => {
+        Object.values(users).every(user => {
+            try {
+                const hist = user.history;
+                if (hist.length !== messages.length) {
+                    throw new Error("CHECK_MESSAGES_LENGTH_ERROR");
+                }
+                if (hist.some((obj, i) => {
+                    const msg = messages[i];
+                    return msg.user !== obj.user
+                        || msg.msg !== obj.msg;
+                })) {
+                    throw new Error("MESSAGES_ORDER_ERROR");
+                }
+            } catch (e) {
+                reject(e);
+                return false;
+            }
+            return true;
+        });
+        // resolve if they all have a valid webchannel
+        resolve();
+    });
+};
+
+startUsers()
+.then(checkUsers)
+.then(joinPad)
+.then(checkPad)
+.then(sendMessages)
+.then(checkMessages)
+.then(() => {
+    // XXX
+    // join with a new user and call GET_HISTORY to check if
+    // our "messages" array matches the history state
+    console.log('OK');
+}).catch(e => {
+    console.error(e);
+});

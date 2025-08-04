@@ -4,9 +4,11 @@ const Interface = require("../common/interface.js");
 const WSConnector = require("../common/ws-connector.js");
 const { jumpConsistentHash } = require('../common/consistent-hash.js');
 const WorkerModule = require("../common/worker-module.js");
+const WriteQueue = require("../common/write-queue.js");
 
 let Env = {
     ws_id_cache: {},
+    channelQueue: WriteQueue()
 };
 
 const isWsCmd = id => {
@@ -84,7 +86,10 @@ let storageToWs = function(command) {
     };
 };
 
-const validateMessageHandler = (args, cb) => {
+const validateMessageHandler = (args, cb, extra) => {
+    if (!isStorageCmd(extra.from)) {
+        return void cb("UNAUTHORIZED");
+    }
     Env.workers.send('VALIDATE_MESSAGE', args, cb);
 };
 
@@ -168,14 +173,22 @@ const onChannelMessage = (args, cb, extra) => {
         return void cb('EINVAL');
     }
 
-    const storageId = getStorageId(channel);
-    Env.interface.sendQuery(storageId, 'CHANNEL_MESSAGE', args, res => {
-        if (res.error) { return void cb(res.error); }
-        const { users, message } = res.data;
+    // XXX: this may be a risky queue if we receive messages more
+    // frequently than the time needed to validate a message
+    // (one round trip between core and storage + CPU time)
+    Env.channelQueue(channel, next => {
+        const storageId = getStorageId(channel);
+        Env.interface.sendQuery(storageId, 'CHANNEL_MESSAGE', args, res => {
+            if (res.error) {
+                next();
+                return void cb(res.error);
+            }
+            const { users, message } = res.data;
 
-        sendChannelMessage(users, message);
-
-        cb();
+            sendChannelMessage(users, message);
+            cb();
+            next();
+        });
     });
 };
 

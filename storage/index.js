@@ -7,7 +7,7 @@ const BatchRead = require("./batch-read.js");
 const HK = require("./hk-util.js");
 const HistoryKeeper = require("./historyKeeper.js");
 const Interface = require("../common/interface.js");
-const WriteQueue = require("./write-queue.js");
+const WriteQueue = require("../common/write-queue.js");
 const WSConnector = require("../common/ws-connector.js");
 const { jumpConsistentHash } = require('../common/consistent-hash.js');
 
