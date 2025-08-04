@@ -131,7 +131,7 @@ const dropUser = (Env, user, reason) => {
     onSessionClose(Env, user.id, reason);
 };
 
-const sendMsg = (Env, user, msg) => {
+const sendMsgPromise = (Env, user, msg) => {
     Env.log.debug('Sending', msg);
     return new Promise((resolve, reject) => {
         // don't bother trying to send if the user doesn't
@@ -164,6 +164,14 @@ const sendMsg = (Env, user, msg) => {
             Env.log.error(e, 'SEND_MESSAGE_FAIL_2');
             dropUser(Env, user, 'SEND_MESSAGE_FAIL_2');
         }
+    });
+};
+const sendMsg = (Env, user, msg) => {
+    sendMsgPromise(Env, user, msg).catch(e => {
+        Env.log.error(e, 'SEND_MESSAGE', {
+            user: user.id,
+            message: msg
+        });
     });
 };
 
@@ -362,7 +370,7 @@ const sendUserMessage = (Env, args, cb) => { // Query
         return void cb('ENOENT');
     }
 
-    sendMsg(Env, user, message).then(() => {
+    sendMsgPromise(Env, user, message).then(() => {
         cb();
     }).catch(() => {
         cb('UNSENDABLE');
