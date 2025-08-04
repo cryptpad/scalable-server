@@ -21,9 +21,9 @@ const isValidChannel = str => {
 
 
 // TODO: implement storage migration later (in /storage/)
-let getStorageId = function(channelName) {
-    if (!channelName) {
-        console.error('getStorageId: No channelName provided');
+let getStorageId = function(channel) {
+    if (!channel) {
+        console.error('getStorageId: No channel provided');
         return void 0;
     }
     if (typeof (Env.numberStorages) === 'undefined') {
@@ -31,7 +31,7 @@ let getStorageId = function(channelName) {
         return void 0;
     }
     // We need a 8 byte key
-    let key = Buffer.from(channelName.slice(0, 8));
+    let key = Buffer.from(channel.slice(0, 8));
     let ret = 'storage:' + jumpConsistentHash(key, Env.numberStorages);
     return ret;
 };
@@ -51,9 +51,9 @@ let wsToStorage = function(command, validated, isEvent) {
                 return;
             }
         }
-        let channelName = args.channelName;
+        let channel = args.channel;
 
-        let storageId = getStorageId(channelName);
+        let storageId = getStorageId(channel);
 
         if (isEvent) {
             Env.interface.sendEvent(storageId, command, args);
@@ -94,7 +94,7 @@ const sendChannelMessage = (users, message) => {
         const wsId = getWsId(id);
         if (!wsId || sent.includes(wsId)) { return; }
         sent.push(wsId);
-        Env.interface.sendEvent(wsId, 'CHANNEL_MESSAGE', {
+        Env.interface.sendEvent(wsId, 'SEND_CHANNEL_MESSAGE', {
             users,
             message
         });
@@ -134,7 +134,7 @@ const joinChannel = (args, cb, extra) => {
         if (res.error) { return void cb(res.error); }
         const users = res.data;
 
-        const message = [ userId, 'JOIN', channel ];
+        const message = [ 0, userId, 'JOIN', channel ];
         sendChannelMessage(users, message);
 
         cb(void 0, users);
@@ -153,7 +153,26 @@ const leaveChannel = (args, cb, extra) => {
         if (res.error) { return void cb(res.error); }
         const users = res.data;
 
-        const message = [ userId, 'LEAVE', channel ];
+        const message = [ 0, userId, 'LEAVE', channel ];
+        sendChannelMessage(users, message);
+
+        cb();
+    });
+};
+
+const onChannelMessage = (args, cb, extra) => {
+    if (!isWsCmd(extra.from)) { return void cb('UNAUTHORIZED'); }
+
+    const { channel, msgStruct } = args;
+    if (!Array.isArray(msgStruct) || !isValidChannel(channel)) {
+        return void cb('EINVAL');
+    }
+
+    const storageId = getStorageId(channel);
+    Env.interface.sendQuery(storageId, 'CHANNEL_MESSAGE', args, res => {
+        if (res.error) { return void cb(res.error); }
+        const { users, message } = res.data;
+
         sendChannelMessage(users, message);
 
         cb();
@@ -161,7 +180,7 @@ const leaveChannel = (args, cb, extra) => {
 };
 
 const onUserMessage = (args, cb) => {
-    Env.interface.broadcast('websocket', 'USER_MESSAGE', args, values => {
+    Env.interface.broadcast('websocket', 'SEND_USER_MESSAGE', args, values => {
         // If all responses return an error, message has failed
         if (values.every(obj => {
             return obj?.error;
@@ -209,13 +228,14 @@ let startServers = function(config) {
 
     Env.workers = WorkerModule(workerConfig);
 
-    let queriesToStorage = ['GET_HISTORY', 'GET_METADATA', 'CHANNEL_MESSAGE'];
+    let queriesToStorage = ['GET_HISTORY', 'GET_METADATA'];
     let queriesToWs = ['CHANNEL_CONTAINS_USER'];
     let eventsToStorage = [];
     let COMMANDS = {
         'DROP_USER': dropUser,
         'JOIN_CHANNEL': joinChannel,
         'LEAVE_CHANNEL': leaveChannel,
+        'CHANNEL_MESSAGE': onChannelMessage,
         'USER_MESSAGE': onUserMessage,
         'VALIDATE_MESSAGE': validateMessageHandler,
     };

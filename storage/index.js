@@ -16,8 +16,8 @@ const ADMIN_CHANNEL_LENGTH = 33;
 
 let Env = {};
 
-const getCoreId = (channelName) => {
-    let key = Buffer.from(channelName.slice(0, 8));
+const getCoreId = (channel) => {
+    let key = Buffer.from(channel.slice(0, 8));
     let coreId = 'core:' + jumpConsistentHash(key, Env.numberCores);
     return coreId;
 };
@@ -34,7 +34,7 @@ Env.checkCache = function(channel) {
 
 let onGetHistory = function(seq, userId, parsed, cb) {
     let first = parsed[0];
-    let channelName = parsed[1];
+    let channel = parsed[1];
     let config = parsed[2];
     let metadata = {};
     let allowed = []; // List of authenticated keys for this user
@@ -46,7 +46,7 @@ let onGetHistory = function(seq, userId, parsed, cb) {
 
     // XXX: store the message to be send in a array before sending a batch
 
-    // getMetaData(channelName, function(err, _metadata) {
+    // getMetaData(channel, function(err, _metadata) {
     //     if (err) {
     //         console.log('Error:', err);
     //         return;
@@ -74,7 +74,7 @@ let onGetHistory = function(seq, userId, parsed, cb) {
         }
     }
 
-    metadata.channel = channelName;
+    metadata.channel = channel;
     metadata.created = +new Date();
 
     // if the user sends us an invalid key, we won't be able to validate their messages
@@ -87,10 +87,10 @@ let onGetHistory = function(seq, userId, parsed, cb) {
     }
 
     nThen(function(w) {
-        HistoryKeeper.getMetadata(Env, channelName, w(function(err, metadata) {
+        HistoryKeeper.getMetadata(Env, channel, w(function(err, metadata) {
             if (err) {
                 console.error('HK_GET_HISTORY_METADATA', {
-                    channel: channelName,
+                    channel: channel,
                     error: err,
                 });
                 return;
@@ -106,7 +106,7 @@ let onGetHistory = function(seq, userId, parsed, cb) {
             // (this function should receive the list of authorized keys for
             //  this user)
             //
-            // if (checkExpired(Env, Server, channelName)) { return void w.abort(); }
+            // if (checkExpired(Env, Server, channel)) { return void w.abort(); }
 
             // always send metadata with GET_HISTORY requests
             toSend.push([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(metadata)]);
@@ -115,10 +115,10 @@ let onGetHistory = function(seq, userId, parsed, cb) {
         let msgCount = 0;
 
         // TODO compute lastKnownHash in a manner such that it will always skip past the metadata line?
-        HistoryKeeper.getHistoryAsync(Env, channelName, lastKnownHash, false, (msg, readMore) => {
+        HistoryKeeper.getHistoryAsync(Env, channel, lastKnownHash, false, (msg, readMore) => {
             msgCount++;
             // avoid sending the metadata message a second time
-            if (HK.isMetadataMessage(msg) && metadata_cache[channelName]) { return readMore(); }
+            if (HK.isMetadataMessage(msg) && metadata_cache[channel]) { return readMore(); }
             if (txid) { msg[0] = txid; }
             toSend.push([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(msg)]);
             readMore();
@@ -128,7 +128,7 @@ let onGetHistory = function(seq, userId, parsed, cb) {
             if (err && err.code !== 'ENOENT') {
                 if (err.message === "EUNKNOWN") {
                     console.error("HK_GET_HISTORY", {
-                        channel: channelName,
+                        channel: channel,
                         lastKnownHash: lastKnownHash,
                         userId: userId,
                         sessions: allowed,
@@ -136,19 +136,19 @@ let onGetHistory = function(seq, userId, parsed, cb) {
                     });
                 } else if (err.message !== 'EINVAL') {
                     console.error("HK_GET_HISTORY", {
-                        channel: channelName,
+                        channel: channel,
                         err: err && err.message || err,
                         stack: err && err.stack,
                     });
                 }
                 // FIXME err.message isn't useful for users
-                const parsedMsg = { error: err.message, channel: channelName, txid: txid };
+                const parsedMsg = { error: err.message, channel: channel, txid: txid };
                 toSend.push([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(parsedMsg)]);
                 return;
             }
             // reason: from a .placeholder file
             if (err && err.code === 'ENOENT' && reason && !metadata.forcePlaceholder) {
-                const parsedMsg2 = { error: 'EDELETED', message: reason, channel: channelName, txid: txid };
+                const parsedMsg2 = { error: 'EDELETED', message: reason, channel: channel, txid: txid };
                 toSend.push(userId, [0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(parsedMsg2)]);
                 return;
             }
@@ -164,28 +164,28 @@ let onGetHistory = function(seq, userId, parsed, cb) {
                 is no longer on the server so they don't abuse the data and so that they don't unintentionally continue
                 to edit it in a broken state.
                     */
-                const parsedMsg2 = { error: 'EDELETED', channel: channelName, txid: txid };
+                const parsedMsg2 = { error: 'EDELETED', channel: channel, txid: txid };
                 toSend.push([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(parsedMsg2)]);
                 return;
             }
 
-            if (msgCount === 0 && !metadata_cache[channelName]) {
-                Env.interface.sendQuery(getCoreId(channelName), 'CHANNEL_CONTAINS_USER', { channelName, userId }, function(answer) {
+            if (msgCount === 0 && !metadata_cache[channel]) {
+                Env.interface.sendQuery(getCoreId(channel), 'CHANNEL_CONTAINS_USER', { channel, userId }, function(answer) {
                     let err = answer.error;
                     if (err) {
-                        console.error('Error: can’t check channelContainsUser:', err, '-', channelName, userId);
+                        console.error('Error: can’t check channelContainsUser:', err, '-', channel, userId);
                         return;
                     }
                     if (answer.data.response) {
                         // TODO: this might be a good place to reject channel creation by anonymous users
-                        HistoryKeeper.handleFirstMessage(Env, channelName, metadata);
+                        HistoryKeeper.handleFirstMessage(Env, channel, metadata);
                         toSend.push([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(metadata)]);
                     }
                 });
             }
 
             // End of history message:
-            let parsedMsg = { state: 1, channel: channelName, txid: txid };
+            let parsedMsg = { state: 1, channel: channel, txid: txid };
 
             toSend.push([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(parsedMsg)]);
         }));
@@ -195,16 +195,16 @@ let onGetHistory = function(seq, userId, parsed, cb) {
 };
 
 let onGetFullHistory = function(seq, userId, parsed, cb) {
-    let channelName = parsed[1];
+    let channel = parsed[1];
     let toSend = [];
     let error;
     const HISTORY_KEEPER_ID = Env.id;
 
-    HistoryKeeper.getHistoryAsync(Env, channelName, -1, false, (msg, readMore) => {
+    HistoryKeeper.getHistoryAsync(Env, channel, -1, false, (msg, readMore) => {
         toSend.push([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(['FULL_HISTORY', msg])]);
         readMore();
     }, (err) => {
-        let parsedMsg = ['FULL_HISTORY_END', channelName];
+        let parsedMsg = ['FULL_HISTORY_END', channel];
         if (err) {
             console.error('HK_GET_FULL_HISTORY', err.stack);
             error = err;
@@ -254,7 +254,7 @@ let onChannelMessage = function(channel, msgStruct, cb) {
             // expiring channel nor can we possibly validate it
             if (!_metadata) { return; }
             metadata = _metadata;
-            // TODO: expiry verification
+            // TODO: expiry verification // XXX
         }));
     }).nThen(function(w) {
         // if there's no validateKey present, skip to the next block
@@ -312,9 +312,9 @@ let onChannelMessage = function(channel, msgStruct, cb) {
     });
 };
 
-const onDropChannel = function(channelName, userId) {
-    delete Env.metadata_cache[channelName];
-    delete Env.channel_cache[channelName];
+const onDropChannel = function(channel, userId) {
+    delete Env.metadata_cache[channel];
+    delete Env.channel_cache[channel];
     // XXX selfdestruct integration
 };
 
@@ -328,11 +328,11 @@ let getFullHistoryHandler = function(args, cb) {
 }
 
 let getMetaDataHandler = function(args, cb) {
-    HistoryKeeper.getMetadata(Env, args.channelName, cb);
+    HistoryKeeper.getMetadata(Env, args.channel, cb);
 }
 
 let channelMessageHandler = function(args, cb) {
-    onChannelMessage(args.channelName, args.msgStruct, cb);
+    onChannelMessage(args.channel, args.msgStruct, cb);
 }
 
 const joinChannelHandler = (args, cb, extra) => {

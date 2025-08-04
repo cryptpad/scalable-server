@@ -17,8 +17,8 @@ const ADMIN_CHANNEL_LENGTH = 33;
 const CHECKPOINT_PATTERN = /^cp\|(([A-Za-z0-9+\/=]+)\|)?/;
 
 // Use consistentHash for that
-const getCoreId = (Env, channelName) => {
-    let key = Buffer.from(channelName.slice(0, 8));
+const getCoreId = (Env, channel) => {
+    let key = Buffer.from(channel.slice(0, 8));
     let coreId = 'core:' + jumpConsistentHash(key, Env.numberCores);
     return coreId;
 };
@@ -183,12 +183,12 @@ const onHKMessage = (Env, seq, user, json) => {
         throw new Error("TODO RPC");
     }
 
-    const channelName = parsed[1];
+    const channel = parsed[1];
     const userId = user.id;
 
-    let coreId = getCoreId(Env, channelName);
+    let coreId = getCoreId(Env, channel);
     Env.interface.sendQuery(coreId, first, {
-        seq, userId, parsed, channelName
+        seq, userId, parsed, channel
     }, answer => {
         let toSend = answer.data.toSend;
         let error = answer.error;
@@ -208,14 +208,6 @@ const onHKMessage = (Env, seq, user, json) => {
 const handleChannelMessage = (Env, channel, msgStruct, cb) => {
     if (typeof (cb) !== "function") { cb = function() { }; }
 
-/*
-    // XXX handle in storage module
-    if (channelName.length === EPHEMERAL_CHANNEL_LENGTH) {
-        return void cb();
-    }
-*/
-    // XXX handle CP duplicate in storage module
-
     // Admin channel. We can only write to this one from private message (RPC)
     if (channel.length === ADMIN_CHANNEL_LENGTH
         && msgStruct[1] !== null) {
@@ -227,7 +219,7 @@ const handleChannelMessage = (Env, channel, msgStruct, cb) => {
     msgStruct.unshift(0);
 
     Env.interface.sendQuery(coreId, 'CHANNEL_MESSAGE', {
-        channelName: channel,
+        channel: channel,
         msgStruct
     }, answer => {
         if (answer?.error) {
@@ -362,7 +354,7 @@ const handleMessage = (Env, user, msg) => {
     });
 };
 
-const onUserMessage = (Env, args, cb) => { // Query
+const sendUserMessage = (Env, args, cb) => { // Query
     const { userId, message } = args;
 
     const user = Env.users[userId];
@@ -376,10 +368,8 @@ const onUserMessage = (Env, args, cb) => { // Query
         cb('UNSENDABLE');
     });
 };
-const onChannelMessage = (Env, args) => { // Event
+const sendChannelMessage = (Env, args) => { // Event
     const { users, message } = args;
-
-    message.unshift(0);
 
     users.forEach(id => {
         const user = Env.users[id];
@@ -492,8 +482,8 @@ const start = (config) => {
     };
 
     const COMMANDS = {
-        'USER_MESSAGE': callWithEnv(onUserMessage),
-        'CHANNEL_MESSAGE': callWithEnv(onChannelMessage)
+        'SEND_USER_MESSAGE': callWithEnv(sendUserMessage),
+        'SEND_CHANNEL_MESSAGE': callWithEnv(sendChannelMessage)
     };
 
     initServer(Env).then(() => {
