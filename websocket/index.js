@@ -8,13 +8,13 @@ const Interface = require("../common/interface.js");
 const WSConnector = require("../common/ws-connector.js");
 const Crypto = require('crypto');
 const Util = require("../common/common-util.js");
+const Constants = require("../common/constants.js");
 const { jumpConsistentHash } = require('../common/consistent-hash.js');
 
-
-const hkId = "0123456789abcdef";
-const EPHEMERAL_CHANNEL_LENGTH = 34;
-const ADMIN_CHANNEL_LENGTH = 33;
-const CHECKPOINT_PATTERN = /^cp\|(([A-Za-z0-9+\/=]+)\|)?/;
+const {
+    hkId,
+    ADMIN_CHANNEL_LENGTH
+} = Constants;
 
 // Use consistentHash for that
 const getCoreId = (Env, channel) => {
@@ -46,7 +46,8 @@ const createLogger = () => {
         verbose: console.info,
         error: console.error,
         warn: console.warn,
-        debug: console.debug
+        //debug: console.debug
+        debug: () => {}
     };
 };
 

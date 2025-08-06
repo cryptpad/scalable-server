@@ -13,7 +13,6 @@ const init = (config, cb) => {
 };
 
 let onValidateMessage = (msg, vk, cb) => {
-    console.log(msg, vk)
     let signedMsg;
     try {
         signedMsg = Crypto.decodeBase64(msg);

@@ -182,7 +182,6 @@ const init = workerConfig => {
         }
     };
     const handleResponse = (state, res) => {
-console.error('RECEIVE', res, 'FROM', state.pid);
         if (!res) { return; }
         if (res.log) {
             return void handleLog(res.log, res.label, res.info);
@@ -284,7 +283,6 @@ console.error('RECEIVE', res, 'FROM', state.pid);
 
         // Send a message
         state.send = msg => {
-            console.error('SEND', msg, 'TO', worker.pid);
             send(worker, msg);
         };
 

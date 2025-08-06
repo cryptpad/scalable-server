@@ -5,9 +5,27 @@ const WSConnector = require("../common/ws-connector.js");
 const { jumpConsistentHash } = require('../common/consistent-hash.js');
 const WorkerModule = require("../common/worker-module.js");
 const WriteQueue = require("../common/write-queue.js");
+const Constants = require("../common/constants.js");
+
+const {
+    CHECKPOINT_PATTERN
+} = Constants;
+
+
+const createLogger = () => {
+    return {
+        info: console.log,
+        verbose: console.info,
+        error: console.error,
+        warn: console.warn,
+        debug: console.debug
+    };
+};
 
 let Env = {
-    ws_id_cache: {},
+    Log: createLogger(),
+    wsCache: {}, // WS associated to each user
+    channelKeyCache: {}, // Validate key of each channel
     channelQueue: WriteQueue()
 };
 
@@ -40,7 +58,7 @@ let getStorageId = function(channel) {
 
 // TODO: to fix (probably in websocket nodes)
 let getWsId = function(userId) {
-    return Env.ws_id_cache[userId] ? Env.ws_id_cache[userId] : 'websocket:0';
+    return Env.wsCache[userId] ? Env.wsCache[userId] : 'websocket:0';
 };
 
 let wsToStorage = function(command, validated, isEvent) {
@@ -90,7 +108,24 @@ const validateMessageHandler = (args, cb, extra) => {
     if (!isStorageCmd(extra.from)) {
         return void cb("UNAUTHORIZED");
     }
+
+    const { channel, validateKey } = args;
+    if (!channel || !validateKey) {
+        return void cb('INVALID_ARGUMENTS');
+    }
+
+    // Store the validate key in memory to save a round-trip
+    // to storage for future messages
+    // See onChannelMessage
+    Env.channelKeyCache[channel] = validateKey;
+
     Env.workers.send('VALIDATE_MESSAGE', args, cb);
+};
+
+const dropChannelHandler = (args, cb, extra) => {
+    const { channel } = args;
+    if (!channel) { return; }
+    delete Env.channelKeyCache[channel];
 };
 
 const sendChannelMessage = (users, message) => {
@@ -121,7 +156,7 @@ const dropUser = (args, _cb, extra) => {
         Env.interface.sendEvent(storageId, 'DROP_USER', args);
     });
 
-    delete Env.ws_id_cache[userId];
+    delete Env.wsCache[userId];
 };
 
 const joinChannel = (args, cb, extra) => {
@@ -132,7 +167,7 @@ const joinChannel = (args, cb, extra) => {
         return void cb('EINVAL');
     }
 
-    Env.ws_id_cache[userId] = extra.from;
+    Env.wsCache[userId] = extra.from;
 
     const storageId = getStorageId(channel);
     Env.interface.sendQuery(storageId, 'JOIN_CHANNEL', args, res => {
@@ -173,12 +208,11 @@ const onChannelMessage = (args, cb, extra) => {
         return void cb('EINVAL');
     }
 
-    // XXX: this may be a risky queue if we receive messages more
-    // frequently than the time needed to validate a message
-    // (one round trip between core and storage + CPU time)
-    Env.channelQueue(channel, next => {
+    const todo = (validated) => {
         const storageId = getStorageId(channel);
-        Env.interface.sendQuery(storageId, 'CHANNEL_MESSAGE', args, res => {
+        Env.interface.sendQuery(storageId, 'CHANNEL_MESSAGE', {
+            channel, msgStruct, validated
+        }, res => {
             if (res.error) {
                 next();
                 return void cb(res.error);
@@ -187,9 +221,35 @@ const onChannelMessage = (args, cb, extra) => {
 
             sendChannelMessage(users, message);
             cb();
-            next();
         });
-    });
+    };
+
+    if (Env.channelKeyCache[channel]) {
+        const msg = msgStruct[4].replace(CHECKPOINT_PATTERN, '');
+        const vKey = Env.channelKeyCache[channel];
+        Env.channelQueue(channel, next => {
+            Env.workers.send('VALIDATE_MESSAGE', {
+                channel,
+                signedMsg: msg,
+                validateKey: vKey
+            }, (e) => {
+                next();
+                if (e === 'FAILED') {
+                    Env.Log.error("HK_SIGNED_MESSAGE_REJECTED", {
+                        channel,
+                        validateKey: vKey,
+                        message: msg,
+                    });
+                    return void cb('FAILED_VALIDATION');
+                }
+                if (e) { return void cb(e); }
+                todo(true);
+            });
+        });
+        return;
+    }
+
+    todo(false);
 };
 
 const onUserMessage = (args, cb) => {
@@ -203,16 +263,6 @@ const onUserMessage = (args, cb) => {
         // Otherwise, success
         cb();
     });
-};
-
-const createLogger = () => {
-    return {
-        info: console.log,
-        verbose: console.info,
-        error: console.error,
-        warn: console.warn,
-        debug: console.debug
-    };
 };
 
 let startServers = function(config) {
@@ -245,12 +295,15 @@ let startServers = function(config) {
     let queriesToWs = ['CHANNEL_CONTAINS_USER'];
     let eventsToStorage = [];
     let COMMANDS = {
+        // From WS
         'DROP_USER': dropUser,
         'JOIN_CHANNEL': joinChannel,
         'LEAVE_CHANNEL': leaveChannel,
         'CHANNEL_MESSAGE': onChannelMessage,
         'USER_MESSAGE': onUserMessage,
+        // From Storage
         'VALIDATE_MESSAGE': validateMessageHandler,
+        'DROP_CHANNEL': dropChannelHandler,
     };
     queriesToStorage.forEach(function(command) {
         COMMANDS[command] = wsToStorage(command);

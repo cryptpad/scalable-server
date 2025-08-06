@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2024 XWiki CryptPad Team <contact@cryptpad.org> and contributors
 const ChannelManager = require("./channel_manager.js");
 const Util = require("./common-util.js");
+const Constants = require("../common/constants.js");
 const nThen = require("nthen");
 const BatchRead = require("./batch-read.js");
 const HK = require("./hk-util.js");
@@ -11,8 +12,11 @@ const WriteQueue = require("../common/write-queue.js");
 const WSConnector = require("../common/ws-connector.js");
 const { jumpConsistentHash } = require('../common/consistent-hash.js');
 
-const EPHEMERAL_CHANNEL_LENGTH = 34;
-const ADMIN_CHANNEL_LENGTH = 33;
+const {
+    CHECKPOINT_PATTERN,
+    EPHEMERAL_CHANNEL_LENGTH,
+    ADMIN_CHANNEL_LENGTH,
+} = Constants;
 
 let Env = {};
 
@@ -30,6 +34,15 @@ Env.checkCache = function(channel) {
             delete Env.metadata_cache[channel];
         }, 30000);
     f();
+};
+
+const channelContainsUser = (channel, userId) => {
+    const cache = Env.channel_cache[channel];
+    // Check if the channel exists in this storage
+    if (!cache || !Array.isArray(cache.users)) { return false; }
+
+    // Check if the user is a member of this channel
+    return cache.users.includes(userId);
 };
 
 let onGetHistory = function(seq, userId, parsed, cb) {
@@ -125,6 +138,7 @@ let onGetHistory = function(seq, userId, parsed, cb) {
         }, w((err, reason) => {
             // Any error but ENOENT: abort
             // ENOENT is allowed in case we want to create a new pad
+            if (err && err.error) { err = err.error; }
             if (err && err.code !== 'ENOENT') {
                 if (err.message === "EUNKNOWN") {
                     console.error("HK_GET_HISTORY", {
@@ -169,19 +183,10 @@ let onGetHistory = function(seq, userId, parsed, cb) {
                 return;
             }
 
-            if (msgCount === 0 && !metadata_cache[channel]) {
-                Env.interface.sendQuery(getCoreId(channel), 'CHANNEL_CONTAINS_USER', { channel, userId }, function(answer) {
-                    let err = answer.error;
-                    if (err) {
-                        console.error('Error: can’t check channelContainsUser:', err, '-', channel, userId);
-                        return;
-                    }
-                    if (answer.data.response) {
-                        // TODO: this might be a good place to reject channel creation by anonymous users
-                        HistoryKeeper.handleFirstMessage(Env, channel, metadata);
-                        toSend.push([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(metadata)]);
-                    }
-                });
+            if (msgCount === 0 && !metadata_cache[channel] && channelContainsUser(channel, userId)) {
+                // TODO: this might be a good place to reject channel creation by anonymous users
+                HistoryKeeper.handleFirstMessage(Env, channel, metadata);
+                toSend.push([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(metadata)]);
             }
 
             // End of history message:
@@ -215,10 +220,9 @@ let onGetFullHistory = function(seq, userId, parsed, cb) {
     cb(error, toSend);
 };
 
-let onChannelMessage = function(channel, msgStruct, cb) {
+const onChannelMessage = (channel, msgStruct, validated, cb) => {
     let userId = msgStruct[1];
     const isCp = /^cp\|/.test(msgStruct[4]);
-    const CHECKPOINT_PATTERN = /^cp\|(([A-Za-z0-9+\/=]+)\|)?/;
     const channelData = Env.channel_cache[channel] || {};
 
     if (channel.length === EPHEMERAL_CHANNEL_LENGTH) {
@@ -257,33 +261,43 @@ let onChannelMessage = function(channel, msgStruct, cb) {
             // TODO: expiry verification // XXX
         }));
     }).nThen(function(w) {
-        // if there's no validateKey present, skip to the next block
-        if (!(metadata && metadata.validateKey)) { return; }
+        // Add a validation queue to make sure the messages are stored
+        // in the correct order (the first message will be slower to
+        // validate since we need a round-trip to Core)
+        Env.queueValidation(channel, w(next => {
+            // already validated by core?
+            if (validated) { return void next(); }
 
-        // trim the checkpoint indicator off the message
-        const signedMsg = isCp ? msgStruct[4].replace(CHECKPOINT_PATTERN, '') : msgStruct[4];
+            // if there's no validateKey present, skip to the next block
+            if (!(metadata && metadata.validateKey)) { return void next(); }
 
-        // Validate Message
-        const coreId = getCoreId(channel);
-        Env.interface.sendQuery(coreId, 'VALIDATE_MESSAGE', {
-            signedMsg,
-            validateKey: metadata.validateKey,
-            channel
-        }, w(answer => {
-            let err = answer.error;
-            if (!err) { return; }
-            if (err === 'FAILED') {
-                // we log this case, but not others for some reason
-                Env.Log.error("HK_SIGNED_MESSAGE_REJECTED", {
-                    channel,
-                    validateKey: metadata.validayKey,
-                    message: signedMsg,
-                });
-            }
+            // trim the checkpoint indicator off the message
+            const signedMsg = isCp ? msgStruct[4].replace(CHECKPOINT_PATTERN, '') : msgStruct[4];
 
-            cb('FAILED VALIDATION')
-            return void w.abort();
+            // Validate Message (and provide key to core)
+            const coreId = getCoreId(channel);
+            Env.interface.sendQuery(coreId, 'VALIDATE_MESSAGE', {
+                signedMsg,
+                validateKey: metadata.validateKey,
+                channel
+            }, w(answer => {
+                next();
+                let err = answer.error;
+                if (!err) { return; }
+                if (err === 'FAILED') {
+                    // we log this case, but not others for some reason
+                    Env.Log.error("HK_SIGNED_MESSAGE_REJECTED", {
+                        channel,
+                        validateKey: metadata.validayKey,
+                        message: signedMsg,
+                    });
+                }
+
+                cb('FAILED_VALIDATION')
+                return void w.abort();
+            }));
         }));
+
     }).nThen(function() {
         if (isCp) {
             // This cp is not a duplicate (already checked before).
@@ -316,6 +330,9 @@ const onDropChannel = function(channel, userId) {
     delete Env.metadata_cache[channel];
     delete Env.channel_cache[channel];
     // XXX selfdestruct integration
+
+    const coreId = getCoreId(channel);
+    Env.interface.sendEvent(coreId, 'DROP_CHANNEL', { channel });
 };
 
 // Handlers
@@ -331,8 +348,9 @@ let getMetaDataHandler = function(args, cb) {
     HistoryKeeper.getMetadata(Env, args.channel, cb);
 }
 
-let channelMessageHandler = function(args, cb) {
-    onChannelMessage(args.channel, args.msgStruct, cb);
+const channelMessageHandler = function(args, cb) {
+    const { channel, msgStruct, validated } = args;
+    onChannelMessage(channel, msgStruct, validated, cb);
 }
 
 const joinChannelHandler = (args, cb, extra) => {
@@ -431,6 +449,7 @@ let start = function(config) {
     Env.channel_cache = {};
     Env.cache_checks = {};
     Env.queueStorage = WriteQueue();
+    Env.queueValidation = WriteQueue();
     Env.batchIndexReads = BatchRead("HK_GET_INDEX");
     Env.batchMetadata = BatchRead('GET_METADATA');
 
