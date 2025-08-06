@@ -24,6 +24,8 @@ const wsCfg = config?.public?.websocket;
 
 const padId = Crypto.randomBytes(16).toString('hex');
 
+const hk = '0123456789abcdef';
+
 const getWsURL = (index) => {
     // Index inside infra array
     const wssIndex = index % wss.length;
@@ -128,6 +130,49 @@ const sendMessages = () => {
     return Promise.all(all);
 };
 
+const checkHistory = () => {
+    return new Promise((resolve, reject) => {
+        const startHistIdx = 4;
+
+        const txid = Crypto.randomBytes(4).toString('hex');
+
+        const expected = messages.slice(startHistIdx).map(obj => obj.msg);
+        const lastKnownHash = expected[0].slice(0,64);
+
+        const hist = [];
+
+        const onMessage = (msg, sender) => {
+            const parsed = JSON.parse(msg);
+            if (sender !== hk) { return; }
+            if (parsed.state === 1 && parsed.channel === padId) {
+                if (JSON.stringify(expected) !== JSON.stringify(hist)) {
+                    return void reject("CHECK_HISTORY_MISMATCH_ERROR");
+                }
+                resolve();
+            }
+            if (!Array.isArray(parsed) || parsed[3] !== padId) { return; }
+            hist.push(parsed[4]);
+        };
+
+        let network;
+        connectUser(nbUsers)
+        .then(_network => {
+            network = _network;
+            _network.on('message', onMessage);
+            return _network.join(padId);
+        }).then(wc => {
+            const msg = ['GET_HISTORY', padId, {
+                txid, lastKnownHash
+            }];
+            network.sendto(hk, JSON.stringify(msg));
+        }).catch(e => {
+            console.error(e);
+            reject(e);
+        });
+    });
+};
+
+
 const checkUsers = () => {
     return new Promise((resolve, reject) => {
         Object.values(users).every(user => {
@@ -203,11 +248,10 @@ startUsers()
 .then(checkPad)
 .then(sendMessages)
 .then(checkMessages)
+.then(checkHistory)
 .then(() => {
-    // XXX
-    // join with a new user and call GET_HISTORY to check if
-    // our "messages" array matches the history state
-    console.log('OK');
+    console.log('All pads tests passed!');
+    process.exit(0);
 }).catch(e => {
     console.error(e);
 });
