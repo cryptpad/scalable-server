@@ -82,7 +82,7 @@ let wsStart = (myId) => {
             let sendPing = () => {
                 return new Promise(resolve => {
                     let leftToRun = 0;
-                    for (let i = 0; i < NTRIES * ITERS; i++) {
+                    for (i = 0; i < NTRIES * ITERS; i++) {
                         leftToRun++;
                         let outcome = interface.sendQuery(other, 'PING', (new Date()).getTime(), function(response) {
                             let now = (new Date()).getTime();

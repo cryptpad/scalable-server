@@ -4,9 +4,10 @@
 module.exports = cryptoLib => {
     let exports = {};
     exports.decodeBase64 =  msg => Buffer.from(msg, 'base64');
+    let SodiumNative, NaCl;
     switch (cryptoLib) {
         case 'sodiumnative':
-            const SodiumNative = require("sodium-native");
+            SodiumNative = require("sodium-native");
             exports.sigVerify = (signedMessage, validateKey) => {
                 let msg = signedMessage.subarray(64);
                 return SodiumNative.crypto_sign_open(msg, signedMessage, validateKey);
@@ -14,7 +15,7 @@ module.exports = cryptoLib => {
             exports.detachedVerify = (signedBuffer, signatureBuffer, validateKey) => SodiumNative.crypto_sign_verify_detached(signatureBuffer, signedBuffer, validateKey);
             break;
         default: // tweetNaCl
-            const NaCl = require("tweetnacl/nacl-fast");
+            NaCl = require("tweetnacl/nacl-fast");
             exports.sigVerify = NaCl.sign.open;
             exports.detachedVerify = NaCl.sign.detached.verify;
             break;

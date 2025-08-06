@@ -128,6 +128,8 @@ const validateMessageHandler = (args, cb, extra) => {
 };
 
 const dropChannelHandler = (args, cb, extra) => {
+    if (!isStorageCmd(extra.from)) { return; }
+
     const { channel } = args;
     if (!channel) { return; }
     delete Env.channelKeyCache[channel];
@@ -219,7 +221,6 @@ const onChannelMessage = (args, cb, extra) => {
             channel, msgStruct, validated
         }, res => {
             if (res.error) {
-                next();
                 return void cb(res.error);
             }
             const { users, message } = res.data;

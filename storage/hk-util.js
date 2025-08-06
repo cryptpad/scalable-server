@@ -1,9 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2024 XWiki CryptPad Team <contact@cryptpad.org> and contributors
+const Constants = require('../common/constants.js');
+
 var HK = module.exports;
 
-const STANDARD_CHANNEL_LENGTH = HK.STANDARD_CHANNEL_LENGTH = 32;
-const ADMIN_CHANNEL_LENGTH = HK.ADMIN_CHANNEL_LENGTH = 33;
+const {
+    STANDARD_CHANNEL_LENGTH,
+    ADMIN_CHANNEL_LENGTH
+} = Constants;
+
+HK.STANDARD_CHANNEL_LENGTH = STANDARD_CHANNEL_LENGTH; // XXX
+HK.ADMIN_CHANNEL_LENGTH = ADMIN_CHANNEL_LENGTH;
+
 
 /*  getHash
     * this function slices off the leading portion of a message which is
@@ -17,7 +25,7 @@ const ADMIN_CHANNEL_LENGTH = HK.ADMIN_CHANNEL_LENGTH = 33;
       * can't be easily migrated
     * don't break it!
 */
-const getHash = HK.getHash = function (msg, Log) {
+HK.getHash = function (msg, Log) {
     if (typeof(msg) !== 'string') {
         if (Log) {
             Log.warn('HK_GET_HASH', 'getHash() called on ' + typeof(msg) + ': ' + msg);
@@ -39,7 +47,7 @@ const getHash = HK.getHash = function (msg, Log) {
     clients from forking on checkpoints and dropping forked history.
 
 */
-const sliceCpIndex = HK.sliceCpIndex = function (cpIndex, line) {
+HK.sliceCpIndex = function (cpIndex, line) {
     // Remove "old" checkpoints (cp sent before 100 messages ago)
     const minLine = Math.max(0, (line - 100));
     let start = cpIndex.slice(0, -2);
@@ -50,7 +58,7 @@ const sliceCpIndex = HK.sliceCpIndex = function (cpIndex, line) {
     return start.concat(end);
 };
 
-const isMetadataMessage = HK.isMetadataMessage = function (parsed) {
+HK.isMetadataMessage = function (parsed) {
     return Boolean(parsed && parsed.channel);
 };
 
@@ -59,11 +67,11 @@ const decodeBase64 = function(string) {
 }
 
 // validateKeyStrings supplied by clients must decode to 32-byte Uint8Arrays
-const isValidValidateKeyString = HK.isValidValidateKeyString = function(Env, key) {
+HK.isValidValidateKeyString = function(Env, key) {
     try {
         return typeof (key) === 'string' &&
             decodeBase64(key).length === Env.publicKeyLength;
-    } catch (e) {
+    } catch {
         return false;
     }
 };
@@ -71,7 +79,7 @@ const isValidValidateKeyString = HK.isValidValidateKeyString = function(Env, key
 /*  Remove from the map any byte offsets which are below
     the lowest offset you'd like to preserve
     (probably the oldest checkpoint */
-const trimMapByOffset = HK.trimMapByOffset = function (map, offset) {
+HK.trimMapByOffset = function (map, offset) {
     if (!offset) { return; }
     for (let k in map) {
         if (map[k] < offset) {

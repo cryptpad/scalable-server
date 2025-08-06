@@ -262,7 +262,7 @@ var getMetadataAtPath = function (Env, path, _cb) {
             } else { // it parsed, but isn't metadata
                 return void cb(); // call back without an error or metadata
             }
-        } catch (err) {
+        } catch {
             // if you can't parse, that's bad
             return void cb("INVALID_METADATA");
         }

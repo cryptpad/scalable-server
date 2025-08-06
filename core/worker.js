@@ -3,10 +3,7 @@ const Util = require("../common/common-util");
 const Crypto = require("./crypto.js")('sodiumnative');
 
 const COMMANDS = {};
-let Env = {};
-// XXX: was in Env before, maybe not needed anymore and can be here?
-// XXX: cannot be passed via Env from core/index.js (one instance per worker
-// XXX: is needed
+//let Env = {};
 
 const init = (config, cb) => {
     cb();
@@ -16,14 +13,14 @@ let onValidateMessage = (msg, vk, cb) => {
     let signedMsg;
     try {
         signedMsg = Crypto.decodeBase64(msg);
-    } catch (e) {
+    } catch {
         return void cb('E_BAD_MESSAGE');
     }
 
     let validateKey;
     try {
         validateKey = Crypto.decodeBase64(vk);
-    } catch (e) {
+    } catch {
         return void cb('E_BADKEY');
     }
 
@@ -64,9 +61,11 @@ process.on('message', function(obj) {
     };
 
     if (!ready) {
+        /*
         if (obj.env) {
             Env = Util.tryParse(obj.env);
         }
+        */
         return void init(obj.config, function(err) {
             if (err) { return void cb(Util.serializeError(err)); }
             ready = true;

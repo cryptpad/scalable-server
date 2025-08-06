@@ -71,7 +71,7 @@ module.exports = {
         httpServer.listen(config.port, config.host, function() {
             let server = new WebSocket.Server({ server: httpServer });
             ctx.self = socketToClient(server);
-            server.on('connection', function(ws, req) {
+            server.on('connection', ws => {
                 // TODO: get data from req to know who we are talking to and handle new connections
                 onNewClient(ctx, socketToClient(ws));
             });

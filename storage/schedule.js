@@ -67,7 +67,7 @@ var lookup = function (map, id) {
 
 var isEmpty = function (map) {
     for (var key in map) {
-        if (map.hasOwnProperty(key)) { return false; }
+        if (Object.prototype.hasOwnProperty.call(map, key)) { return false; }
     }
     return true;
 };

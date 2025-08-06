@@ -256,7 +256,7 @@ const handleMsg = (Env, args) => {
         Env.interface.sendQuery(coreId, 'USER_MESSAGE', {
             userId: user.id,
             message: json
-        }, answer => {
+        }, () => {
             sendMsg(Env, user, [seq, 'ACK']);
         });
     };
@@ -492,7 +492,8 @@ const start = (config) => {
 
     const COMMANDS = {
         'SEND_USER_MESSAGE': callWithEnv(sendUserMessage),
-        'SEND_CHANNEL_MESSAGE': callWithEnv(sendChannelMessage)
+        'SEND_CHANNEL_MESSAGE': callWithEnv(sendChannelMessage),
+        'SHUTDOWN': callWithEnv(shutdown)
     };
 
     initServer(Env).then(() => {

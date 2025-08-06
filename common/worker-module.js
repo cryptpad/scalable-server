@@ -3,13 +3,14 @@
 
 const Util = require("./common-util");
 
+/*
 const {
   Worker,
   isMainThread,
   parentPort,
   workerData,
 } = require('node:worker_threads');
-
+*/
 const OS = require("node:os");
 
 const { fork } = require('node:child_process');
@@ -319,7 +320,7 @@ const init = workerConfig => {
         const substituteWorker = Util.once(() => {
             onWorkerClosed();
 
-            Log.info("SUBSTITUTE_DB_WORKER", '');
+            Log.info("SUBSTITUTE_WORKER", '');
             let idx = workers.indexOf(state);
             if (idx !== -1) {
                 workers.splice(idx, 1);
@@ -332,7 +333,7 @@ const init = workerConfig => {
                 const task = state.tasks[txid];
                 if (!task) { return; }
                 response.clear(txid);
-                Log.info('DB_WORKER_RESEND', task);
+                Log.info('WORKER_RESEND', task);
                 sendCommand(task, task._cb || cb, task._opt);
             });
 
@@ -345,21 +346,21 @@ const init = workerConfig => {
         worker.on('exit', function () {
             if (!state.worker) { return; } // Manually killed
             substituteWorker();
-            Log.error("DB_WORKER_EXIT", {
+            Log.error("WORKER_EXIT", {
                 pid: state.pid,
             });
         });
         worker.on('close', function () {
             if (!state.worker) { return; } // Manually killed
             substituteWorker();
-            Log.error("DB_WORKER_CLOSE", {
+            Log.error("WORKER_CLOSE", {
                 pid: state.pid,
             });
         });
         worker.on('error', function (err) {
             if (!state.worker) { return; } // Manually killed
             substituteWorker();
-            Log.error("DB_WORKER_ERROR", {
+            Log.error("WORKER_ERROR", {
                 pid: state.pid,
                 error: err,
             });
@@ -369,7 +370,7 @@ const init = workerConfig => {
     for(let i = 0; i < limit; i++) {
         initWorker(create(), function (err) {
             if (!err) { return; }
-            return void cb(err);
+            Log.info('WORKER_INITIALIZED');
         });
     }
 

@@ -1,6 +1,6 @@
-const Constants = {}
+const Constants = {};
 
-Constants.CHECKPOINT_PATTERN = /^cp\|(([A-Za-z0-9+\/=]+)\|)?/;
+Constants.CHECKPOINT_PATTERN = /^cp\|(([A-Za-z0-9+/=]+)\|)?/;
 
 Constants.STANDARD_CHANNEL_LENGTH = 32;
 Constants.ADMIN_CHANNEL_LENGTH = 33;

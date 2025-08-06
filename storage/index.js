@@ -221,7 +221,6 @@ let onGetFullHistory = function(seq, userId, parsed, cb) {
 };
 
 const onChannelMessage = (channel, msgStruct, validated, cb) => {
-    let userId = msgStruct[1];
     const isCp = /^cp\|/.test(msgStruct[4]);
     const channelData = Env.channel_cache[channel] || {};
 
@@ -326,7 +325,7 @@ const onChannelMessage = (channel, msgStruct, validated, cb) => {
     });
 };
 
-const onDropChannel = function(channel, userId) {
+const onDropChannel = channel => {
     delete Env.metadata_cache[channel];
     delete Env.channel_cache[channel];
     // XXX selfdestruct integration
@@ -353,7 +352,7 @@ const channelMessageHandler = function(args, cb) {
     onChannelMessage(channel, msgStruct, validated, cb);
 }
 
-const joinChannelHandler = (args, cb, extra) => {
+const joinChannelHandler = (args, cb) => {
     const { channel, userId } = args;
 
     const channelData = Env.channel_cache[channel] ||= {
@@ -387,7 +386,7 @@ const joinChannelHandler = (args, cb, extra) => {
         throw new Error('NOT IMPLEMENTED');
     });
 };
-const leaveChannelHandler = (args, cb, extra) => {
+const leaveChannelHandler = (args, cb) => {
     const { channel, userId } = args;
 
     const channelData = Env.channel_cache[channel];

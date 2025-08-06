@@ -75,6 +75,7 @@ let createHandlers = function(ctx, other) {
         handleMessage(ctx, other, message);
     });
     other.onDisconnect(function(_code, _reason) { // XXX: to handle properly in the future
+        console.log(`Interface disconnected: ${other} from ${ctx.myId}. ${_code}, ${_reason}`);
         if (ctx.self.isOpen()) {
             ctx.self.disconnect();
         }
@@ -88,8 +89,6 @@ let guid = function(ctx) {
 };
 
 let communicationManager = function(ctx) {
-    let myId = ctx.myId;
-
     let sendEvent = function(destId, command, args) {
         let dest = findDestFromId(ctx, destId);
         if (!dest) {
@@ -157,14 +156,14 @@ let communicationManager = function(ctx) {
         const promises = [];
         Object.keys(all).forEach(idx => {
             const id = `${type}:${idx}`;
-            const p = new Promise((resolve, reject) => {
-                sendQuery(destId, command, args, answer => {
+            const p = new Promise((resolve) => {
+                sendQuery(id, command, args, answer => {
                     resolve(answer);
                 });
             });
             promises.push(p);
         });
-        Promises.all(promises).then(values => {
+        Promise.all(promises).then(values => {
             cb(values);
         });
     };

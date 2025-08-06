@@ -160,7 +160,7 @@ const checkHistory = () => {
             network = _network;
             _network.on('message', onMessage);
             return _network.join(padId);
-        }).then(wc => {
+        }).then(() => {
             const msg = ['GET_HISTORY', padId, {
                 txid, lastKnownHash
             }];

@@ -281,7 +281,7 @@ const create = (Env, basedir) => {
                             let offsetCount = HK.checkOffsetMap(index.offsetByHash);
                             if (offsetCount < 0) {
                                 Log.warn('OFFSET_TRIM_OOO', {
-                                    channel: id,
+                                    channel,
                                     map: index.offsetByHash
                                 });
                             } else if (offsetCount > 0) {
