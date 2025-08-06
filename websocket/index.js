@@ -319,7 +319,7 @@ const handleJoin = (Env, args) => {
     });
 };
 const handleLeave = (Env, args) => {
-    let obj = args.obj;
+    let channel = args.obj;
     let user = args.user;
     let seq = args.seq;
 
@@ -332,7 +332,7 @@ const handleLeave = (Env, args) => {
     }, answer => {
         let error = answer.error;
         if (error) {
-            return sendMsg(Env, user, [seq, 'ERROR', error, obj]);
+            return sendMsg(Env, user, [seq, 'ERROR', error, channel]);
         }
         sendMsg(Env, user, [seq, 'ACK']);
     });

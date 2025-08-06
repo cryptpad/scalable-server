@@ -26,7 +26,7 @@ let Env = {
     Log: createLogger(),
     wsCache: {}, // WS associated to each user
     channelKeyCache: {}, // Validate key of each channel
-    channelQueue: WriteQueue()
+    queueValidation: WriteQueue()
 };
 
 const isWsCmd = id => {
@@ -119,7 +119,12 @@ const validateMessageHandler = (args, cb, extra) => {
     // See onChannelMessage
     Env.channelKeyCache[channel] = validateKey;
 
-    Env.workers.send('VALIDATE_MESSAGE', args, cb);
+    Env.queueValidation(channel, next => {
+        Env.workers.send('VALIDATE_MESSAGE', args, e => {
+            next();
+            cb(e);
+        });
+    });
 };
 
 const dropChannelHandler = (args, cb, extra) => {
@@ -227,7 +232,7 @@ const onChannelMessage = (args, cb, extra) => {
     if (Env.channelKeyCache[channel]) {
         const msg = msgStruct[4].replace(CHECKPOINT_PATTERN, '');
         const vKey = Env.channelKeyCache[channel];
-        Env.channelQueue(channel, next => {
+        Env.queueValidation(channel, next => {
             Env.workers.send('VALIDATE_MESSAGE', {
                 channel,
                 signedMsg: msg,

@@ -1,5 +1,5 @@
 const Util = require("../common/common-util");
-const WriteQueue = require("../common/write-queue.js");
+//const WriteQueue = require("../common/write-queue.js");
 const Crypto = require("./crypto.js")('sodiumnative');
 
 const COMMANDS = {};
