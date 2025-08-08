@@ -7,7 +7,7 @@ const Logger = require("../common/logger.js");
 const nThen = require("nthen");
 const Path = require("node:path");
 
-const HK = require("./hk-util.js");
+const HKUtil = require("./hk-util.js");
 const HistoryKeeper = require("./historyKeeper.js");
 const ChannelManager = require("./channel_manager.js");
 
@@ -112,7 +112,7 @@ let onGetHistory = function(seq, userId, parsed, cb) {
     // on the floor instead of doing a bunch of extra work
     // TODO: Send them an error message so they know something is wrong
     // TODO: add Log handling function
-    if (metadata.validateKey && !HK.isValidValidateKeyString(metadata.validateKey)) {
+    if (metadata.validateKey && !HKUtil.isValidValidateKeyString(metadata.validateKey)) {
         return void console.error('HK_INVALID_KEY', metadata.validateKey);
     }
 
@@ -148,7 +148,7 @@ let onGetHistory = function(seq, userId, parsed, cb) {
         HistoryKeeper.getHistoryAsync(Env, channel, lastKnownHash, false, (msg, readMore) => {
             msgCount++;
             // avoid sending the metadata message a second time
-            if (HK.isMetadataMessage(msg) && metadata_cache[channel]) { return readMore(); }
+            if (HKUtil.isMetadataMessage(msg) && metadata_cache[channel]) { return readMore(); }
             if (txid) { msg[0] = txid; }
             toSend.push([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(msg)]);
             readMore();
@@ -331,7 +331,7 @@ const onChannelMessage = (args, cb) => {
 
         // storeMessage
         //console.log(+new Date(), "Storing message");
-        Env.CM.storeMessage(channel, JSON.stringify(msgStruct), isCp, HK.getHash(msgStruct[4], Env.Log), time, err => {
+        Env.CM.storeMessage(channel, JSON.stringify(msgStruct), isCp, HKUtil.getHash(msgStruct[4], Env.Log), time, err => {
             if (err) { return void cb(err); }
             cb(void 0, {
                 users: channelData.users,

@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2024 XWiki CryptPad Team <contact@cryptpad.org> and contributors
 const Util = require("./common-util.js");
 const nThen = require("nthen");
-const HK = require("./hk-util.js");
+const HKUtil = require("./hk-util.js");
 
 const create = (Env) => {
     let CM = {};
@@ -17,7 +17,7 @@ const create = (Env) => {
             const msg = Util.tryParse(Env, msgObj.buff.toString('utf8'));
             // if it was undefined then go onto the next message
             if (typeof msg === "undefined") { return readMore(); }
-            if (typeof (msg[4]) !== 'string' || hash !== HK.getHash(msg[4])) {
+            if (typeof (msg[4]) !== 'string' || hash !== HKUtil.getHash(msg[4])) {
                 return void readMore();
             }
             offset = msgObj.offset;
@@ -76,8 +76,8 @@ const create = (Env) => {
 
                     if (typeof (index.line) === "number") { index.line++; }
                     if (isCp) {
-                        index.cpIndex = HK.sliceCpIndex(index.cpIndex, index.line || 0);
-                        HK.trimMapByOffset(index.offsetByHash, index.cpIndex[0]);
+                        index.cpIndex = HKUtil.sliceCpIndex(index.cpIndex, index.line || 0);
+                        HKUtil.trimMapByOffset(index.offsetByHash, index.cpIndex[0]);
                         index.cpIndex.push({
                             offset: index.size,
                             line: ((index.line || 0) + 1)
@@ -93,15 +93,15 @@ const create = (Env) => {
                         index.offsets++;
                     }
                     if (index.offsets >= 100 && !index.cpIndex.length) {
-                        let offsetCount = HK.checkOffsetMap(index.offsetByHash);
+                        let offsetCount = HKUtil.checkOffsetMap(index.offsetByHash);
                         if (offsetCount < 0) {
                             Log.warn('OFFSET_TRIM_OOO', {
                                 channel,
                                 map: index.offsetByHash
                             });
                         } else if (offsetCount > 0) {
-                            HK.trimOffsetByOrder(index.offsetByHash, index.offsets);
-                            index.offsets = HK.checkOffsetMap(index.offsetByHash);
+                            HKUtil.trimOffsetByOrder(index.offsetByHash, index.offsets);
+                            index.offsets = HKUtil.checkOffsetMap(index.offsetByHash);
                         }
                     }
 

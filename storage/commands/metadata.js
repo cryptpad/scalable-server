@@ -3,18 +3,18 @@
 const Data = module.exports;
 const Core = require("./core");
 const Util = require("../common-util");
-const HK = require("../hk-util");
+const HKUtil = require("../hk-util");
 
 Data.getMetadataRaw = (Env, channel, _cb) => {
     const cb = Util.once(Util.mkAsync(_cb));
     if (!Core.isValidId(channel)) { return void cb('INVALID_CHAN'); }
-    if (channel.length !== HK.STANDARD_CHANNEL_LENGTH &&
-        channel.length !== HK.ADMIN_CHANNEL_LENGTH &&
-        channel.length !== HK.BLOB_ID_LENGTH) { return cb("INVALID_CHAN_LENGTH"); }
+    if (channel.length !== HKUtil.STANDARD_CHANNEL_LENGTH &&
+        channel.length !== HKUtil.ADMIN_CHANNEL_LENGTH &&
+        channel.length !== HKUtil.BLOB_ID_LENGTH) { return cb("INVALID_CHAN_LENGTH"); }
 
     // return synthetic metadata for admin broadcast channels as a safety net
     // in case anybody manages to write metadata
-    if (channel.length === HK.ADMIN_CHANNEL_LENGTH) {
+    if (channel.length === HKUtil.ADMIN_CHANNEL_LENGTH) {
         return void cb(void 0, {
             channel: channel,
             creation: +new Date(),
@@ -23,14 +23,14 @@ Data.getMetadataRaw = (Env, channel, _cb) => {
     }
 
     var cached = Env.metadata_cache[channel];
-    if (HK.isMetadataMessage(cached)) {
+    if (HKUtil.isMetadataMessage(cached)) {
         Env.checkCache(channel);
         return void cb(void 0, cached);
     }
 
     Env.batchMetadata(channel, cb, function(done) {
         Env.worker.computeMetadata(channel, function(err, meta) {
-            if (!err && HK.isMetadataMessage(meta)) {
+            if (!err && HKUtil.isMetadataMessage(meta)) {
                 Env.metadata_cache[channel] = meta;
                 // clear metadata after a delay if nobody has joined the channel within 30s
                 Env.checkCache(channel);
@@ -50,10 +50,10 @@ Data.getMetadata = (Env, channel, cb, /*Server, netfluxId*/) => {
         }
 
         /*
-        const session = HK.getNetfluxSession(Env, netfluxId);
-        const allowed = HK.listAllowedUsers(metadata);
+        const session = HKUtil.getNetfluxSession(Env, netfluxId);
+        const allowed = HKUtil.listAllowedUsers(metadata);
 
-        if (!HK.isUserSessionAllowed(allowed, session)) {
+        if (!HKUtil.isUserSessionAllowed(allowed, session)) {
             return void cb(void 0, {
                 restricted: metadata.restricted,
                 allowed: allowed,

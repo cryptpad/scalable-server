@@ -3,8 +3,11 @@
 const Util = require("./common-util.js");
 const nThen = require("nthen");
 const Meta = require("./commands/metadata.js");
-const HK = require("./hk-util.js");
+const Constants = require("../common/constants");
 
+const {
+    STANDARD_CHANNEL_LENGTH
+} = Constants;
 let HistoryKeeper = {};
 
 HistoryKeeper.getMetadata = function(Env, channelName, _cb) {
@@ -16,7 +19,8 @@ HistoryKeeper.getMetadata = function(Env, channelName, _cb) {
 
     Meta.getMetadataRaw(Env, channelName, function(err, metadata) {
         if (err) { return cb(err); }
-        if (!(metadata && typeof (metadata.channel) === 'string' && metadata.channel.length === HK.STANDARD_CHANNEL_LENGTH)) {
+        if (!(metadata && typeof (metadata.channel) === 'string'
+        && metadata.channel.length === STANDARD_CHANNEL_LENGTH)) {
             return cb();
         }
 

@@ -8,7 +8,7 @@ const File = require("./storage/file.js");
 const Path = require("node:path");
 const nThen = require("nthen");
 
-const HK = require("./hk-util.js");
+const HKUtil = require("./hk-util.js");
 const Meta = require('./metadata');
 
 const Env = {
@@ -93,7 +93,7 @@ const computeIndexFromOffset = (channel, offset, cb) => {
 
                 // validate that the current line really is metadata before storing it as such
                 // skip this, as you already have metadata...
-                if (HK.isMetadataMessage(msg)) {
+                if (HKUtil.isMetadataMessage(msg)) {
                     i++; // always increment the message counter
                     return readMore();
                 }
@@ -140,7 +140,7 @@ const computeIndexFromOffset = (channel, offset, cb) => {
                 if (msg[0] === 0 && msg[2] === 'MSG' && typeof(msg[4]) === 'string') {
                     // msgObj.offset is API guaranteed by our storage module
                     // it should always be a valid positive integer
-                    offsetByHash[HK.getHash(msg[4])] = msgObj.offset;
+                    offsetByHash[HKUtil.getHash(msg[4])] = msgObj.offset;
                     offsetCount++;
                 }
                 // There is a trailing \n at the end of the file
@@ -148,7 +148,7 @@ const computeIndexFromOffset = (channel, offset, cb) => {
             });
         }));
     }).nThen(function (w) {
-        cpIndex = HK.sliceCpIndex(cpIndex, i);
+        cpIndex = HKUtil.sliceCpIndex(cpIndex, i);
 
         var new_start;
         if (cpIndex.length) {
