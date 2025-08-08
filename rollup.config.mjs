@@ -4,12 +4,11 @@
 
 import {nodeResolve} from "@rollup/plugin-node-resolve"
 import commonjs from '@rollup/plugin-commonjs';
-//import builtins from 'rollup-plugin-node-builtins';
 import typescript from '@rollup/plugin-typescript';
 import terser from '@rollup/plugin-terser';
 import json from '@rollup/plugin-json';
 
-//import nodePolyfills from 'rollup-plugin-polyfill-node';
+const type = process.env.TYPE;
 
 const getTerser = () => {
     return terser({
@@ -35,31 +34,63 @@ const getPlugins = () => {
     ];
 };
 
-export default [{
-    input: "./core/core.ts",
-    output: [{
-        name: 'cryptpad-server-core',
-        file: "./build/core.js",
-        format: "cjs",
-        plugins: [ getTerser() ]
-    }],
-    plugins: getPlugins()
-}, {
-    input: "./websocket/websocket.ts",
-    output: [{
-        name: 'cryptpad-server-websocket',
-        file: "./build/websocket.js",
-        format: "cjs",
-        plugins: [ getTerser() ]
-    }],
-    plugins: getPlugins()
-}, {
-    input: "./storage/storage.ts",
-    output: [{
-        name: 'cryptpad-server-storage',
-        file: "./build/storage.js",
-        format: "cjs",
-        plugins: [ getTerser() ]
-    }],
-    plugins: getPlugins()
-}];
+const list = [];
+
+if (!type || type === "ws") {
+    list.push({
+        input: "./websocket/websocket.ts",
+        output: [{
+            name: 'cryptpad-server-websocket',
+            file: "./build/websocket.js",
+            format: "cjs",
+            plugins: [ getTerser() ]
+        }],
+        plugins: getPlugins()
+    });
+}
+if (!type || type === "core") {
+    list.push({
+        input: "./core/core.ts",
+        output: [{
+            name: 'cryptpad-server-core',
+            file: "./build/core.js",
+            format: "cjs",
+            plugins: [ getTerser() ]
+        }],
+        plugins: getPlugins()
+    });
+    list.push({
+        input: "./core/worker.js",
+        output: [{
+            name: 'cryptpad-server-core-worker',
+            file: "./build/core.worker.js",
+            format: "cjs",
+            plugins: [ getTerser() ]
+        }],
+        plugins: getPlugins()
+    });
+}
+if (!type || type === "storage") {
+    list.push({
+        input: "./storage/storage.ts",
+        output: [{
+            name: 'cryptpad-server-storage',
+            file: "./build/storage.js",
+            format: "cjs",
+            plugins: [ getTerser() ]
+        }],
+        plugins: getPlugins()
+    });
+    list.push({
+        input: "./storage/worker.js",
+        output: [{
+            name: 'cryptpad-server-storage-worker',
+            file: "./build/storage.worker.js",
+            format: "cjs",
+            plugins: [ getTerser() ]
+        }],
+        plugins: getPlugins()
+    });
+}
+
+export default list;

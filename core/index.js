@@ -275,7 +275,7 @@ let startServers = function(config) {
 
     const workerConfig = {
         Log: Env.Log,
-        workerPath: './core/worker.js',
+        workerPath: './build/core.worker.js',
         maxWorkers: 1,
         maxJobs: 4,
         commandTimers: {}, // time spent on each command

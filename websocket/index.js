@@ -63,7 +63,7 @@ const onSessionOpen = function(Env, userId) {
     if (!user) { return; }
 
     if (!Env.logIP || !user.ip) { return; }
-    Env.Log.info('USER_CONNECTION', {
+    Env.Log.verbose('USER_CONNECTION', {
         userId: userId,
         ip: user.ip,
     });
@@ -124,7 +124,7 @@ const dropUser = (Env, user, reason) => {
 };
 
 const sendMsgPromise = (Env, user, msg) => {
-    Env.Log.debug('Sending', msg, 'to', user.id);
+    Env.Log.verbose('Sending', msg, 'to', user.id);
     return new Promise((resolve, reject) => {
         // don't bother trying to send if the user doesn't
         // exist anymore
@@ -405,7 +405,7 @@ const initServerHandlers = (Env) => {
 
 
         socket.on('message', message => {
-            Env.Log.debug('Receiving', JSON.parse(message), 'from', user.id);
+            Env.Log.verbose('Receiving', JSON.parse(message), 'from', user.id);
             try {
                 handleMessage(Env, user, message);
             } catch (e) {
@@ -466,7 +466,7 @@ const start = (config) => {
         logIP: true,
         openConnections: {},
         user_channel_cache: {},
-        Log: Logger(['info', 'error', 'warn']),
+        Log: Logger(),
         active: true,
         users: {},
         config: interfaceConfig,

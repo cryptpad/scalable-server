@@ -36,6 +36,9 @@
   "scripts": {
     "lint": "eslint .",
     "build": "rollup -c",
+    "build:ws": "TYPE=ws rollup -c",
+    "build:core": "TYPE=core rollup -c",
+    "build:storage": "TYPE=storage rollup -c",
     "tests": "node --test tests/",
     "start": "node index.js"
   }

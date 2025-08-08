@@ -8,31 +8,6 @@ const create = (Env) => {
     let CM = {};
     const store = Env.store;
 
-    CM.getHashOffset = function(channel, hash, cb) {
-        if (typeof (hash) !== 'string') { return void cb("INVALID_HASH"); }
-
-        var offset = -1;
-        store.readMessagesBin(channel, 0, (msgObj, readMore, abort) => {
-            // tryParse return a parsed message or undefined
-            const msg = Util.tryParse(Env, msgObj.buff.toString('utf8'));
-            // if it was undefined then go onto the next message
-            if (typeof msg === "undefined") { return readMore(); }
-            if (typeof (msg[4]) !== 'string' || hash !== HKUtil.getHash(msg[4])) {
-                return void readMore();
-            }
-            offset = msgObj.offset;
-            abort();
-        }, function(err, reason) {
-            if (err) {
-                return void cb({
-                    error: err,
-                    reason: reason
-                });
-            }
-            cb(void 0, offset);
-        });
-    };
-
     CM.storeMessage = function(channel, msg, isCp, optionalMessageHash, time, cb) {
         // TODO: check why channel.id disappears in the middle
         const Log = Env.log;

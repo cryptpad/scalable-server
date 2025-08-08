@@ -256,11 +256,41 @@ const computeMetadata = (args, cb) => {
     });
 };
 
+// Get the offset of the provided hash in the file
+const getHashOffset = (args, cb) => {
+    const { channel, hash } = args;
+    if (typeof (hash) !== 'string') {
+        return void cb("INVALID_HASH");
+    }
+
+    monitoringIncrement('getHashOffset');
+    let offset = -1;
+    Env.store.readMessagesBin(channel, 0, (msgObj, readMore, abort) => {
+        // tryParse return a parsed message or undefined
+        const msg = Util.tryParse(Env, msgObj.buff.toString('utf8'));
+        // if it was undefined then go onto the next message
+        if (typeof msg === "undefined") { return readMore(); }
+        if (typeof (msg[4]) !== 'string' || hash !== HKUtil.getHash(msg[4])) {
+            return void readMore();
+        }
+        offset = msgObj.offset;
+        abort();
+    }, (err, reason) => {
+        if (err) {
+            return void cb({
+                error: err,
+                reason: reason
+            });
+        }
+        cb(void 0, offset);
+    });
+};
 
 
 const COMMANDS = {
     COMPUTE_INDEX: computeIndex,
-    COMPUTE_METADATA: computeMetadata
+    COMPUTE_METADATA: computeMetadata,
+    GET_HASH_OFFSET: getHashOffset
 };
 
 let ready = false;

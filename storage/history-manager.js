@@ -95,7 +95,7 @@ const getHistoryOffset = (Env, channelName, lastKnownHash, _cb) => {
         // either the message exists in history but is not in the cached index
         // or it does not exist at all. In either case 'getHashOffset' is expected
         // to return a number: -1 if not present, positive interger otherwise
-        Env.CM.getHashOffset(channelName, lastKnownHash, w(function(err, _offset) {
+        Env.worker.getHashOffset(channelName, lastKnownHash, w(function(err, _offset) {
             if (err) {
                 w.abort();
                 return void cb(err);

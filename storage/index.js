@@ -8,8 +8,8 @@ const nThen = require("nthen");
 const Path = require("node:path");
 
 const HKUtil = require("./hk-util.js");
-const HistoryKeeper = require("./historyKeeper.js");
-const ChannelManager = require("./channel_manager.js");
+const HistoryManager = require("./history-manager.js");
+const ChannelManager = require("./channel-manager.js");
 
 const Interface = require("../common/interface.js");
 const WSConnector = require("../common/ws-connector.js");
@@ -117,7 +117,7 @@ let onGetHistory = function(seq, userId, parsed, cb) {
     }
 
     nThen(function(w) {
-        HistoryKeeper.getMetadata(Env, channel, w(function(err, metadata) {
+        HistoryManager.getMetadata(Env, channel, w(function(err, metadata) {
             if (err) {
                 console.error('HK_GET_HISTORY_METADATA', {
                     channel: channel,
@@ -145,7 +145,7 @@ let onGetHistory = function(seq, userId, parsed, cb) {
         let msgCount = 0;
 
         // TODO compute lastKnownHash in a manner such that it will always skip past the metadata line?
-        HistoryKeeper.getHistoryAsync(Env, channel, lastKnownHash, false, (msg, readMore) => {
+        HistoryManager.getHistoryAsync(Env, channel, lastKnownHash, false, (msg, readMore) => {
             msgCount++;
             // avoid sending the metadata message a second time
             if (HKUtil.isMetadataMessage(msg) && metadata_cache[channel]) { return readMore(); }
@@ -202,7 +202,7 @@ let onGetHistory = function(seq, userId, parsed, cb) {
 
             if (msgCount === 0 && !metadata_cache[channel] && channelContainsUser(channel, userId)) {
                 // TODO: this might be a good place to reject channel creation by anonymous users
-                HistoryKeeper.handleFirstMessage(Env, channel, metadata);
+                HistoryManager.handleFirstMessage(Env, channel, metadata);
                 toSend.push([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(metadata)]);
             }
 
@@ -221,7 +221,7 @@ let onGetFullHistory = function(seq, userId, parsed, cb) {
     let toSend = [];
     let error;
 
-    HistoryKeeper.getHistoryAsync(Env, channel, -1, false, (msg, readMore) => {
+    HistoryManager.getHistoryAsync(Env, channel, -1, false, (msg, readMore) => {
         toSend.push([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(['FULL_HISTORY', msg])]);
         readMore();
     }, (err) => {
@@ -269,7 +269,7 @@ const onChannelMessage = (args, cb) => {
 
     let metadata;
     nThen(function(w) {
-        HistoryKeeper.getMetadata(Env, channel, w(function(err, _metadata) {
+        HistoryManager.getMetadata(Env, channel, w(function(err, _metadata) {
             // if there's no channel metadata then it can't be an
             // expiring channel nor can we possibly validate it
             if (!_metadata) { return; }
@@ -361,7 +361,7 @@ let getFullHistoryHandler = function(args, cb) {
 }
 
 let getMetaDataHandler = function(args, cb) {
-    HistoryKeeper.getMetadata(Env, args.channel, cb);
+    HistoryManager.getMetadata(Env, args.channel, cb);
 }
 
 const joinChannelHandler = (args, cb) => {
@@ -374,7 +374,7 @@ const joinChannelHandler = (args, cb) => {
     if (!channelData.users.includes(userId)) {
         channelData.users.push(userId);
     }
-    HistoryKeeper.getMetadata(Env, channel, (err, metadata) => {
+    HistoryManager.getMetadata(Env, channel, (err, metadata) => {
         // XXX handle allow list
         if (err) {
             console.error('HK_METADATA_ERR', {
@@ -456,20 +456,21 @@ const initWorkerCommands = () => {
         Env.store.getWeakLock(channel, next => {
             Env.workers.send('COMPUTE_METADATA', {
                 channel
-            }, (e, metadata) => {
-                next();
-                cb(e, metadata);
-            });
+            }, Util.both(next, cb));
         });
     };
     Env.worker.computeIndex = (channel, cb) => {
         Env.store.getWeakLock(channel, next => {
             Env.workers.send('COMPUTE_INDEX', {
                 channel
-            }, (e, index) => {
-                next();
-                cb(e, index);
-            });
+            }, Util.both(next, cb));
+        });
+    };
+    Env.worker.getHashOffset = (channel, hash, cb) => {
+        Env.store.getWeakLock(channel, next => {
+            Env.workers.send('GET_HASH_OFFSET', {
+                channel, hash
+            }, Util.both(next, cb));
         });
     };
 };
@@ -495,7 +496,7 @@ let start = function(config) {
     }).nThen(() => {
         const workerConfig = {
             Log: Env.Log,
-            workerPath: './storage/worker.js',
+            workerPath: './build/storage.worker.js',
             maxWorkers: 1,
             maxJobs: 4,
             commandTimers: {}, // time spent on each command
