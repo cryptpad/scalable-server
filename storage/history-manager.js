@@ -8,16 +8,16 @@ const Constants = require("../common/constants");
 const {
     STANDARD_CHANNEL_LENGTH
 } = Constants;
-let HistoryKeeper = {};
+let HistoryManager = {};
 
-HistoryKeeper.getMetadata = function(Env, channelName, _cb) {
+HistoryManager.getMetadata = function(Env, channel, _cb) {
     let cb = Util.mkAsync(_cb);
-    let metadata = Env.metadata_cache[channelName];
+    let metadata = Env.metadata_cache[channel];
     if (metadata && typeof (metadata) === 'object') {
         return cb(void 0, metadata)
     }
 
-    Meta.getMetadataRaw(Env, channelName, function(err, metadata) {
+    Meta.getMetadataRaw(Env, channel, function(err, metadata) {
         if (err) { return cb(err); }
         if (!(metadata && typeof (metadata.channel) === 'string'
         && metadata.channel.length === STANDARD_CHANNEL_LENGTH)) {
@@ -25,12 +25,12 @@ HistoryKeeper.getMetadata = function(Env, channelName, _cb) {
         }
 
         // cache it
-        Env.metadata_cache[channelName] = metadata;
+        Env.metadata_cache[channel] = metadata;
         cb(void 0, metadata);
     });
 }
 
-const getHistoryOffset = (Env, channelName, lastKnownHash, _cb) => {
+const getHistoryOffset = (Env, channel, lastKnownHash, _cb) => {
     const cb = Util.once(Util.mkAsync(_cb));
 
     // lastKnownhash === -1 means we want the complete history
@@ -38,7 +38,7 @@ const getHistoryOffset = (Env, channelName, lastKnownHash, _cb) => {
 
     let offset = -1;
     nThen((waitFor) => {
-        Env.CM.getIndex(Env, channelName, waitFor((err, index) => {
+        Env.CM.getIndex(Env, channel, waitFor((err, index) => {
             if (err) { waitFor.abort(); return void cb(err); }
 
             // check if the "hash" the client is requesting exists in the index
@@ -95,7 +95,7 @@ const getHistoryOffset = (Env, channelName, lastKnownHash, _cb) => {
         // either the message exists in history but is not in the cached index
         // or it does not exist at all. In either case 'getHashOffset' is expected
         // to return a number: -1 if not present, positive interger otherwise
-        Env.worker.getHashOffset(channelName, lastKnownHash, w(function(err, _offset) {
+        Env.worker.getHashOffset(channel, lastKnownHash, w(function(err, _offset) {
             if (err) {
                 w.abort();
                 return void cb(err);
@@ -107,10 +107,10 @@ const getHistoryOffset = (Env, channelName, lastKnownHash, _cb) => {
     });
 };
 
-HistoryKeeper.getHistoryAsync = (Env, channelName, lastKnownHash, beforeHash, handler, cb) => {
+HistoryManager.getHistoryAsync = (Env, channel, lastKnownHash, beforeHash, handler, cb) => {
     let offset = -1;
     nThen((waitFor) => {
-        getHistoryOffset(Env, channelName, lastKnownHash, waitFor((err, os) => {
+        getHistoryOffset(Env, channel, lastKnownHash, waitFor((err, os) => {
             if (err) {
                 waitFor.abort();
                 var reason;
@@ -127,7 +127,7 @@ HistoryKeeper.getHistoryAsync = (Env, channelName, lastKnownHash, beforeHash, ha
             return void cb(new Error('EUNKNOWN'));
         }
         const start = (beforeHash) ? 0 : offset;
-        Env.store.readMessagesBin(channelName, start, (msgObj, readMore, abort) => {
+        Env.store.readMessagesBin(channel, start, (msgObj, readMore, abort) => {
             if (beforeHash && msgObj.offset >= offset) { return void abort(); }
             const parsed = Util.tryParse(msgObj.buff.toString('utf8'));
             if (!parsed) { return void readMore(); }
@@ -143,17 +143,17 @@ HistoryKeeper.getHistoryAsync = (Env, channelName, lastKnownHash, beforeHash, ha
     we initialize that channel by writing the metadata supplied by the user to its log.
     if the provided metadata has an expire time then we also create a task to expire it.
     */
-HistoryKeeper.handleFirstMessage = function(Env, channelName, metadata) {
+HistoryManager.handleFirstMessage = function(Env, channel, metadata) {
     if (metadata.selfdestruct) {
         // Set the selfdestruct flag to history keeper ID to handle server crash.
         metadata.selfdestruct = Env.id;
     }
     delete metadata.forcePlaceholder;
-    Env.store.writeMetadata(channelName, JSON.stringify(metadata), function(err) {
+    Env.store.writeMetadata(channel, JSON.stringify(metadata), function(err) {
         if (err) {
             // FIXME tell the user that there was a channel error?
             return void console.error('HK_WRITE_METADATA', {
-                channel: channelName,
+                channel: channel,
                 error: err,
             });
         }
@@ -165,16 +165,16 @@ HistoryKeeper.handleFirstMessage = function(Env, channelName, metadata) {
     // if(metadata.expire && typeof(metadata.expire) === 'number' && metadata.expire < maxExpire) {
     //     // the fun part...
     //     // the user has said they want this pad to expire at some point
-    //     Env.writeTask(metadata.expire, "EXPIRE", [ channelName ], function (err) {
+    //     Env.writeTask(metadata.expire, "EXPIRE", [ channel ], function (err) {
     //         if (err) {
     //             // if there is an error, we don't want to crash the whole server...
     //             // just log it, and if there's a problem you'll be able to fix it
     //             // at a later date with the provided information
     //             Env.Log.error('HK_CREATE_EXPIRE_TASK', err);
-    //             Env.Log.info('HK_INVALID_EXPIRE_TASK', JSON.stringify([metadata.expire, 'EXPIRE', channelName]));
+    //             Env.Log.info('HK_INVALID_EXPIRE_TASK', JSON.stringify([metadata.expire, 'EXPIRE', channel]));
     //         }
     //     });
     // }
 };
 
-module.exports = HistoryKeeper;
+module.exports = HistoryManager;
