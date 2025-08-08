@@ -125,6 +125,13 @@ const create = (Env) => {
         });
     };
 
+    CM.removeChannel = (Env, channel) => {
+        if (!Env.store) { return; }
+        Env.store.archiveChannel(channel, void 0, () => {});
+        delete Env.metadata_cache[channel];
+        delete Env.channel_cache[channel];
+    };
+
     return CM;
 };
 

@@ -197,6 +197,7 @@ const leaveChannel = (args, cb, extra) => {
     });
 };
 
+// Message from user to storage to channel members
 const onChannelMessage = (args, cb, extra) => {
     if (!isWsCmd(extra.from)) { return void cb('UNAUTHORIZED'); }
 
@@ -248,6 +249,29 @@ const onChannelMessage = (args, cb, extra) => {
     todo(false);
 };
 
+// Message from history keeper to user
+const onHistoryMessage = (args, cb) => {
+    const { userId } = args; // userId, message
+    const wsId = getWsId(userId);
+    Env.interface.sendQuery(wsId, 'SEND_USER_MESSAGE', args, res => {
+        cb(res?.error, res?.data);
+    });
+};
+// Message from history keeper to all members
+const onHistoryChannelMessage = (args) => {
+    const { users, message } = args;
+    // For each user, change the "dest" to their user id
+    users.forEach(userId => {
+        const msg = message.slice();
+        msg[3] = userId;
+        const wsId = getWsId(userId);
+        Env.interface.sendEvent(wsId, 'SEND_USER_MESSAGE', {
+            userId, message: msg
+        });
+    });
+};
+
+// Message from user to user
 const onUserMessage = (args, cb) => {
     Env.interface.broadcast('websocket', 'SEND_USER_MESSAGE', args, values => {
         // If all responses return an error, message has failed
@@ -300,6 +324,8 @@ let startServers = function(config) {
         // From Storage
         'VALIDATE_MESSAGE': validateMessageHandler,
         'DROP_CHANNEL': dropChannelHandler,
+        'HISTORY_MESSAGE': onHistoryMessage,
+        'HISTORY_CHANNEL_MESSAGE': onHistoryChannelMessage,
     };
     queriesToStorage.forEach(function(command) {
         COMMANDS[command] = wsToStorage(command);

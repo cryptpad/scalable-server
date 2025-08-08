@@ -11,6 +11,8 @@ Constants.publicKeyLength = 32;
 
 Constants.hkId = "0123456789abcdef";
 
+Constants.TEMPORARY_CHANNEL_LIFETIME = 30 * 1000;
+
 Constants.paths = {
     base: './data/',
     channel: 'channel/',

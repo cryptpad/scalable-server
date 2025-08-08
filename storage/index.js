@@ -25,11 +25,12 @@ const {
     CHECKPOINT_PATTERN,
     EPHEMERAL_CHANNEL_LENGTH,
     ADMIN_CHANNEL_LENGTH,
+    TEMPORARY_CHANNEL_LIFETIME,
     hkId
 } = Constants;
 
-const HISTORY_KEEPER_ID = hkId;
 const Env = {
+    id: Util.uid(),
     Log: Logger(),
     metadata_cache: {},
     channel_cache: {},
@@ -37,7 +38,8 @@ const Env = {
     queueStorage: WriteQueue(),
     queueValidation: WriteQueue(),
     batchIndexReads: BatchRead("HK_GET_INDEX"),
-    batchMetadata: BatchRead("GET_METADATA")
+    batchMetadata: BatchRead("GET_METADATA"),
+    selfDestructTo: {}
 };
 
 const getCoreId = (channel) => {
@@ -55,185 +57,13 @@ Env.checkCache = channel => {
     f();
 };
 
-const channelContainsUser = (channel, userId) => {
+Env.channelContainsUser = (channel, userId) => {
     const cache = Env.channel_cache[channel];
     // Check if the channel exists in this storage
     if (!cache || !Array.isArray(cache.users)) { return false; }
 
     // Check if the user is a member of this channel
     return cache.users.includes(userId);
-};
-
-let onGetHistory = function(seq, userId, parsed, cb) {
-    let first = parsed[0];
-    let channel = parsed[1];
-    let config = parsed[2];
-    let metadata = {};
-    let allowed = []; // List of authenticated keys for this user
-    let toSend = []; // send the messages at then end
-
-    if (first !== 'GET_HISTORY') {
-        return;
-    }
-
-    // XXX: store the message to be send in a array before sending a batch
-
-    // getMetaData(channel, function(err, _metadata) {
-    //     if (err) {
-    //         console.log('Error:', err);
-    //         return;
-    //     }
-    //     if (!_metadata) {
-    //         return;
-    //     }
-    //     metadata = _metadata;
-    //     // XXX: check restrictions
-    // });
-
-    const metadata_cache = Env.metadata_cache;
-
-    let lastKnownHash;
-    let txid;
-
-    if (config && typeof config === "object" && !Array.isArray(parsed[2])) {
-        lastKnownHash = config.lastKnownHash;
-        metadata = config.metadata || {};
-        txid = config.txid;
-        if (metadata.expire) {
-            metadata.expire = +metadata.expire * 1000 + (+new Date());
-        }
-    }
-
-    metadata.channel = channel;
-    metadata.created = +new Date();
-
-    // if the user sends us an invalid key, we won't be able to validate their messages
-    // so they'll never get written to the log anyway. Let's just drop their message
-    // on the floor instead of doing a bunch of extra work
-    // TODO: Send them an error message so they know something is wrong
-    // TODO: add Log handling function
-    if (metadata.validateKey && !HKUtil.isValidValidateKeyString(metadata.validateKey)) {
-        return void console.error('HK_INVALID_KEY', metadata.validateKey);
-    }
-
-    nThen(function(w) {
-        HistoryManager.getMetadata(Env, channel, w(function(err, metadata) {
-            if (err) {
-                console.error('HK_GET_HISTORY_METADATA', {
-                    channel: channel,
-                    error: err,
-                });
-                return;
-            }
-            if (!metadata || !metadata.channel) { return; }
-            // if there is already a metadata log then use it instead
-            // of whatever the user supplied
-
-            // And then check if the channel is expired. If it is, send the error and abort
-            // FIXME: this is hard to read because 'checkExpired' has side effects
-            // TODO: check later EXPIRE
-            // TODO: check restricted/allow list
-            // (this function should receive the list of authorized keys for
-            //  this user)
-            //
-            // if (checkExpired(Env, Server, channel)) { return void w.abort(); }
-
-            // always send metadata with GET_HISTORY requests
-            toSend.push([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(metadata)]);
-        }));
-    }).nThen(function(w) {
-        let msgCount = 0;
-
-        // TODO compute lastKnownHash in a manner such that it will always skip past the metadata line?
-        HistoryManager.getHistoryAsync(Env, channel, lastKnownHash, false, (msg, readMore) => {
-            msgCount++;
-            // avoid sending the metadata message a second time
-            if (HKUtil.isMetadataMessage(msg) && metadata_cache[channel]) { return readMore(); }
-            if (txid) { msg[0] = txid; }
-            toSend.push([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(msg)]);
-            readMore();
-        }, w((err, reason) => {
-            // Any error but ENOENT: abort
-            // ENOENT is allowed in case we want to create a new pad
-            if (err && err.error) { err = err.error; }
-            if (err && err.code !== 'ENOENT') {
-                if (err.message === "EUNKNOWN") {
-                    console.error("HK_GET_HISTORY", {
-                        channel: channel,
-                        lastKnownHash: lastKnownHash,
-                        userId: userId,
-                        sessions: allowed,
-                        err: err && err.message || err,
-                    });
-                } else if (err.message !== 'EINVAL') {
-                    console.error("HK_GET_HISTORY", {
-                        channel: channel,
-                        err: err && err.message || err,
-                        stack: err && err.stack,
-                    });
-                }
-                // FIXME err.message isn't useful for users
-                const parsedMsg = { error: err.message, channel: channel, txid: txid };
-                toSend.push([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(parsedMsg)]);
-                return;
-            }
-            // reason: from a .placeholder file
-            if (err && err.code === 'ENOENT' && reason && !metadata.forcePlaceholder) {
-                const parsedMsg2 = { error: 'EDELETED', message: reason, channel: channel, txid: txid };
-                toSend.push(userId, [0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(parsedMsg2)]);
-                return;
-            }
-
-            // If we're asking for a specific version (lastKnownHash) but we receive an
-            // ENOENT, this is not a pad creation so we need to abort.
-            if (err && err.code === 'ENOENT' && lastKnownHash) {
-                /*
-                    This informs clients that the pad they're trying to load was deleted by its owner.
-                    The user in question might be reconnecting or might have loaded the document from their cache.
-                    The owner that deleted it could be another user or the same user from a different device.
-                    Either way, the respectful thing to do is display an error screen informing them that the content
-                is no longer on the server so they don't abuse the data and so that they don't unintentionally continue
-                to edit it in a broken state.
-                    */
-                const parsedMsg2 = { error: 'EDELETED', channel: channel, txid: txid };
-                toSend.push([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(parsedMsg2)]);
-                return;
-            }
-
-            if (msgCount === 0 && !metadata_cache[channel] && channelContainsUser(channel, userId)) {
-                // TODO: this might be a good place to reject channel creation by anonymous users
-                HistoryManager.handleFirstMessage(Env, channel, metadata);
-                toSend.push([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(metadata)]);
-            }
-
-            // End of history message:
-            let parsedMsg = { state: 1, channel: channel, txid: txid };
-
-            toSend.push([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(parsedMsg)]);
-        }));
-    }).nThen(() => {
-        cb(void 0, { toSend });
-    });
-};
-
-let onGetFullHistory = function(seq, userId, parsed, cb) {
-    let channel = parsed[1];
-    let toSend = [];
-    let error;
-
-    HistoryManager.getHistoryAsync(Env, channel, -1, false, (msg, readMore) => {
-        toSend.push([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(['FULL_HISTORY', msg])]);
-        readMore();
-    }, (err) => {
-        let parsedMsg = ['FULL_HISTORY_END', channel];
-        if (err) {
-            console.error('HK_GET_FULL_HISTORY', err.stack);
-            error = err;
-            parsedMsg = ['ERROR', parsed[1], err.message];
-        }
-        toSend.push([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(parsedMsg)]);
-    });
-    cb(error, toSend);
 };
 
 const onChannelMessage = (args, cb) => {
@@ -343,21 +173,67 @@ const onChannelMessage = (args, cb) => {
 };
 
 const onDropChannel = channel => {
+    let meta = Env.metadata_cache[channel];
     delete Env.metadata_cache[channel];
     delete Env.channel_cache[channel];
-    // XXX selfdestruct integration
+
+    if (meta && meta.selfdestruct && Env.selfDestructTo) {
+        Env.selfDestructTo[channel] = setTimeout(function () {
+            Env.CM?.removeChannel(Env, channel);
+        }, TEMPORARY_CHANNEL_LIFETIME);
+    }
+    if (Env.store) {
+        Env.store.closeChannel(channel, function () {});
+    }
 
     const coreId = getCoreId(channel);
     Env.interface.sendEvent(coreId, 'DROP_CHANNEL', { channel });
 };
 
+Env.onExpiredChannel = channel => {
+    const channelData = Env.channel_cache[channel];
+    if (!channelData) { return; }
+    const users = channelData.users.slice();
+
+    const coreId = getCoreId(channel);
+    const message = [0, hkId, 'MSG', null, {
+        error: 'EEXPIRED', channel
+    }];
+    Env.interface.sendEvent(coreId, 'HISTORY_CHANNEL_MESSAGE', {
+        users, message
+    });
+    onDropChannel(channel);
+};
+
 // Handlers
-let getHistoryHandler = function(args, cb) {
-    onGetHistory(args.seq, args.userId, args.parsed, cb);
+const sendMessage = (userId, channel) => {
+    return (message, cb) => {
+        if (!userId) { return; }
+        const coreId = getCoreId(channel);
+        const f = typeof(cb) === "function" ?
+                    Env.interface.sendQuery :
+                    Env.interface.sendEvent;
+        f(coreId, 'HISTORY_MESSAGE', {
+            userId, message
+        }, () => {
+            // No args for cb, this can be a "readMore" call
+            // which will fail if we pass arguments
+            cb();
+        });
+    };
+};
+const getHistoryHandler = (args, cb) => {
+    const parsed = args?.parsed;
+    const channel = parsed?.[1];
+    const send = sendMessage(args?.userId, channel);
+    HistoryManager.onGetHistory(Env, args, send, cb);
 }
 
-let getFullHistoryHandler = function(args, cb) {
-    onGetFullHistory(args.seq, args.userId, args.parsed, cb);
+const getFullHistoryHandler = (args, cb) => {
+    const parsed = args?.parsed;
+    const channel = parsed?.[1];
+    const send = sendMessage(args?.userId, channel);
+    HistoryManager.onGetFullHistory(Env, args, send, cb);
 }
 
 let getMetaDataHandler = function(args, cb) {
@@ -382,11 +258,15 @@ const joinChannelHandler = (args, cb) => {
             });
         }
 
-        if (metadata?.selfdestruct) {
-            // XXX TODO
-            throw new Error('NOT IMPLEMENTED');
+        if (metadata?.selfdestruct &&
+        metadata.selfdestruct !== Env.id) {
+            Env.CM.removeChannel(Env, channel);
+            return void cb('ESELFDESTRUCT');
         }
-        // XXX selfDestructTo
+
+        if (Env.selfDestructTo && Env.selfDestructTo[channel]) {
+            clearTimeout(Env.selfDestructTo[channel]);
+        }
 
         if (!metadata?.restricted) {
             // the channel doesn't have metadata, or it does and
@@ -394,7 +274,7 @@ const joinChannelHandler = (args, cb) => {
             return void cb(void 0, _users);
         }
 
-        // channel is restricted
+        // XXX channel is restricted
         throw new Error('NOT IMPLEMENTED');
     });
 };

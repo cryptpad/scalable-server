@@ -190,19 +190,19 @@ const onHKMessage = (Env, seq, user, json) => {
     Env.interface.sendQuery(coreId, first, {
         seq, userId, parsed, channel
     }, answer => {
-        let toSend = answer.data.toSend;
+        let message = answer.data.message;
         let error = answer.error;
 
-        sendMsg(Env, user, [seq, 'ACK']);
-
-        if (error) { return; }
-        if (!toSend) { return; }
+        if (error || !Array.isArray(message)) { return; }
+        sendMsg(Env, user, message);
 
         // TODO: sanity check on toSend
         // TODO: to batch
+        /*
         toSend.forEach(function(message) {
             sendMsg(Env, user, message);
         });
+        */
     });
 };
 const handleChannelMessage = (Env, channel, msgStruct, cb) => {
@@ -356,6 +356,7 @@ const handleMessage = (Env, user, msg) => {
 
 const sendUserMessage = (Env, args, cb) => { // Query
     const { userId, message } = args;
+    cb ||= () => {};
 
     const user = Env.users[userId];
     if (!user) {
