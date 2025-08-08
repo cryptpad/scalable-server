@@ -123,7 +123,7 @@ HistoryKeeper.getHistoryAsync = (Env, channelName, lastKnownHash, beforeHash, ha
             return void cb(new Error('EUNKNOWN'));
         }
         const start = (beforeHash) ? 0 : offset;
-        Env.CM.readMessagesBin(channelName, start, (msgObj, readMore, abort) => {
+        Env.store.readMessagesBin(channelName, start, (msgObj, readMore, abort) => {
             if (beforeHash && msgObj.offset >= offset) { return void abort(); }
             const parsed = Util.tryParse(msgObj.buff.toString('utf8'));
             if (!parsed) { return void readMore(); }
@@ -145,7 +145,7 @@ HistoryKeeper.handleFirstMessage = function(Env, channelName, metadata) {
         metadata.selfdestruct = Env.id;
     }
     delete metadata.forcePlaceholder;
-    Env.CM.writeMetadata(channelName, JSON.stringify(metadata), function(err) {
+    Env.store.writeMetadata(channelName, JSON.stringify(metadata), function(err) {
         if (err) {
             // FIXME tell the user that there was a channel error?
             return void console.error('HK_WRITE_METADATA', {

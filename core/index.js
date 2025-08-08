@@ -6,24 +6,14 @@ const { jumpConsistentHash } = require('../common/consistent-hash.js');
 const WorkerModule = require("../common/worker-module.js");
 const WriteQueue = require("../common/write-queue.js");
 const Constants = require("../common/constants.js");
+const Logger = require("../common/logger.js");
 
 const {
     CHECKPOINT_PATTERN
 } = Constants;
 
-
-const createLogger = () => {
-    return {
-        info: console.log,
-        verbose: console.info,
-        error: console.error,
-        warn: console.warn,
-        debug: console.debug
-    };
-};
-
 let Env = {
-    Log: createLogger(),
+    Log: Logger(),
     wsCache: {}, // WS associated to each user
     channelKeyCache: {}, // Validate key of each channel
     queueValidation: WriteQueue()
@@ -284,7 +274,7 @@ let startServers = function(config) {
     config.connector = WSConnector;
 
     const workerConfig = {
-        Log: createLogger(),
+        Log: Env.Log,
         workerPath: './core/worker.js',
         maxWorkers: 1,
         maxJobs: 4,

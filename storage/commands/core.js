@@ -10,6 +10,7 @@ const escapeKeyCharacters = Util.escapeKeyCharacters;
 Core.DEFAULT_LIMIT = 50 * 1024 * 1024;
 Core.SESSION_EXPIRATION_TIME = 60 * 1000;
 
+// XXX use constants file here for length
 Core.isValidId = function (chan) {
     return chan && chan.length && /^[a-zA-Z0-9=+-]*$/.test(chan) &&
         [32, 33, 48].indexOf(chan.length) > -1;

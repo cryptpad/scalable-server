@@ -1,24 +1,44 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2024 XWiki CryptPad Team <contact@cryptpad.org> and contributors
-const ChannelManager = require("./channel_manager.js");
 const Util = require("./common-util.js");
 const Constants = require("../common/constants.js");
+const Logger = require("../common/logger.js");
+
 const nThen = require("nthen");
-const BatchRead = require("./batch-read.js");
+const Path = require("node:path");
+
 const HK = require("./hk-util.js");
 const HistoryKeeper = require("./historyKeeper.js");
+const ChannelManager = require("./channel_manager.js");
+
 const Interface = require("../common/interface.js");
-const WriteQueue = require("../common/write-queue.js");
 const WSConnector = require("../common/ws-connector.js");
+
+const BatchRead = require("./batch-read.js");
+const WriteQueue = require("../common/write-queue.js");
+const WorkerModule = require("../common/worker-module.js");
+const File = require("./storage/file.js");
+
 const { jumpConsistentHash } = require('../common/consistent-hash.js');
 
 const {
     CHECKPOINT_PATTERN,
     EPHEMERAL_CHANNEL_LENGTH,
     ADMIN_CHANNEL_LENGTH,
+    hkId
 } = Constants;
 
-let Env = {};
+const HISTORY_KEEPER_ID = hkId;
+const Env = {
+    Log: Logger(),
+    metadata_cache: {},
+    channel_cache: {},
+    cache_checks: {},
+    queueStorage: WriteQueue(),
+    queueValidation: WriteQueue(),
+    batchIndexReads: BatchRead("HK_GET_INDEX"),
+    batchMetadata: BatchRead("GET_METADATA")
+};
 
 const getCoreId = (channel) => {
     let key = Buffer.from(channel.slice(0, 8));
@@ -26,13 +46,12 @@ const getCoreId = (channel) => {
     return coreId;
 };
 
-Env.checkCache = function(channel) {
-    let f = Env.cache_checks[channel] = Env.cache_checks[channel] ||
-        Util.throttle(function() {
-            delete Env.cache_checks[channel];
-            if (Env.channel_cache[channel]) { return; }
-            delete Env.metadata_cache[channel];
-        }, 30000);
+Env.checkCache = channel => {
+    let f = Env.cache_checks[channel] ||= Util.throttle(() => {
+        delete Env.cache_checks[channel];
+        if (Env.channel_cache[channel]) { return; }
+        delete Env.metadata_cache[channel];
+    }, 30000);
     f();
 };
 
@@ -72,8 +91,6 @@ let onGetHistory = function(seq, userId, parsed, cb) {
     // });
 
     const metadata_cache = Env.metadata_cache;
-    // TODO: check if we need to change it between each restart?
-    const HISTORY_KEEPER_ID = Env.id;
 
     let lastKnownHash;
     let txid;
@@ -95,7 +112,7 @@ let onGetHistory = function(seq, userId, parsed, cb) {
     // on the floor instead of doing a bunch of extra work
     // TODO: Send them an error message so they know something is wrong
     // TODO: add Log handling function
-    if (metadata.validateKey && !HK.isValidValidateKeyString(Env, metadata.validateKey)) {
+    if (metadata.validateKey && !HK.isValidValidateKeyString(metadata.validateKey)) {
         return void console.error('HK_INVALID_KEY', metadata.validateKey);
     }
 
@@ -203,7 +220,6 @@ let onGetFullHistory = function(seq, userId, parsed, cb) {
     let channel = parsed[1];
     let toSend = [];
     let error;
-    const HISTORY_KEEPER_ID = Env.id;
 
     HistoryKeeper.getHistoryAsync(Env, channel, -1, false, (msg, readMore) => {
         toSend.push([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(['FULL_HISTORY', msg])]);
@@ -220,7 +236,8 @@ let onGetFullHistory = function(seq, userId, parsed, cb) {
     cb(error, toSend);
 };
 
-const onChannelMessage = (channel, msgStruct, validated, cb) => {
+const onChannelMessage = (args, cb) => {
+    const { channel, msgStruct, validated } = args;
     const isCp = /^cp\|/.test(msgStruct[4]);
     const channelData = Env.channel_cache[channel] || {};
 
@@ -347,11 +364,6 @@ let getMetaDataHandler = function(args, cb) {
     HistoryKeeper.getMetadata(Env, args.channel, cb);
 }
 
-const channelMessageHandler = function(args, cb) {
-    const { channel, msgStruct, validated } = args;
-    onChannelMessage(channel, msgStruct, validated, cb);
-}
-
 const joinChannelHandler = (args, cb) => {
     const { channel, userId } = args;
 
@@ -434,53 +446,89 @@ let COMMANDS = {
     'LEAVE_CHANNEL': leaveChannelHandler,
     'GET_METADATA': getMetaDataHandler,
     'GET_FULL_HISTORY': getFullHistoryHandler,
-    'CHANNEL_MESSAGE': channelMessageHandler,
+    'CHANNEL_MESSAGE': onChannelMessage,
     'DROP_USER': dropUserHandler,
+};
+
+const initWorkerCommands = () => {
+    Env.worker ||= {};
+    Env.worker.computeMetadata = (channel, cb) => {
+        Env.store.getWeakLock(channel, next => {
+            Env.workers.send('COMPUTE_METADATA', {
+                channel
+            }, (e, metadata) => {
+                next();
+                cb(e, metadata);
+            });
+        });
+    };
+    Env.worker.computeIndex = (channel, cb) => {
+        Env.store.getWeakLock(channel, next => {
+            Env.workers.send('COMPUTE_INDEX', {
+                channel
+            }, (e, index) => {
+                next();
+                cb(e, index);
+            });
+        });
+    };
 };
 
 // Connect to core
 let start = function(config) {
     const { myId, index, infra } = config;
 
-    Env.id = "0123456789abcdef";
-    Env.publicKeyLength = 32;
-    Env.metadata_cache = {};
-    Env.channel_cache = {};
-    Env.cache_checks = {};
-    Env.queueStorage = WriteQueue();
-    Env.queueValidation = WriteQueue();
-    Env.batchIndexReads = BatchRead("HK_GET_INDEX");
-    Env.batchMetadata = BatchRead('GET_METADATA');
-
     Env.numberCores = infra?.core?.length;
 
-    Env.Log = {
-        info: console.log,
-        error: console.error,
-        warn: console.warn,
-        verbose: () => { },
-    };
+    const paths = Constants.paths;
+    const idx = String(index);
+    const filePath = Path.join(paths.base, idx, paths.channel);
+    const archivePath = Path.join(paths.base, idx, paths.archive);
+    nThen(waitFor => {
+        File.create({
+            filePath, archivePath,
+            volume: 'channel'
+        }, waitFor((err, store) => {
+            if (err) { throw new Error(err); }
+            Env.store = store;
+        }));
+    }).nThen(() => {
+        const workerConfig = {
+            Log: Env.Log,
+            workerPath: './storage/worker.js',
+            maxWorkers: 1,
+            maxJobs: 4,
+            commandTimers: {}, // time spent on each command
+            config: {
+                index
+            },
+            Env: { // Serialized Env (Environment.serialize)
+            }
+        };
+        Env.workers = WorkerModule(workerConfig);
+        initWorkerCommands();
 
-    Env.CM = ChannelManager.create(Env, 'data/' + index);
+        Env.CM = ChannelManager.create(Env);
 
-    const interfaceConfig = {
-        connector: WSConnector,
-        index,
-        infra,
-        myId
-    };
-    Interface.connect(interfaceConfig, (err, _interface) => {
-        if (err) {
-            console.error(interfaceConfig.myId, ' error:', err);
-            return;
-        }
-        _interface.handleCommands(COMMANDS);
-        Env.interface = _interface;
-        if (process.send !== undefined) {
-            process.send({ type: 'storage', index: interfaceConfig.index, msg: 'READY' });
-        } else {
-            console.log(interfaceConfig.myId, 'started');
-        }
+        const interfaceConfig = {
+            connector: WSConnector,
+            index,
+            infra,
+            myId
+        };
+        Interface.connect(interfaceConfig, (err, _interface) => {
+            if (err) {
+                console.error(interfaceConfig.myId, ' error:', err);
+                return;
+            }
+            _interface.handleCommands(COMMANDS);
+            Env.interface = _interface;
+            if (process.send !== undefined) {
+                process.send({ type: 'storage', index: interfaceConfig.index, msg: 'READY' });
+            } else {
+                console.log(interfaceConfig.myId, 'started');
+            }
+        });
     });
 };
 

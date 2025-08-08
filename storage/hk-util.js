@@ -6,7 +6,8 @@ var HK = module.exports;
 
 const {
     STANDARD_CHANNEL_LENGTH,
-    ADMIN_CHANNEL_LENGTH
+    ADMIN_CHANNEL_LENGTH,
+    publicKeyLength
 } = Constants;
 
 HK.STANDARD_CHANNEL_LENGTH = STANDARD_CHANNEL_LENGTH; // XXX
@@ -67,10 +68,10 @@ const decodeBase64 = function(string) {
 }
 
 // validateKeyStrings supplied by clients must decode to 32-byte Uint8Arrays
-HK.isValidValidateKeyString = function(Env, key) {
+HK.isValidValidateKeyString = key => {
     try {
         return typeof (key) === 'string' &&
-            decodeBase64(key).length === Env.publicKeyLength;
+            decodeBase64(key).length === publicKeyLength;
     } catch {
         return false;
     }

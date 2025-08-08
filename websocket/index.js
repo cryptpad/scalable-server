@@ -9,6 +9,7 @@ const WSConnector = require("../common/ws-connector.js");
 const Crypto = require('crypto');
 const Util = require("../common/common-util.js");
 const Constants = require("../common/constants.js");
+const Logger = require("../common/logger.js");
 const { jumpConsistentHash } = require('../common/consistent-hash.js');
 
 const {
@@ -40,16 +41,6 @@ const socketSendable = (socket) => {
 };
 const QUEUE_CHR = 1024 * 1024 * 4;
 
-const createLogger = () => {
-    return {
-        info: console.log,
-        verbose: console.info,
-        error: console.error,
-        warn: console.warn,
-        //debug: console.debug
-        debug: () => {}
-    };
-};
 
 
 const dropUserChannels = (Env, userId) => {
@@ -72,7 +63,7 @@ const onSessionOpen = function(Env, userId) {
     if (!user) { return; }
 
     if (!Env.logIP || !user.ip) { return; }
-    Env.log.info('USER_CONNECTION', {
+    Env.Log.info('USER_CONNECTION', {
         userId: userId,
         ip: user.ip,
     });
@@ -85,13 +76,13 @@ const onSessionClose = (Env, userId, reason) => {
     // Log unexpected errors
     if (Env.logIP &&
         !['SOCKET_CLOSED', 'INACTIVITY'].includes(reason)) {
-        return void Env.log.info('USER_DISCONNECTED_ERROR', {
+        return void Env.Log.info('USER_DISCONNECTED_ERROR', {
             userId: userId,
             reason: reason
         });
     }
     if (['BAD_MESSAGE', 'SEND_MESSAGE_FAIL_2'].includes(reason)) {
-        return void Env.log.error('SESSION_CLOSE_WITH_ERROR', {
+        return void Env.Log.error('SESSION_CLOSE_WITH_ERROR', {
             userId: userId,
             reason: reason,
         });
@@ -100,7 +91,7 @@ const onSessionClose = (Env, userId, reason) => {
     if (['SOCKET_CLOSED', 'SOCKET_ERROR'].includes(reason)) {
         return;
     }
-    Env.log.verbose('SESSION_CLOSE_ROUTINE', {
+    Env.Log.verbose('SESSION_CLOSE_ROUTINE', {
         userId: userId,
         reason: reason,
     });
@@ -119,11 +110,11 @@ const dropUser = (Env, user, reason) => {
         try {
             user.socket.close();
         } catch (e) {
-            Env.log.error(e, 'FAIL_TO_DISCONNECT', { id: user.id, });
+            Env.Log.error(e, 'FAIL_TO_DISCONNECT', { id: user.id, });
             try {
                 user.socket.terminate();
             } catch (ee) {
-                Env.log.error(ee, 'FAIL_TO_TERMINATE', {
+                Env.Log.error(ee, 'FAIL_TO_TERMINATE', {
                     id: user.id
                 });
             }
@@ -133,7 +124,7 @@ const dropUser = (Env, user, reason) => {
 };
 
 const sendMsgPromise = (Env, user, msg) => {
-    Env.log.debug('Sending', msg, 'to', user.id);
+    Env.Log.debug('Sending', msg, 'to', user.id);
     return new Promise((resolve, reject) => {
         // don't bother trying to send if the user doesn't
         // exist anymore
@@ -155,21 +146,21 @@ const sendMsgPromise = (Env, user, msg) => {
                 try {
                     smcb.forEach((cb)=>{cb();});
                 } catch (e) {
-                    Env.log.error(e, 'SEND_MESSAGE_FAIL');
+                    Env.Log.error(e, 'SEND_MESSAGE_FAIL');
                 }
             });
         } catch (e) {
             // call back any pending callbacks before you
             // drop the user
             reject(e);
-            Env.log.error(e, 'SEND_MESSAGE_FAIL_2');
+            Env.Log.error(e, 'SEND_MESSAGE_FAIL_2');
             dropUser(Env, user, 'SEND_MESSAGE_FAIL_2');
         }
     });
 };
 const sendMsg = (Env, user, msg) => {
     sendMsgPromise(Env, user, msg).catch(e => {
-        Env.log.error(e, 'SEND_MESSAGE', {
+        Env.Log.error(e, 'SEND_MESSAGE', {
             user: user.id,
             message: msg
         });
@@ -179,7 +170,7 @@ const sendMsg = (Env, user, msg) => {
 const onHKMessage = (Env, seq, user, json) => {
     let parsed = Util.tryParse(json[2]);
     if (!parsed) {
-        Env.log.error("HK_PARSE_CLIENT_MESSAGE", json);
+        Env.Log.error("HK_PARSE_CLIENT_MESSAGE", json);
         return;
     }
 
@@ -188,7 +179,7 @@ const onHKMessage = (Env, seq, user, json) => {
     if (!historyCommands.includes(first)) {
         // it's either an unsupported command or an RPC call
         // TODO: to handle
-        Env.log.error('NOT_IMPLEMENTED', first);
+        Env.Log.error('NOT_IMPLEMENTED', first);
         throw new Error("TODO RPC");
     }
 
@@ -414,11 +405,11 @@ const initServerHandlers = (Env) => {
 
 
         socket.on('message', message => {
-            Env.log.debug('Receiving', JSON.parse(message), 'from', user.id);
+            Env.Log.debug('Receiving', JSON.parse(message), 'from', user.id);
             try {
                 handleMessage(Env, user, message);
             } catch (e) {
-                Env.log.error(e, 'NETFLUX_BAD_MESSAGE', {
+                Env.Log.error(e, 'NETFLUX_BAD_MESSAGE', {
                     user: user.id,
                     message: message,
                 });
@@ -429,7 +420,7 @@ const initServerHandlers = (Env) => {
             dropUser(Env, user, 'SOCKET_CLOSED');
         });
         socket.on('error', function (err) {
-            Env.log.error(err, 'NETFLUX_WEBSOCKET_ERROR');
+            Env.Log.error(err, 'NETFLUX_WEBSOCKET_ERROR');
             dropUser(Env, user, 'SOCKET_ERROR');
         });
     });
@@ -444,7 +435,7 @@ const initServer = (Env) => {
             if (process.send !== undefined) {
                 process.send({type: 'websocket', index: Env.config.index, msg: 'READY'});
             } else {
-                Env.log.info('websocket:' + Env.config.index + ' started');
+                Env.Log.info('websocket:' + Env.config.index + ' started');
             }
         });
         Env.wss = new WebSocketServer({ server: httpServer });
@@ -472,10 +463,10 @@ const start = (config) => {
     };
     const Env = {
         myId: interfaceConfig.myId,
-        LogIp: true,
+        logIP: true,
         openConnections: {},
         user_channel_cache: {},
-        log: createLogger(),
+        Log: Logger(['info', 'error', 'warn']),
         active: true,
         users: {},
         config: interfaceConfig,
@@ -499,14 +490,14 @@ const start = (config) => {
     initServer(Env).then(() => {
         Interface.connect(interfaceConfig, (err, _interface) => {
             if (err) {
-                Env.log.error(interfaceConfig.myId, ' error:', err);
+                Env.Log.error(interfaceConfig.myId, ' error:', err);
                 return;
             }
-            Env.log.info('WS started', Env.myId);
+            Env.Log.info('WS started', Env.myId);
             Env.interface = _interface;
             _interface.handleCommands(COMMANDS);
         });
-    }).catch((e) => { return Env.log.error('Error:', e)});
+    }).catch((e) => { return Env.Log.error('Error:', e)});
 };
 
 module.exports = {
