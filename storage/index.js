@@ -357,7 +357,7 @@ const initWorkerCommands = () => {
 
 // Connect to core
 let start = function(config) {
-    const { myId, index, infra } = config;
+    const { myId, index, infra, server } = config;
 
     Env.numberCores = infra?.core?.length;
 
@@ -395,6 +395,7 @@ let start = function(config) {
             connector: WSConnector,
             index,
             infra,
+            server,
             myId
         };
         Interface.connect(interfaceConfig, (err, _interface) => {

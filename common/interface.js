@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2024 XWiki CryptPad Team <contact@cryptpad.org> and contributors
 const Util = require("./common-util.js");
+const Crypto = require("./crypto.js")("sodiumnative");
+const NodeCrypto = require("crypto");
 
 let findDestFromId = function(ctx, destId) {
     let destPath = destId.split(':');
@@ -18,6 +20,56 @@ let findIdFromDest = function(ctx, dest) {
         }
     });
     return found;
+};
+
+const newConnection = (ctx, other, txid, type, data) => {
+    if (type === 'ACCEPT') {
+        const coreId = ctx.pendingConnections?.[txid];
+        const [acceptName, acceptIndex] = data.split(':'); // XXX: more robust code
+        if (typeof (coreId) === 'undefined' || acceptName !== 'core' || Number(acceptIndex) !== coreId) {
+            return console.error(ctx.myId, ': unknown connection accepted');
+        }
+        ctx.others.core[coreId] = other;
+        return;
+    }
+    if (type !== 'IDENTITY') {
+        // TODO: close the connection
+        console.error("Unidentified message received", message.toString());
+        return;
+    }
+    const { type: rcvType, idx, challenge: challengeBase64, nonce: nonceBase64 } = data;
+    const challenge = new Uint8Array(Buffer.from(challengeBase64, 'base64'));
+    const nonce = new Uint8Array(Buffer.from(nonceBase64, 'base64'));
+
+    // Check for reused challenges
+    // XXX: handle rejection
+    if (ctx.ChallengesCache[challengeBase64]) {
+        return console.error("Reused challenge");
+    }
+    // Buffer.from is needed for compatibility with tweetnacl
+    const msg = Buffer.from(Crypto.secretboxOpen(challenge, nonce, ctx.nodes_key));
+    if (!msg) {
+        return console.error("Bad challenge answer");
+    }
+    let [challType, challIndex, challTimestamp] = String(msg).split(':');
+    // This requires servers to be time-synchronised to avoid “Challenge in
+    // the future” issue.
+    let challengeLife = Number(Date.now()) - Number(challTimestamp)
+    if (challengeLife < 0 || challengeLife > ctx.ChallengeLifetime ||
+        rcvType !== challType || idx !== Number(challIndex)) {
+        // XXX: handle rejection + be sure to send the same error in both cases
+        // to forbid adversary from knowing too much
+        return console.error("Bad challenge answer");
+    }
+
+    // Challenge caching once it’s validated
+    // TODO: authenticate the answer
+    ctx.ChallengesCache[challengeBase64] = true;
+    setTimeout(() => { delete ctx.ChallengesCache[challengeBase64]; }, ctx.ChallengeLifetime);
+    other.send([txid, 'ACCEPT', ctx.myId]);
+
+    ctx.others[rcvType][idx] = other;
+    return;
 };
 
 let handleMessage = function(ctx, other, message) {
@@ -43,18 +95,11 @@ let handleMessage = function(ctx, other, message) {
 
     let fromId = findIdFromDest(ctx, other);
     if (!fromId) {
-        if (type !== 'IDENTITY') {
-            // TODO: close the connection
-            console.log("Unidentified message received", message);
-            return;
-        }
-        // TODO: sanity checks
-        ctx.others[data.type][data.idx] = other;
-        return;
+        return newConnection(ctx, other, txid, type, data);
     }
 
     if (type !== 'MESSAGE') {
-        console.log("Unexpected message type", message);
+        console.error(ctx.myId, "Unexpected message type", type, ', message:', data);
         return;
     }
 
@@ -81,6 +126,19 @@ let createHandlers = function(ctx, other) {
         }
     });
 };
+
+const onConnected = (ctx, other) => {
+    let uid = Util.uid(); // XXX: replace with guid
+    ctx.pendingConnections[uid] = ctx.pendingCore;
+    delete ctx.pendingCore;
+
+    // Identify with challenge
+    const nonce = NodeCrypto.randomBytes(24);
+    const msg = Buffer.from(`${ctx.myType}:${ctx.myNumber}:${String(Date.now())}`, 'utf-8');
+    const challenge = Crypto.secretbox(msg, nonce, ctx.nodes_key).toString('base64');
+    createHandlers(ctx, other);
+    other.send([uid, 'IDENTITY', { type: ctx.myType, idx: ctx.myNumber, nonce: nonce.toString('base64'), challenge }]);
+}
 
 
 let guid = function(ctx) {
@@ -183,6 +241,8 @@ let connect = function(config, cb) {
             core: []
         },
         commands: [],
+        nodes_key: Crypto.decodeBase64(config?.server?.private?.nodes_key),
+        pendingConnections : {}
     };
     ctx.myId = config.myId;
 
@@ -210,7 +270,7 @@ let connect = function(config, cb) {
     if (!connector) {
         return cb('E_MISSINGCONNECTOR');
     }
-    connector.initClient(ctx, config, createHandlers, (err) => {
+    connector.initClient(ctx, config, onConnected, (err) => {
         if (err) {
             return cb(err);
         }
@@ -230,6 +290,9 @@ let init = function(config, cb) {
             websocket: []
         },
         commands: {},
+        nodes_key: Crypto.decodeBase64(config?.server?.private?.nodes_key),
+        ChallengesCache: {},
+        ChallengeLifetime: 30 * 1000 // 30 seconds
     };
     ctx.myId = config.myId;
 
