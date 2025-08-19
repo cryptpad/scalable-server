@@ -286,11 +286,64 @@ const getHashOffset = (args, cb) => {
     });
 };
 
+/*  getOlderHistory
+    * allows clients to query for all messages until a known hash is read
+    * stores all messages in history as they are read
+      * can therefore be very expensive for memory
+      * should probably be converted to a streaming interface
+
+    Used by:
+    * GET_HISTORY_RANGE
+*/
+
+const getOlderHistory = function (data, cb) {
+    const { oldestKnownHash, channel, desiredMessages, desiredCheckpoint } = data
+
+    let messages = [];
+    Env.store.readMessagesBin(channel, 0, (msgObj, readMore, abort) => {
+        const parsed = Util.tryParse(Env, msgObj.buff.toString('utf8'));
+        if (!parsed) { return void readMore(); }
+        if (HKUtil.isMetadataMessage(parsed)) { return void readMore(); }
+        const content = parsed[4];
+        if (typeof(content) !== 'string') { return void readMore(); }
+        const hash = HKUtil.getHash(content);
+
+        messages.push(parsed);
+
+        // "X" messages before oldestKnownHash
+        if (typeof (desiredMessages) === "number") {
+            messages = messages.slice(-desiredMessages);
+            if (hash === oldestKnownHash) { return void abort(); }
+            return void readMore();
+        }
+
+        // "X" checkpoints before oldestKnownHash
+        if (hash === oldestKnownHash) { return void abort(); }
+        if (/^cp\|/.test(content)) { // clean whenever we push a cp
+            let foundCp = 0;
+            const idx = messages.findLastIndex(parsed => {
+                let isCp = /^cp\|/.test(parsed[4]);
+                if (!isCp) { return; }
+                foundCp++;
+                return foundCp >= desiredCheckpoint;
+            });
+            if (idx > 0) {
+                messages = messages.slice(idx);
+            }
+        }
+        readMore();
+    }, function (err, reason) {
+        if (err) { return void cb(err, reason); }
+        cb(void 0, messages);
+    });
+};
+
 
 const COMMANDS = {
     COMPUTE_INDEX: computeIndex,
     COMPUTE_METADATA: computeMetadata,
-    GET_HASH_OFFSET: getHashOffset
+    GET_HASH_OFFSET: getHashOffset,
+    GET_OLDER_HISTORY: getOlderHistory
 };
 
 let ready = false;

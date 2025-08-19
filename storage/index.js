@@ -353,6 +353,13 @@ const initWorkerCommands = () => {
             }, Util.both(next, cb));
         });
     };
+    Env.worker.getOlderHistory = function (channel, oldestKnownHash, untilHash, desiredMessages, desiredCheckpoint, cb) {
+        Env.store.getWeakLock(channel, function (next) {
+            Env.workers.send('GET_OLDER_HISTORY', {
+                channel, oldestKnownHash, untilHash, desiredMessages, desiredCheckpoint
+            }, Util.both(next, cb));
+        });
+    };
 };
 
 // Connect to core
