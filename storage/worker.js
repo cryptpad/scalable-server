@@ -297,7 +297,7 @@ const getHashOffset = (args, cb) => {
 */
 
 const getOlderHistory = function (data, cb) {
-    const { oldestKnownHash, channel, desiredMessages, desiredCheckpoint } = data
+    const { channel, oldestKnownHash, /* untilHash, */ desiredMessages, desiredCheckpoint } = data
 
     let messages = [];
     Env.store.readMessagesBin(channel, 0, (msgObj, readMore, abort) => {
@@ -336,6 +336,64 @@ const getOlderHistory = function (data, cb) {
         if (err) { return void cb(err, reason); }
         cb(void 0, messages);
     });
+
+    /*
+    var next = () => {
+    var messages = [];
+    var found = false;
+    store.getMessages(channelName, function (msgStr) {
+        if (found) { return; }
+
+        let parsed = HK.tryParse(Env, msgStr);
+        if (typeof parsed === "undefined") { return; }
+
+        // identify classic metadata messages by their inclusion of a channel.
+        // and don't send metadata, since:
+        // 1. the user won't be interested in it
+        // 2. this metadata is potentially incomplete/incorrect
+        if (HK.isMetadataMessage(parsed)) { return; }
+
+        var content = parsed[4];
+        if (typeof(content) !== 'string') { return; }
+
+        var hash = HK.getHash(content);
+        if (hash === oldestKnownHash) {
+            found = true;
+        }
+        messages.push(parsed);
+    }, function (err) {
+        var toSend = [];
+        if (typeof (desiredMessages) === "number") {
+            toSend = messages.slice(-desiredMessages);
+        } else if (untilHash) {
+            for (var j = messages.length - 1; j >= 0; j--) {
+                toSend.unshift(messages[j]);
+                if (Array.isArray(messages[j]) && HK.getHash(messages[j][4]) === untilHash) {
+                    break;
+                }
+            }
+        } else {
+            let cpCount = 0;
+            for (var i = messages.length - 1; i >= 0; i--) {
+                if (/^cp\|/.test(messages[i][4]) && i !== (messages.length - 1)) {
+                    cpCount++;
+                }
+                toSend.unshift(messages[i]);
+                if (cpCount >= desiredCheckpoint) { break; }
+            }
+        }
+        cb(err, toSend);
+    });
+    };
+
+    _getFileSize(channelName, function (err, size) {
+        if (err) { return void cb(err); }
+        if (size > HISTORY_SIZE_LIMIT) {
+            return void cb('HISTORY_TOO_LARGE');
+        }
+        next();
+    });
+    */
 };
 
 
