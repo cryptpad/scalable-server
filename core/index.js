@@ -311,7 +311,7 @@ let startServers = function(config) {
 
     Env.workers = WorkerModule(workerConfig);
 
-    let queriesToStorage = ['GET_HISTORY', 'GET_FULL_HISTORY', 'GET_METADATA'];
+    let queriesToStorage = ['GET_HISTORY', 'GET_FULL_HISTORY', 'GET_HISTORY_RANGE', 'GET_METADATA'];
     let queriesToWs = ['CHANNEL_CONTAINS_USER'];
     let eventsToStorage = [];
     let COMMANDS = {
