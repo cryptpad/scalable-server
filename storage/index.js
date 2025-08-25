@@ -127,6 +127,13 @@ const getFullHistoryHandler = (args, cb) => {
     HistoryManager.onGetFullHistory(Env, args, send, cb);
 }
 
+const getHistoryRangeHandler = (args, cb) => {
+    const parsed = args?.parsed;
+    const channel = parsed?.[1];
+    const send = sendMessage(args?.userId, channel);
+    HistoryManager.onGetHistoryRange(Env, args, send, cb);
+}
+
 let getMetaDataHandler = function(args, cb) {
     HistoryManager.getMetadata(Env, args.channel, cb);
 }
@@ -210,6 +217,17 @@ const dropUserHandler = (args) => {
 
 /* Start of the node */
 
+// List accepted commands
+let COMMANDS = {
+    'GET_HISTORY': getHistoryHandler,
+    'JOIN_CHANNEL': joinChannelHandler,
+    'LEAVE_CHANNEL': leaveChannelHandler,
+    'GET_METADATA': getMetaDataHandler,
+    'GET_FULL_HISTORY': getFullHistoryHandler,
+    'GET_HISTORY_RANGE': getHistoryRangeHandler,
+    'CHANNEL_MESSAGE': onChannelMessage,
+    'DROP_USER': dropUserHandler,
+};
 
 const initWorkerCommands = () => {
     Env.worker ||= {};

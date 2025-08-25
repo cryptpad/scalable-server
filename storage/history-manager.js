@@ -415,7 +415,7 @@ HistoryManager.onGetHistoryRange = (Env, args, sendMessage, _cb) => {
             }
             let then = hash === oldestKnownHash ? abort : readMore;
             if (found) {
-                sendMessage([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(['HISTORY_RANGE', txid, parsed])], then);
+                return void sendMessage([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(['HISTORY_RANGE', txid, parsed])], then);
             }
             return void readMore();
         }, function (err, reason) {
@@ -450,18 +450,18 @@ HistoryManager.onGetFullHistory = (Env, args, sendMessage, _cb) => {
     const Log = Env.Log;
 
     // parsed[1] is the channel id
-    // parsed[2] is a validation key (optionnal)
-    // parsed[3] is the last known hash (optionnal)
-
+    // parsed[2] is a validation key (optional)
+    // parsed[3] is the last known hash (optional)
+    const channel = parsed[1];
     cb(void 0, [seq, 'ACK']);
 
-    getHistoryAsync(Env, parsed[1], -1, false, (msg, readMore) => {
+    getHistoryAsync(Env, channel, -1, false, (msg, readMore) => {
         sendMessage([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(['FULL_HISTORY', msg])], readMore);
     }, (err) => {
-        let parsedMsg = ['FULL_HISTORY_END', parsed[1]];
+        let parsedMsg = ['FULL_HISTORY_END', channel];
         if (err) {
             Log.error('HK_GET_FULL_HISTORY', err.stack);
-            parsedMsg = ['ERROR', parsed[1], err.message];
+            parsedMsg = ['ERROR', channel, err.message];
         }
         sendMessage([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(parsedMsg)]);
     });

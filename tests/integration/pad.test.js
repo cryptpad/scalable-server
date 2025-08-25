@@ -172,6 +172,88 @@ const checkHistory = () => {
     });
 };
 
+const checkFullHistory = () => {
+    return new Promise((resolve, reject) => {
+        const txid = Crypto.randomBytes(4).toString('hex');
+
+        const expected = messages.map(obj => obj.msg);
+
+        const hist = [];
+
+        const onMessage = (msg, sender) => {
+            const [command, parsed] = JSON.parse(msg);
+            if (sender !== hk) { return; }
+            if (command === 'FULL_HISTORY_END' && parsed === padId) {
+                if (JSON.stringify(expected) !== JSON.stringify(hist)) {
+                    return void reject("CHECK_HISTORY_MISMATCH_ERROR");
+                }
+                resolve();
+            }
+            if (!Array.isArray(parsed) || parsed[3] !== padId) { return; }
+            hist.push(parsed[4]);
+        };
+
+        let network;
+        connectUser(nbUsers)
+        .then(_network => {
+            network = _network;
+            _network.on('message', onMessage);
+            return _network.join(padId);
+        }).then(() => {
+            const msg = ['GET_FULL_HISTORY', padId, {
+                txid
+            }];
+            network.sendto(hk, JSON.stringify(msg));
+        }).catch(e => {
+            console.error(e);
+            reject(e);
+        });
+    });
+};
+
+const checkHistoryRange = () => {
+    return new Promise((resolve, reject) => {
+        const startHistIdx = 2;
+        const endHistIdx = 6;
+
+        const txid = Crypto.randomBytes(4).toString('hex');
+
+        const expected = messages.slice(startHistIdx, endHistIdx).map(obj => obj.msg);
+        const to = expected[0].slice(0,64);
+        const from = expected.at(-1).slice(0,64);
+
+        const hist = [];
+
+        const onMessage = (msg, sender) => {
+            const [command, _txid, parsed] = JSON.parse(msg);
+            if (sender !== hk) { return; }
+            if (command === 'HISTORY_RANGE_END' && parsed === padId) {
+                if (JSON.stringify(expected) !== JSON.stringify(hist)) {
+                    return void reject("CHECK_HISTORY_MISMATCH_ERROR");
+                }
+                resolve();
+            }
+            if (!Array.isArray(parsed) || txid != _txid || parsed[3] !== padId) { return; }
+            hist.push(parsed[4]);
+        };
+
+        let network;
+        connectUser(nbUsers)
+        .then(_network => {
+            network = _network;
+            _network.on('message', onMessage);
+            return _network.join(padId);
+        }).then(() => {
+            const msg = ['GET_HISTORY_RANGE', padId, {
+                txid, to, from, count: 4
+            }];
+            network.sendto(hk, JSON.stringify(msg));
+        }).catch(e => {
+            console.error(e);
+            reject(e);
+        });
+    });
+};
 
 const checkUsers = () => {
     return new Promise((resolve, reject) => {
@@ -249,6 +331,8 @@ startUsers()
 .then(sendMessages)
 .then(checkMessages)
 .then(checkHistory)
+.then(checkFullHistory)
+.then(checkHistoryRange)
 .then(() => {
     console.log('All pads tests passed!');
     process.exit(0);
