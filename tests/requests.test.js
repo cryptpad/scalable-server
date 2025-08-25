@@ -15,37 +15,37 @@
 const test = require("node:test");
 
 test("Start a core node", (t) => {
-    t.todo()
+    t.todo();
 });
 
 test("Start a storage node", (t) => {
-    t.todo()
+    t.todo();
 });
 
 test("Initialize a storage", (t) => {
-    t.todo()
+    t.todo();
 });
 
 test("Populate the storage", (t) => {
-    t.todo()
+    t.todo();
 });
 
 test("Send patches", (t) => {
-    t.todo()
+    t.todo();
 });
 
 test("Get Metadata", (t) => {
-    t.todo()
+    t.todo();
 });
 
 test("Get History", (t) => {
-    t.todo()
+    t.todo();
 });
 
 test("Close storage node", (t) => {
-    t.todo()
+    t.todo();
 });
 
 test("Close core node and exit", (t) => {
-    t.todo()
+    t.todo();
 });

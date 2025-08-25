@@ -54,7 +54,7 @@ const connectUser = index => {
 
 const startUsers = () => {
     return new Promise((resolve, reject) => {
-        const all = []
+        const all = [];
         for (let i=0; i<nbUsers; i++) {
             all.push(connectUser(i));
         }
@@ -233,7 +233,7 @@ const checkHistoryRange = () => {
                 }
                 resolve();
             }
-            if (!Array.isArray(parsed) || txid != _txid || parsed[3] !== padId) { return; }
+            if (!Array.isArray(parsed) || txid !== _txid || parsed[3] !== padId) { return; }
             hist.push(parsed[4]);
         };
 
