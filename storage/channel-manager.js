@@ -227,7 +227,7 @@ const create = (Env) => {
 
             // storeMessage
             //console.log(+new Date(), "Storing message");
-            Env.CM.storeMessage(channel, JSON.stringify(msgStruct), isCp, HKUtil.getHash(msgStruct[4], Env.Log), time, err => {
+            CM.storeMessage(channel, JSON.stringify(msgStruct), isCp, HKUtil.getHash(msgStruct[4], Env.Log), time, err => {
                 if (err) { return void cb(err); }
                 cb(void 0, {
                     users: channelData.users,
