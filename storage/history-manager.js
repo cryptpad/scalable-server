@@ -415,7 +415,7 @@ HistoryManager.onGetHistoryRange = (Env, args, sendMessage, _cb) => {
             }
             let then = hash === oldestKnownHash ? abort : readMore;
             if (found) {
-                return sendMessage([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(['HISTORY_RANGE', txid, parsed])], then);
+                return void sendMessage([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(['HISTORY_RANGE', txid, parsed])], then);
             }
             return void readMore();
         }, function (err, reason) {
