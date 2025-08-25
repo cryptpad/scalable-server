@@ -37,7 +37,7 @@ let getStorageId = function(channel) {
         return void 0;
     }
     if (typeof (Env.numberStorages) === 'undefined') {
-        console.error('getStorageId: number of storages undefined')
+        console.error('getStorageId: number of storages undefined');
         return void 0;
     }
     // We need a 8 byte key
@@ -339,13 +339,13 @@ let startServers = function(config) {
 
     Interface.init(interfaceConfig, (err, _interface) => {
         if (err) {
-            console.error('E: interface initialisation error', err)
+            console.error('E: interface initialisation error', err);
             return;
         }
         console.log("Core started", config.myId);
         Env.interface = _interface;
 
-        _interface.handleCommands(COMMANDS)
+        _interface.handleCommands(COMMANDS);
         if (process.send !== undefined) {
             process.send({ type: 'core', index: config.index, msg: 'READY' });
         }

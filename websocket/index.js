@@ -499,7 +499,7 @@ const start = (config) => {
             Env.interface = _interface;
             _interface.handleCommands(COMMANDS);
         });
-    }).catch((e) => { return Env.Log.error('Error:', e)});
+    }).catch((e) => { return Env.Log.error('Error:', e); });
 };
 
 module.exports = {

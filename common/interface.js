@@ -15,7 +15,7 @@ let findIdFromDest = function(ctx, dest) {
         let idx = ctx.others[type].findIndex(function(socket) {
             return socket === dest;
         });
-        if (idx != -1) {
+        if (idx !== -1) {
             found = type + ':' + String(idx);
         }
     });
@@ -58,7 +58,7 @@ const newConnection = (ctx, other, txid, type, data) => {
     let [challType, challIndex, challTimestamp] = String(msg).split(':');
     // This requires servers to be time-synchronised to avoid “Challenge in
     // the future” issue.
-    let challengeLife = Number(Date.now()) - Number(challTimestamp)
+    let challengeLife = Number(Date.now()) - Number(challTimestamp);
     if (challengeLife < 0 || challengeLife > ctx.ChallengeLifetime ||
         rcvType !== challType || idx !== Number(challIndex)) {
         other.disconnect();
@@ -140,7 +140,7 @@ const onConnected = (ctx, other, coreId) => {
     const challenge = Crypto.secretbox(msg, nonce, ctx.nodes_key).toString('base64');
     createHandlers(ctx, other);
     other.send([uid, 'IDENTITY', { type: ctx.myType, idx: ctx.myNumber, nonce: nonce.toString('base64'), challenge }]);
-}
+};
 
 
 let guid = function(ctx) {
@@ -296,7 +296,7 @@ let connect = function(config, cb) {
         let manager = communicationManager(ctx);
 
         Promise.all(promises).then(() => {
-            return cb(void 0, manager)
+            return cb(void 0, manager);
         }).catch(e => {
             throw new Error(e);
         });
@@ -305,7 +305,7 @@ let connect = function(config, cb) {
 
 /* This function initializes the different ws servers on the Core components */
 let init = function(config, cb) {
-    if (!cb) { cb = () => { } };
+    if (!cb) { cb = () => { }; };
 
     let ctx = {
         others: {
@@ -353,7 +353,7 @@ let init = function(config, cb) {
         }
         let manager = communicationManager(ctx);
 
-        return cb(void 0, manager)
+        return cb(void 0, manager);
     });
 };
 

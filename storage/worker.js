@@ -297,7 +297,7 @@ const getHashOffset = (args, cb) => {
 */
 
 const getOlderHistory = function (data, cb) {
-    const { oldestKnownHash, channel, desiredMessages, desiredCheckpoint } = data
+    const { oldestKnownHash, channel, desiredMessages, desiredCheckpoint } = data;
 
     let messages = [];
     Env.store.readMessagesBin(channel, 0, (msgObj, readMore, abort) => {

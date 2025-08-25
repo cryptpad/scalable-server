@@ -17,7 +17,7 @@ const socketToClient = function(ws) {
             } catch (e) {
                 console.error(e);
             }
-        })
+        });
     });
 
     ws.on('close', function(code, reason) {
@@ -53,14 +53,14 @@ const socketToClient = function(ws) {
         onDisconnect: (handler) => {
             handlers.disconnect.push(handler);
         }
-    }
+    };
 };
 
 module.exports = {
     close: function() {
     },
     initServer: function(ctx, config, onNewClient, cb) {
-        if (!cb) { cb = () => { } };
+        if (!cb) { cb = () => { }; };
         let app = Express();
         let httpServer = Http.createServer(app);
         if (!httpServer) {
@@ -75,8 +75,8 @@ module.exports = {
                 // TODO: get data from req to know who we are talking to and handle new connections
                 onNewClient(ctx, socketToClient(ws));
             });
-            ctx.self.onDisconnect(() => { httpServer.close(err => { cb(err); }) });
-            cb(void 0, ctx.self)
+            ctx.self.onDisconnect(() => { httpServer.close(err => { cb(err); }); });
+            cb(void 0, ctx.self);
         });
     },
     initClient: function(ctx, config, onConnected, cb) {
@@ -87,14 +87,14 @@ module.exports = {
             socket
                 .on('error', function(error) {
                     console.error('Websocket connection error on', server, ':', error);
-                    reject(error)
+                    reject(error);
                 })
                 .on('open', function() {
                     let client = socketToClient(socket);
                     ctx.self = client;
                     onConnected(ctx, client, id);
                     resolve();
-                })
+                });
         }));
 
         Promise.all(toStart)
@@ -109,4 +109,4 @@ module.exports = {
                 return cb(err);
             });
     }
-}
+};

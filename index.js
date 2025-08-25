@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025 XWiki CryptPad Team <contact@cryptpad.org> and contributors
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
-const { fork } = require('child_process')
+const { fork } = require('child_process');
 const Crypto = require('crypto');
 const cliArgs = require("minimist")(process.argv.slice(2));
 

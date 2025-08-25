@@ -15,6 +15,37 @@ const create = (Env) => {
     let CM = {};
     const store = Env.store;
 
+    /*  getIndex
+    calls back with an error if anything goes wrong
+    or with a cached index for a channel if it exists
+    (along with metadata)
+    otherwise it calls back with the index computed by 'computeIndex'
+
+    as an added bonus:
+    if the channel exists but its index does not then it caches the index
+    */
+    let getIndex = CM.getIndex = (Env, channelName, cb) => {
+        const channel_cache = Env.channel_cache;
+        const chan = channel_cache[channelName];
+
+        // if there is a channel in memory and it has an index cached, return it
+        if (chan && chan.index) {
+            // enforce async behaviour
+            return void Util.mkAsync(cb)(undefined, chan.index);
+        }
+
+        Env.batchIndexReads(channelName, cb, function(done) {
+            Env.worker.computeIndex(channelName, (err, ret) => {
+                // this is most likely an unrecoverable filesystem error
+                if (err) { return void done(err); }
+                // cache the computed result if possible
+                if (chan) { chan.index = ret; }
+                // return
+                done(void 0, ret);
+            });
+        });
+    };
+
     CM.storeMessage = function(channel, msg, isCp, optionalMessageHash, time, cb) {
         // TODO: check why channel.id disappears in the middle
         const Log = Env.log;
@@ -101,37 +132,6 @@ const create = (Env) => {
         });
     };
 
-    /*  getIndex
-    calls back with an error if anything goes wrong
-    or with a cached index for a channel if it exists
-    (along with metadata)
-    otherwise it calls back with the index computed by 'computeIndex'
-
-    as an added bonus:
-    if the channel exists but its index does not then it caches the index
-    */
-    let getIndex = CM.getIndex = (Env, channelName, cb) => {
-        const channel_cache = Env.channel_cache;
-        const chan = channel_cache[channelName];
-
-        // if there is a channel in memory and it has an index cached, return it
-        if (chan && chan.index) {
-            // enforce async behaviour
-            return void Util.mkAsync(cb)(undefined, chan.index);
-        }
-
-        Env.batchIndexReads(channelName, cb, function(done) {
-            Env.worker.computeIndex(channelName, (err, ret) => {
-                // this is most likely an unrecoverable filesystem error
-                if (err) { return void done(err); }
-                // cache the computed result if possible
-                if (chan) { chan.index = ret; }
-                // return
-                done(void 0, ret);
-            });
-        });
-    };
-
     CM.onChannelMessage = (args, cb) => {
         const { channel, msgStruct, validated } = args;
         const isCp = /^cp\|/.test(msgStruct[4]);
@@ -205,7 +205,7 @@ const create = (Env) => {
                         });
                     }
 
-                    cb('FAILED_VALIDATION')
+                    cb('FAILED_VALIDATION');
                     return void w.abort();
                 }));
             }));

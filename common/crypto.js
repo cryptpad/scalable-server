@@ -19,7 +19,7 @@ module.exports = cryptoLib => {
                 return secretBox;
             };
             exports.secretboxOpen = (secretBox, nonce, secretKey) => {
-                let msg = Buffer.alloc(secretBox.length - SodiumNative.crypto_secretbox_MACBYTES)
+                let msg = Buffer.alloc(secretBox.length - SodiumNative.crypto_secretbox_MACBYTES);
                 if (SodiumNative.crypto_secretbox_open_easy(msg, secretBox, nonce, secretKey)) {
                     return msg;
                 } else {
@@ -36,4 +36,4 @@ module.exports = cryptoLib => {
             break;
     }
     return exports;
-}
+};

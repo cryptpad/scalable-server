@@ -20,7 +20,7 @@ const getMetadata = HistoryManager.getMetadata = (Env, channel, _cb) => {
     let cb = Util.mkAsync(_cb);
     let metadata = Env.metadata_cache[channel];
     if (metadata && typeof (metadata) === 'object') {
-        return cb(void 0, metadata)
+        return cb(void 0, metadata);
     }
 
     Meta.getMetadataRaw(Env, channel, function(err, metadata) {
@@ -34,7 +34,7 @@ const getMetadata = HistoryManager.getMetadata = (Env, channel, _cb) => {
         Env.metadata_cache[channel] = metadata;
         cb(void 0, metadata);
     });
-}
+};
 
 const getHistoryOffset = (Env, channel, lastKnownHash, _cb) => {
     const cb = Util.once(Util.mkAsync(_cb));
@@ -368,7 +368,7 @@ HistoryManager.onGetHistoryRange = (Env, args, sendMessage, _cb) => {
     const store = Env.store;
 
     const channel = parsed[1];
-    const map = parsed[2]
+    const map = parsed[2];
 
     if (!(map && typeof(map) === 'object')) {
         return void cb(void 0, [seq, 'ERROR', 'INVALID_ARGS', HISTORY_KEEPER_ID]);
