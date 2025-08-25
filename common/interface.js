@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2024 XWiki CryptPad Team <contact@cryptpad.org> and contributors
 const Util = require("./common-util.js");
 const Crypto = require("./crypto.js")("sodiumnative");
-const NodeCrypto = require("crypto");
+const NodeCrypto = require("node:crypto");
 
 let findDestFromId = function(ctx, destId) {
     let destPath = destId.split(':');
@@ -29,7 +29,9 @@ const newConnection = (ctx, other, txid, type, data) => {
         if (typeof (coreId) === 'undefined' || acceptName !== 'core' || Number(acceptIndex) !== coreId) {
             return console.error(ctx.myId, ': unknown connection accepted');
         }
+        // Connection accepted, add to others and resolve the promise
         ctx.others.core[coreId] = other;
+        ctx.pendingPromises?.[acceptIndex]?.();
         return;
     }
     if (type !== 'IDENTITY') {
@@ -127,10 +129,9 @@ let createHandlers = function(ctx, other) {
     });
 };
 
-const onConnected = (ctx, other) => {
+const onConnected = (ctx, other, coreId) => {
     let uid = Util.uid(); // XXX: replace with guid
-    ctx.pendingConnections[uid] = ctx.pendingCore;
-    delete ctx.pendingCore;
+    ctx.pendingConnections[uid] = coreId;
 
     // Identify with challenge
     const nonce = NodeCrypto.randomBytes(24);
@@ -242,7 +243,8 @@ let connect = function(config, cb) {
         },
         commands: [],
         nodes_key: Crypto.decodeBase64(config?.server?.private?.nodes_key),
-        pendingConnections : {}
+        pendingConnections : {},
+        pendingPromises : {}
     };
     ctx.myId = config.myId;
 
@@ -265,6 +267,22 @@ let connect = function(config, cb) {
         throw new Error('INVALID_CLIENT_ID');
     }
 
+    // Create promises
+    const promises = [];
+    config?.infra?.core?.forEach((server, id) => {
+        const p = new Promise((resolve, reject) => {
+            const t = setTimeout(() => {
+                reject();
+            }, 30000);
+            const accept = () => {
+                clearTimeout(t);
+                resolve();
+            };
+            ctx.pendingPromises[id] = accept;
+        });
+        promises.push(p);
+    });
+
     // Connection to the different core servers
     const { connector } = config;
     if (!connector) {
@@ -276,7 +294,11 @@ let connect = function(config, cb) {
         }
         let manager = communicationManager(ctx);
 
-        return cb(void 0, manager)
+        Promise.all(promises).then(() => {
+            return cb(void 0, manager)
+        }).catch(e => {
+            throw new Error(e);
+        });
     });
 };
 

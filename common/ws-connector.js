@@ -92,8 +92,7 @@ module.exports = {
                 .on('open', function() {
                     let client = socketToClient(socket);
                     ctx.self = client;
-                    ctx.pendingCore = id;
-                    onConnected(ctx, client);
+                    onConnected(ctx, client, id);
                     resolve();
                 })
         }));
