@@ -11,7 +11,7 @@ if (cliArgs.h || cliArgs.help) {
     console.log("\t--help, -h\tDisplay this help");
     console.log("\t--type,-t\tSet the core type (if unset, starts every core)");
     console.log("\t--index,-i\tSet the core node index (default: 0)");
-    return;
+    process.exit(1);
 }
 
 let serverConfig = require('./config/config.json');
@@ -94,7 +94,6 @@ if (cliArgs.type || cliArgs.t) {
     startNode(type, index, false, (err) => {
         if (err) { return Log.error(err); }
     });
-    return;
+} else {
+    startCores();
 }
-
-startCores();

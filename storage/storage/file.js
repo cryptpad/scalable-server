@@ -266,7 +266,6 @@ var getMetadataAtPath = function (Env, path, _cb) {
             // if you can't parse, that's bad
             return void cb("INVALID_METADATA");
         }
-        readMore(); // eslint-disable-line no-unreachable
     }, function (err) {
         cb(err);
     });

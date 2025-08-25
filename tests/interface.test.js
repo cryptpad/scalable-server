@@ -12,18 +12,16 @@ const Interface = require("../common/interface.js");
 const cli_args = require('minimist')(process.argv.slice(2));
 let ITERS = Number(cli_args.iter) || 1000;
 let NTRIES = Number(cli_args.tries) || 5;
-let proceed = true;
 
 if (cli_args.h || cli_args.help) {
-    proceed = false;
     console.log('Usage', process.argv[1], '[--argument value]');
     console.log('Arguments:');
     console.log('\t--iter\t\tUse n results for averaging.');
     console.log('\t--tries\t\tThe number full loops.');
     console.log('\t--help -h\tDisplay this help.');
+    process.exit(1);
 }
 
-if (!proceed) { return; }
 
 let sleep = (ms) => { return new Promise(resolve => setTimeout(resolve, ms)); };
 
@@ -49,18 +47,16 @@ let Config = {
 let coreStart = (myId) => {
     return new Promise((resolve, reject) => {
         Config.myId = myId;
-        let interface;
         Interface.init(Config, (err, _interface) => {
             if (err) { return reject(err); }
-            interface = _interface;
 
             let pingHandler = function(args, cb) {
                 cb(void 0, { ping: args, pong: (new Date()).getTime() });
             }
 
             let COMMANDS = { 'PING': pingHandler };
-            interface.handleCommands(COMMANDS);
-            return resolve(interface);
+            _interface.handleCommands(COMMANDS);
+            return resolve(_interface);
         });
     });
 };
@@ -68,12 +64,10 @@ let coreStart = (myId) => {
 let wsStart = (myId) => {
     return new Promise((resolve, reject) => {
         Config.myId = myId;
-        let interface;
         Interface.connect(Config, (err, _interface) => {
             if (err) {
                 return reject(err);
             }
-            interface = _interface;
             let other = 'core:0';
 
             let i = 0;
@@ -84,7 +78,7 @@ let wsStart = (myId) => {
                     let leftToRun = 0;
                     for (i = 0; i < NTRIES * ITERS; i++) {
                         leftToRun++;
-                        let outcome = interface.sendQuery(other, 'PING', (new Date()).getTime(), function(response) {
+                        let outcome = _interface.sendQuery(other, 'PING', (new Date()).getTime(), function(response) {
                             let now = (new Date()).getTime();
                             let pingTime = response.data.ping;
                             timings[i++ % ITERS] = now - pingTime;
@@ -105,7 +99,7 @@ let wsStart = (myId) => {
             };
 
             let disconnect = () => {
-                interface.disconnect();
+                _interface.disconnect();
             };
 
             let reset = function() {
