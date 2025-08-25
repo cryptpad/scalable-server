@@ -35,8 +35,9 @@ const newConnection = (ctx, other, txid, type, data) => {
         return;
     }
     if (type !== 'IDENTITY') {
-        // TODO: close the connection
+        // TODO: Log error properly
         console.error("Unidentified message received", message.toString());
+        other.disconnect();
         return;
     }
     const { type: rcvType, idx, challenge: challengeBase64, nonce: nonceBase64 } = data;
@@ -44,13 +45,14 @@ const newConnection = (ctx, other, txid, type, data) => {
     const nonce = new Uint8Array(Buffer.from(nonceBase64, 'base64'));
 
     // Check for reused challenges
-    // XXX: handle rejection
     if (ctx.ChallengesCache[challengeBase64]) {
+        other.disconnect();
         return console.error("Reused challenge");
     }
     // Buffer.from is needed for compatibility with tweetnacl
     const msg = Buffer.from(Crypto.secretboxOpen(challenge, nonce, ctx.nodes_key));
     if (!msg) {
+        other.disconnect();
         return console.error("Bad challenge answer");
     }
     let [challType, challIndex, challTimestamp] = String(msg).split(':');
@@ -59,8 +61,7 @@ const newConnection = (ctx, other, txid, type, data) => {
     let challengeLife = Number(Date.now()) - Number(challTimestamp)
     if (challengeLife < 0 || challengeLife > ctx.ChallengeLifetime ||
         rcvType !== challType || idx !== Number(challIndex)) {
-        // XXX: handle rejection + be sure to send the same error in both cases
-        // to forbid adversary from knowing too much
+        other.disconnect();
         return console.error("Bad challenge answer");
     }
 
