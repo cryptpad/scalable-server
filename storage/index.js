@@ -26,12 +26,6 @@ const {
     hkId
 } = Constants;
 
-const getCoreId = (channel) => {
-    let key = Buffer.from(channel.slice(0, 8));
-    let coreId = 'core:' + jumpConsistentHash(key, Env.numberCores);
-    return coreId;
-};
-
 const Env = {
     id: Util.uid(),
     Log: Logger(),
@@ -43,9 +37,13 @@ const Env = {
     batchIndexReads: BatchRead("HK_GET_INDEX"),
     batchMetadata: BatchRead("GET_METADATA"),
     selfDestructTo: {},
-    getCoreId
 };
 
+Env.getCoreId = (channel) => {
+    let key = Buffer.from(channel.slice(0, 8));
+    let coreId = 'core:' + jumpConsistentHash(key, Env.numberCores);
+    return coreId;
+};
 
 Env.checkCache = channel => {
     let f = Env.cache_checks[channel] ||= Util.throttle(() => {
