@@ -29,10 +29,8 @@ const hk = '0123456789abcdef';
 const getWsURL = (index) => {
     // Index inside infra array
     const wssIndex = index % wss.length;
-    // Index inside public config array
-    const wsIndex =  wss[wssIndex].index;
     // Public config
-    const ws = wsCfg[wsIndex];
+    const ws = wsCfg[wssIndex];
 
     const wsUrl = new URL('ws://localhost:3000');
     if (ws.host && ws.port) {
