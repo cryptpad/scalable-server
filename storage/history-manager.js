@@ -429,9 +429,7 @@ HistoryManager.onGetHistoryRange = (Env, args, sendMessage, _cb) => {
     }
     // If desiredCp or desiredMsg are defined, we can't stream and
     // must get a list of messages to send from a worker
-    throw new Error('NOT IMPLEMENTED'); // XXX
-    /*
-    Env.getOlderHistory(channel, oldestKnownHash, untilHash, desiredMessages, desiredCheckpoint, function (err, toSend) {
+    Env.worker.getOlderHistory(channel, oldestKnownHash, untilHash, desiredMessages, desiredCheckpoint, function (err, toSend) {
         if (err && err.code !== 'ENOENT') {
             Log.error("HK_GET_OLDER_HISTORY", err);
             return sendMessage([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(['HISTORY_RANGE_ERROR', txid, err]) ]);
@@ -444,7 +442,6 @@ HistoryManager.onGetHistoryRange = (Env, args, sendMessage, _cb) => {
 
         sendMessage([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(['HISTORY_RANGE_END', txid, channel]) ]);
     });
-    */
 };
 
 HistoryManager.onGetFullHistory = (Env, args, sendMessage, _cb) => {
