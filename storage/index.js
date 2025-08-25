@@ -7,7 +7,6 @@ const Logger = require("../common/logger.js");
 const nThen = require("nthen");
 const Path = require("node:path");
 
-const HKUtil = require("./hk-util.js");
 const HistoryManager = require("./history-manager.js");
 const ChannelManager = require("./channel-manager.js");
 
@@ -113,30 +112,23 @@ const sendMessage = (userId, channel) => {
         });
     };
 };
-const getHistoryHandler = (args, cb) => {
-    const parsed = args?.parsed;
-    const channel = parsed?.[1];
-    const send = sendMessage(args?.userId, channel);
-    HistoryManager.onGetHistory(Env, args, send, cb);
-}
 
-const getFullHistoryHandler = (args, cb) => {
-    const parsed = args?.parsed;
-    const channel = parsed?.[1];
-    const send = sendMessage(args?.userId, channel);
-    HistoryManager.onGetFullHistory(Env, args, send, cb);
-}
+const getHistoryHandler = f => {
+    return (args, cb) => {
+        const parsed = args?.parsed;
+        const channel = parsed?.[1];
+        const send = sendMessage(args?.userId, channel);
+        f(Env, args, send, cb);
+    };
+};
 
-const getHistoryRangeHandler = (args, cb) => {
-    const parsed = args?.parsed;
-    const channel = parsed?.[1];
-    const send = sendMessage(args?.userId, channel);
-    HistoryManager.onGetHistoryRange(Env, args, send, cb);
-}
-
-let getMetaDataHandler = function(args, cb) {
+const getMetaDataHandler = (args, cb) => {
     HistoryManager.getMetadata(Env, args.channel, cb);
-}
+};
+
+const onChannelMessageHandler = (args, cb) => {
+    Env.CM.onChannelMessage(args, cb);
+};
 
 const joinChannelHandler = (args, cb) => {
     const { channel, userId } = args;
@@ -219,13 +211,13 @@ const dropUserHandler = (args) => {
 
 // List accepted commands
 let COMMANDS = {
-    'GET_HISTORY': getHistoryHandler,
     'JOIN_CHANNEL': joinChannelHandler,
     'LEAVE_CHANNEL': leaveChannelHandler,
     'GET_METADATA': getMetaDataHandler,
-    'GET_FULL_HISTORY': getFullHistoryHandler,
-    'GET_HISTORY_RANGE': getHistoryRangeHandler,
-    'CHANNEL_MESSAGE': onChannelMessage,
+    'GET_HISTORY': getHistoryHandler(HistoryManager.onGetHistory),
+    'GET_FULL_HISTORY': getHistoryHandler(HistoryManager.onGetFullHistory),
+    'GET_HISTORY_RANGE': getHistoryHandler(HistoryManager.onGetHistoryRange),
+    'CHANNEL_MESSAGE': onChannelMessageHandler,
     'DROP_USER': dropUserHandler,
 };
 
@@ -311,15 +303,6 @@ let start = function(config) {
             }
 
             // List accepted commands
-            let COMMANDS = {
-                'GET_HISTORY': getHistoryHandler,
-                'JOIN_CHANNEL': joinChannelHandler,
-                'LEAVE_CHANNEL': leaveChannelHandler,
-                'GET_METADATA': getMetaDataHandler,
-                'GET_FULL_HISTORY': getFullHistoryHandler,
-                'CHANNEL_MESSAGE': Env.CM.onChannelMessage,
-                'DROP_USER': dropUserHandler,
-            };
 
             _interface.handleCommands(COMMANDS);
             Env.interface = _interface;

@@ -36,7 +36,7 @@ const newConnection = (ctx, other, txid, type, data) => {
     }
     if (type !== 'IDENTITY') {
         // TODO: Log error properly
-        console.error("Unidentified message received", message.toString());
+        console.error("Unidentified message received");
         other.disconnect();
         return;
     }
