@@ -16,7 +16,8 @@ Constants.TEMPORARY_CHANNEL_LIFETIME = 30 * 1000;
 Constants.paths = {
     base: './data/',
     channel: 'channel/',
-    archive: 'archive/'
+    archive: 'archive/',
+    tasks: 'tasks/'
 };
 
 module.exports = Constants;

@@ -165,22 +165,20 @@ const handleFirstMessage = (Env, channel, metadata) => {
         }
     });
 
-    // XXX: Not handling EXPIRE yet
-    // write tasks
-    // var maxExpire = new Date().setMonth(new Date().getMonth() + 100); // UI limit
-    // if(metadata.expire && typeof(metadata.expire) === 'number' && metadata.expire < maxExpire) {
-    //     // the fun part...
-    //     // the user has said they want this pad to expire at some point
-    //     Env.writeTask(metadata.expire, "EXPIRE", [ channel ], function (err) {
-    //         if (err) {
-    //             // if there is an error, we don't want to crash the whole server...
-    //             // just log it, and if there's a problem you'll be able to fix it
-    //             // at a later date with the provided information
-    //             Env.Log.error('HK_CREATE_EXPIRE_TASK', err);
-    //             Env.Log.info('HK_INVALID_EXPIRE_TASK', JSON.stringify([metadata.expire, 'EXPIRE', channel]));
-    //         }
-    //     });
-    // }
+    const maxExpire = new Date().setMonth(new Date().getMonth() + 100); // UI limit
+    if(metadata.expire && typeof(metadata.expire) === 'number' && metadata.expire < maxExpire) {
+        // the fun part...
+        // the user has said they want this pad to expire at some point
+        Env.worker.writeTask(metadata.expire, "EXPIRE", [ channel ], err => {
+            if (err) {
+                // if there is an error, we don't want to crash the whole server...
+                // just log it, and if there's a problem you'll be able to fix it
+                // at a later date with the provided information
+                Env.Log.error('HK_CREATE_EXPIRE_TASK', err);
+                Env.Log.info('HK_INVALID_EXPIRE_TASK', JSON.stringify([metadata.expire, 'EXPIRE', channel]));
+            }
+        });
+    }
 };
 
 const expireChannel = (Env, channel) => {
