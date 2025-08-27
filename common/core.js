@@ -3,30 +3,33 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 const Core = module.exports;
-const Util = require("../common-util");
+const Util = require("./common-util");
+const Constants = require("./constants");
 const escapeKeyCharacters = Util.escapeKeyCharacters;
 //const { fork } = require('child_process');
 
 Core.DEFAULT_LIMIT = 50 * 1024 * 1024;
 Core.SESSION_EXPIRATION_TIME = 60 * 1000;
 
-// XXX use constants file here for length
-Core.isValidId = function (chan) {
-    return chan && chan.length && /^[a-zA-Z0-9=+-]*$/.test(chan) &&
-        [32, 33, 48].indexOf(chan.length) > -1;
+Core.isValidId = (chan) => {
+    return chan && chan.length && /^[a-zA-Z0-9=+-]*$/.test(chan) && [
+        Constants.STANDARD_CHANNEL_LENGTH,
+        Constants.ADMIN_CHANNEL_LENGTH,
+        Constants.BLOB_ID_LENGTH
+    ].indexOf(chan.length) > -1;
 };
 
-Core.isValidPublicKey = function (owner) {
+Core.isValidPublicKey = (owner) => {
     return typeof(owner) === 'string' && owner.length === 44;
 };
 
-var makeToken = Core.makeToken = function () {
+const makeToken = Core.makeToken = () => {
     return Number(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER))
         .toString(16);
 };
 
 Core.makeCookie = function (token) {
-    var time = (+new Date());
+    let time = (+new Date());
     time -= time % 5000;
 
     return [
@@ -36,26 +39,26 @@ Core.makeCookie = function (token) {
     ];
 };
 
-var parseCookie = function (cookie) {
+const parseCookie = (cookie) => {
     if (!(cookie && cookie.split)) { return null; }
 
-    var parts = cookie.split('|');
+    let parts = cookie.split('|');
     if (parts.length !== 3) { return null; }
 
-    var c = {};
+    let c = {};
     c.time = new Date(parts[0]);
     c.pid = Number(parts[1]);
     c.seq = parts[2];
     return c;
 };
 
-Core.getSession = function (Sessions, key) {
-    var safeKey = escapeKeyCharacters(key);
+Core.getSession = (Sessions, key) => {
+    let safeKey = escapeKeyCharacters(key);
     if (Sessions[safeKey]) {
         Sessions[safeKey].atime = +new Date();
         return Sessions[safeKey];
     }
-    var user = Sessions[safeKey] = {};
+    let user = Sessions[safeKey] = {};
     user.atime = +new Date();
     user.tokens = [
         makeToken()
@@ -63,8 +66,8 @@ Core.getSession = function (Sessions, key) {
     return user;
 };
 
-Core.expireSession = function (Sessions, safeKey) {
-    var session = Sessions[safeKey];
+Core.expireSession = (Sessions, safeKey) => {
+    let session = Sessions[safeKey];
     if (!session) { return; }
     if (session.blobstage) {
         session.blobstage.close();
@@ -72,41 +75,41 @@ Core.expireSession = function (Sessions, safeKey) {
     delete Sessions[safeKey];
 };
 
-Core.expireSessionAsync = function (Env, safeKey, cb) {
-    setTimeout(function () {
+Core.expireSessionAsync = (Env, safeKey, cb) => {
+    setTimeout(() => {
         Core.expireSession(Env.Sessions, safeKey);
         cb(void 0, 'OK');
     });
 };
 
-var isTooOld = function (time, now) {
+const isTooOld = (time, now) => {
     return (now - time) > 300000;
 };
 
-Core.expireSessions = function (Sessions) {
-    var now = +new Date();
-    Object.keys(Sessions).forEach(function (safeKey) {
-        var session = Sessions[safeKey];
+Core.expireSessions = (Sessions) => {
+    let now = +new Date();
+    Object.keys(Sessions).forEach((safeKey) => {
+        let session = Sessions[safeKey];
         if (session && isTooOld(session.atime, now)) {
             Core.expireSession(Sessions, safeKey);
         }
     });
 };
 
-var addTokenForKey = function (Sessions, publicKey, token) {
+const addTokenForKey = (Sessions, publicKey, token) => {
     if (!Sessions[publicKey]) { throw new Error('undefined user'); }
 
-    var user = Core.getSession(Sessions, publicKey);
+    let user = Core.getSession(Sessions, publicKey);
     user.tokens.push(token);
     user.atime = +new Date();
     if (user.tokens.length > 2) { user.tokens.shift(); }
 };
 
-Core.isValidCookie = function (Sessions, publicKey, cookie) {
-    var parsed = parseCookie(cookie);
+Core.isValidCookie = (Sessions, publicKey, cookie) => {
+    let parsed = parseCookie(cookie);
     if (!parsed) { return false; }
 
-    var now = +new Date();
+    let now = +new Date();
 
     if (!parsed.time) { return false; }
     if (isTooOld(parsed.time, now)) {
@@ -118,14 +121,15 @@ Core.isValidCookie = function (Sessions, publicKey, cookie) {
         return false;
     }
 
-    var user = Core.getSession(Sessions, publicKey);
+    let user = Core.getSession(Sessions, publicKey);
     if (!user) { return false; }
 
-    var idx = user.tokens.indexOf(parsed.seq);
+    let idx = user.tokens.indexOf(parsed.seq);
     if (idx === -1) { return false; }
 
     if (idx > 0) {
         // make a new token
+        // NOTE: this shouldn't happen, idx should always be 0
         addTokenForKey(Sessions, publicKey, Core.makeToken());
     }
 

@@ -9,6 +9,7 @@ const init = (config, cb) => {
 };
 
 let onValidateMessage = (msg, vk, cb) => {
+    //monitoringIncrement('inlineValidation'); // XXX MONITORING
     let signedMsg;
     try {
         signedMsg = Crypto.decodeBase64(msg);
@@ -29,10 +30,58 @@ let onValidateMessage = (msg, vk, cb) => {
     }
     cb();
 };
+const onValidateRpc = (signedMsg, signature, publicKey) => {
+    if (!(signedMsg && publicKey)) {
+        throw new Error("INVALID_ARGS");
+    }
+    //monitoringIncrement('detachedValidation'); // XXX MONITORING
+
+    let signedBuffer;
+    let pubBuffer;
+    let signatureBuffer;
+
+    try {
+        signedBuffer = Util.decodeUTF8(signedMsg);
+    } catch (e) {
+        throw new Error("INVALID_SIGNED_BUFFER");
+    }
+
+    try {
+        pubBuffer = Util.decodeBase64(publicKey);
+    } catch (e) {
+        throw new Error("INVALID_PUBLIC_KEY");
+    }
+
+    try {
+        signatureBuffer = Util.decodeBase64(signature);
+    } catch (e) {
+        throw new Error("INVALID_SIGNATURE");
+    }
+
+    if (pubBuffer.length !== 32) {
+        throw new Error("INVALID_PUBLIC_KEY_LENGTH");
+    }
+
+    if (signatureBuffer.length !== 64) {
+        throw new Error("INVALID_SIGNATURE_LENGTH");
+    }
+
+    if (Crypto.detachedVerify(signedBuffer, signatureBuffer, pubBuffer) !== true) {
+        throw new Error("FAILED");
+    }
+};
 
 
 COMMANDS.VALIDATE_MESSAGE = (data, cb) => {
     onValidateMessage(data.signedMsg, data.validateKey, cb);
+};
+COMMANDS.VALIDATE_RPC = (data, cb) => {
+    try {
+        onValidateRpc(data.msg, data.sig, data.key);
+    } catch (err) {
+        return void cb(err && err.message);
+    }
+    cb();
 };
 
 

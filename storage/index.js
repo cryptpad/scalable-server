@@ -207,6 +207,12 @@ const dropUserHandler = (args) => {
     });
 };
 
+/* RPC commands */
+
+const getFileSizeHandler = (channel, cb) => {
+    Env.worker.getFileSize(channel, cb);
+};
+
 /* Start of the node */
 
 // List accepted commands
@@ -219,6 +225,8 @@ let COMMANDS = {
     'GET_HISTORY_RANGE': getHistoryHandler(HistoryManager.onGetHistoryRange),
     'CHANNEL_MESSAGE': onChannelMessageHandler,
     'DROP_USER': dropUserHandler,
+
+    'RPC_GET_FILE_SIZE': getFileSizeHandler,
 };
 
 const initWorkerCommands = () => {
@@ -250,6 +258,13 @@ const initWorkerCommands = () => {
                 channel, oldestKnownHash, untilHash, desiredMessages, desiredCheckpoint
             }, Util.both(next, cb));
         });
+    };
+
+    // RPC
+    Env.worker.getFileSize = (channel, cb) => {
+        Env.workers.send('GET_FILE_SIZE', {
+            channel
+        }, cb);
     };
 };
 

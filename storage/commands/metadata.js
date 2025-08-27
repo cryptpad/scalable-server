@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2024 XWiki CryptPad Team <contact@cryptpad.org> and contributors
 const Data = module.exports;
-const Core = require("./core");
+const Core = require("../../common/core");
 const Util = require("../common-util");
 const HKUtil = require("../hk-util");
 

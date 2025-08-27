@@ -6,7 +6,10 @@ const { jumpConsistentHash } = require('../common/consistent-hash.js');
 const WorkerModule = require("../common/worker-module.js");
 const WriteQueue = require("../common/write-queue.js");
 const Constants = require("../common/constants.js");
+const Core = require("../common/core.js");
+const Util = require("../common/common-util.js");
 const Logger = require("../common/logger.js");
+const Rpc = require("./rpc.js");
 
 const {
     CHECKPOINT_PATTERN
@@ -14,9 +17,11 @@ const {
 
 let Env = {
     Log: Logger(),
-    wsCache: {}, // WS associated to each user
+    userCache: {}, // WS associated to each user
     channelKeyCache: {}, // Validate key of each channel
-    queueValidation: WriteQueue()
+    queueValidation: WriteQueue(),
+    Sessions: {},
+    intervals: {}
 };
 
 const isWsCmd = id => {
@@ -31,7 +36,7 @@ const isValidChannel = str => {
 
 
 // TODO: implement storage migration later (in /storage/)
-let getStorageId = function(channel) {
+const getStorageId = channel => {
     if (!channel) {
         console.error('getStorageId: No channel provided');
         return void 0;
@@ -46,9 +51,8 @@ let getStorageId = function(channel) {
     return ret;
 };
 
-// TODO: to fix (probably in websocket nodes)
 let getWsId = function(userId) {
-    return Env.wsCache[userId] ? Env.wsCache[userId] : 'websocket:0';
+    return Env.userCache?.[userId]?.from || 'websocket:0';
 };
 
 let wsToStorage = function(command, validated, isEvent) {
@@ -92,6 +96,17 @@ let storageToWs = function(command) {
             cb(response.error, response.data);
         });
     };
+};
+
+const authenticateUser = (userId, unsafeKey) => {
+    const user = Env.userCache[userId] ||= {};
+    const sessions = user.sessions ||= {};
+    sessions[unsafeKey] = +new Date();
+};
+const unauthenticateUser = (userId, unsafeKey) => {
+    const user = Env.userCache[userId];
+    if (user.sessions) { return; }
+    delete user.sessions[unsafeKey];
 };
 
 const validateMessageHandler = (args, cb, extra) => {
@@ -153,7 +168,7 @@ const dropUser = (args, _cb, extra) => {
         Env.interface.sendEvent(storageId, 'DROP_USER', args);
     });
 
-    delete Env.wsCache[userId];
+    delete Env.userCache[userId];
 };
 
 const joinChannel = (args, cb, extra) => {
@@ -164,7 +179,8 @@ const joinChannel = (args, cb, extra) => {
         return void cb('EINVAL');
     }
 
-    Env.wsCache[userId] = extra.from;
+    const user = Env.userCache[userId] ||= {};
+    if (!user.from) { user.from = extra.from; }
 
     const storageId = getStorageId(channel);
     Env.interface.sendQuery(storageId, 'JOIN_CHANNEL', args, res => {
@@ -285,6 +301,105 @@ const onUserMessage = (args, cb) => {
     });
 };
 
+const onAnonRpc = (args, cb, extra) => {
+    if (!isWsCmd(extra.from)) { return void cb('UNAUTHORIZED'); }
+    const {userId, /*txid, */data} = args;
+
+    if (!Rpc.isUnauthenticateMessage(data)) {
+        return void cb('INVALID_ANON_RPC_COMMAND');
+    }
+
+    Rpc.handleUnauthenticated(Env, data, userId, (err, msg) => {
+        cb(err, msg);
+    });
+};
+const onAuthRpc = (args, cb, extra) => {
+    if (!isWsCmd(extra.from)) { return void cb('UNAUTHORIZED'); }
+    const {userId, /*txid, */data} = args;
+
+    const sig = data.shift();
+    const publicKey = data.shift();
+    const [cookie, command/*, data*/] = data;
+
+
+    const safeKey = Util.escapeKeyCharacters(publicKey);
+    const hadSession = Boolean(Env.Sessions[safeKey]);
+
+    // make sure a user object is initialized in the cookie jar
+    if (publicKey) {
+        Core.getSession(Env.Sessions, publicKey);
+    } else {
+        Env.Log.debug("NO_PUBLIC_KEY_PROVIDED", publicKey);
+    }
+
+    if (!Core.isValidCookie(Env.Sessions, publicKey, cookie)) {
+        // no cookie is fine if the RPC is to get a cookie
+        if (command !== 'COOKIE') {
+            return void cb('NO_COOKIE');
+        }
+    }
+
+    let serialized = JSON.stringify(data);
+    if (!(serialized && typeof(publicKey) === 'string')) {
+        return void cb('INVALID_MESSAGE_OR_PUBLIC_KEY');
+    }
+
+    //Env.plugins?.MONITORING?.increment(`rpc_${command}`); // XXX MONITORING
+
+    if (command === 'UPLOAD') {
+        // UPLOAD is a special case that skips signature validation
+        // intentional fallthrough behaviour
+        return void Rpc.handleAuthenticated(Env, publicKey, data, cb);
+    }
+
+    if (!Rpc.isAuthenticatedCall(command)) {
+        Env.Log.warn('INVALID_RPC_CALL', command);
+        return void cb("INVALID_RPC_CALL");
+    }
+
+    // check the signature on the message
+    // refuse the command if it doesn't validate
+    Env.workers.send('VALIDATE_RPC', {
+        msg: serialized,
+        key: publicKey,
+        sig
+    }, err => {
+        if (err) {
+            return void cb("INVALID_SIGNATURE_OR_PUBLIC_KEY");
+        }
+        if (command === 'COOKIE' && !hadSession && Env.logIP) {
+            Env.Log.info('NEW_RPC_SESSION', {userId: userId, publicKey: publicKey});
+        }
+        if (command === "DESTROY") {
+            unauthenticateUser(userId, publicKey);
+            return; // No need to respond, user will close the session
+        }
+
+        // XXX COOKIE shouldn't add the key to the user session
+        // --> risk of replay attacks
+        // We should instead create a new AUTH command, which does
+        // nothing but requires a recent cookie to work.
+        // We can then update onRejected in async-store to call
+        // this AUTH command before retrying to join a pad.
+        authenticateUser(userId, publicKey);
+
+        return Rpc.handleAuthenticated(Env, publicKey, data, cb);
+    });
+
+
+};
+
+const initIntervals = () => {
+    // XXX get quota every hour
+    // XXX daily ping
+
+    // expire old sessions once per minute
+    Env.intervals.sessionExpirationInterval = setInterval(() => {
+        Core.expireSessions(Env.Sessions);
+    }, Core.SESSION_EXPIRATION_TIME);
+
+};
+
 let startServers = function(config) {
     let { myId, index, server, infra } = config;
     Env.numberStorages = config.infra.storage.length;
@@ -321,6 +436,8 @@ let startServers = function(config) {
         'LEAVE_CHANNEL': leaveChannel,
         'CHANNEL_MESSAGE': onChannelMessage,
         'USER_MESSAGE': onUserMessage,
+        'ANON_RPC': onAnonRpc,
+        'AUTH_RPC': onAuthRpc,
         // From Storage
         'VALIDATE_MESSAGE': validateMessageHandler,
         'DROP_CHANNEL': dropChannelHandler,
@@ -336,6 +453,8 @@ let startServers = function(config) {
     eventsToStorage.forEach(function(command) {
         COMMANDS[command] = wsToStorage(command, false, true);
     });
+
+    initIntervals();
 
     Interface.init(interfaceConfig, (err, _interface) => {
         if (err) {
