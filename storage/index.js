@@ -31,6 +31,7 @@ const Env = {
     metadata_cache: {},
     channel_cache: {},
     cache_checks: {},
+    intervals: {},
     queueStorage: WriteQueue(),
     queueValidation: WriteQueue(),
     batchIndexReads: BatchRead("HK_GET_INDEX"),
@@ -266,6 +267,20 @@ const initWorkerCommands = () => {
             channel
         }, cb);
     };
+
+
+    // Tasks
+    Env.worker.runTasks = (cb) => {
+        // time out after 10 minutes
+        Env.workers.send('RUN_TASKS', {}, cb, 1000 * 60 * 10);
+    };
+    Env.worker.writeTask = (time, command, args, cb) => {
+        Env.workers.send('WRITE_TASK', {
+            time: time,
+            task_command: command,
+            args: args,
+        }, cb);
+    };
 };
 
 // Connect to core
@@ -286,6 +301,20 @@ let start = function(config) {
             if (err) { throw new Error(err); }
             Env.store = store;
         }));
+    }).nThen(() => {
+        let tasks_running;
+        Env.intervals.taskExpiration = setInterval(() => {
+            if (Env.disableIntegratedTasks) { return; }
+            if (tasks_running) { return; }
+            tasks_running = true;
+            Env.worker.runTasks(err => {
+                if (err) {
+                    Env.Log.error('TASK_RUNNER_ERR', err);
+                }
+                tasks_running = false;
+            });
+        }, 1000 * 60 * 5); // run every five minutes
+
     }).nThen(() => {
         const workerConfig = {
             Log: Env.Log,

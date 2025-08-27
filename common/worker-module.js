@@ -378,7 +378,7 @@ const init = workerConfig => {
         send: (cmd, data, cb, timeout) => {
             let opts;
             if (timeout) {
-                opts.timeout = timeout;
+                opts = { timeout };
             }
             sendCommand({
                 command: cmd,

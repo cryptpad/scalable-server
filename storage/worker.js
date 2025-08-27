@@ -5,6 +5,7 @@ const Constants = require("../common/constants");
 const Logger = require("../common/logger");
 const Core = require("../common/core");
 const File = require("./storage/file.js");
+const Tasks = require("./storage/tasks.js");
 
 const Path = require("node:path");
 const nThen = require("nthen");
@@ -26,6 +27,7 @@ const init = (config, cb) => {
     const idx = String(config?.index);
     const filePath = Path.join(paths.base, idx, paths.channel);
     const archivePath = Path.join(paths.base, idx, paths.archive);
+    const taskPath = Path.join(paths.base, idx, paths.tasks);
     nThen(waitFor => {
         File.create({
             filePath,
@@ -33,9 +35,22 @@ const init = (config, cb) => {
             volumeId: 'channel'
         }, waitFor((err, store) => {
             if (err) {
+                waitFor.abort();
                 return void cb(err);
             }
             Env.store = store;
+        }));
+    }).nThen(waitFor => {
+        Tasks.create({
+            log: Env.Log,
+            taskPath: taskPath,
+            store: Env.store,
+        }, waitFor((err, tasks) => {
+            if (err) {
+                waitFor.abort();
+                return void cb(err);
+            }
+            Env.tasks = tasks;
         }));
     //}).nThen(waitFor => {
         // XXX pinStore
@@ -365,6 +380,13 @@ const getFileSize = (data, cb) => {
     */
 };
 
+const runTasks = (data, cb) => {
+    Env.tasks.runAll(cb);
+};
+
+const writeTask = (data, cb) => {
+    Env.tasks.write(data.time, data.task_command, data.args, cb);
+};
 
 const COMMANDS = {
     COMPUTE_INDEX: computeIndex,
@@ -373,6 +395,9 @@ const COMMANDS = {
     GET_OLDER_HISTORY: getOlderHistory,
 
     GET_FILE_SIZE: getFileSize,
+
+    RUN_TASKS: runTasks,
+    WRITE_TASK: writeTask
 };
 
 let ready = false;
