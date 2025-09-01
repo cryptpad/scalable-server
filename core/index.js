@@ -182,6 +182,8 @@ const joinChannel = (args, cb, extra) => {
     const user = Env.userCache[userId] ||= {};
     if (!user.from) { user.from = extra.from; }
 
+    args.sessions = user.sessions;
+
     const storageId = getStorageId(channel);
     Env.interface.sendQuery(storageId, 'JOIN_CHANNEL', args, res => {
         if (res.error) { return void cb(res.error); }
@@ -385,9 +387,23 @@ const onAuthRpc = (args, cb, extra) => {
 
         return Rpc.handleAuthenticated(Env, publicKey, data, cb);
     });
-
-
 };
+
+const onWsCommand = command => {
+    return (args, cb, extra) => {
+        if (!isWsCmd(extra.from)) { return void cb('UNAUTHORIZED'); }
+        const channel = args.channel;
+        const storageId = getStorageId(channel);
+
+        const user = Env.userCache[args.userId];
+        args.sessions = user?.sessions;
+        Env.interface.sendQuery(storageId, command, args, function(response) {
+            cb(response.error, response.data);
+        });
+    };
+};
+
+
 
 const initIntervals = () => {
     // XXX get quota every hour
@@ -426,8 +442,8 @@ let startServers = function(config) {
 
     Env.workers = WorkerModule(workerConfig);
 
-    let queriesToStorage = ['GET_HISTORY', 'GET_FULL_HISTORY', 'GET_HISTORY_RANGE', 'GET_METADATA'];
-    let queriesToWs = ['CHANNEL_CONTAINS_USER'];
+    let queriesToStorage = [];
+    let queriesToWs = [];
     let eventsToStorage = [];
     let COMMANDS = {
         // From WS
@@ -438,6 +454,9 @@ let startServers = function(config) {
         'USER_MESSAGE': onUserMessage,
         'ANON_RPC': onAnonRpc,
         'AUTH_RPC': onAuthRpc,
+        'GET_HISTORY': onWsCommand('GET_HISTORY'),
+        'GET_FULL_HISTORY': onWsCommand('GET_FULL_HISTORY'),
+        'GET_HISTORY_RANGE': onWsCommand('GET_HISTORY_RANGE'),
         // From Storage
         'VALIDATE_MESSAGE': validateMessageHandler,
         'DROP_CHANNEL': dropChannelHandler,

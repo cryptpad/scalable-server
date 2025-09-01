@@ -247,14 +247,6 @@ const onHKMessage = (Env, seq, user, json) => {
 
         if (error || !Array.isArray(message)) { return; }
         sendMsg(Env, user, message);
-
-        // TODO: sanity check on toSend
-        // TODO: to batch
-        /*
-        toSend.forEach(function(message) {
-            sendMsg(Env, user, message);
-        });
-        */
     });
 };
 const handleChannelMessage = (Env, channel, msgStruct, cb) => {
