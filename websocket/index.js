@@ -242,7 +242,7 @@ const onHKMessage = (Env, seq, user, json) => {
     Env.interface.sendQuery(coreId, first, {
         seq, userId, parsed, channel
     }, answer => {
-        let message = answer.data?.message;
+        let message = answer.data?.message || answer?.data;
         let error = answer.error;
 
         if (error || !Array.isArray(message)) { return; }

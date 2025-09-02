@@ -143,6 +143,23 @@ const checkAccess = (args) => {
             network.join(padId).then(wc => {
                 reject('ACCESS_NOT_REJECTED');
             }).catch(e => {
+                resolve(args);
+            });
+        }).catch(reject);
+    });
+};
+
+const checkHistoryAccess = (args) => {
+    const { network, rpc } = args;
+    const txid = Crypto.randomBytes(4).toString('hex');
+    return new Promise((resolve, reject) => {
+        connectUser(2).then(network => {
+            const msg = ['GET_HISTORY', padId, {
+                txid
+            }];
+            network.sendto(hk, JSON.stringify(msg)).then(() => {
+                reject('HISTORY_NOT_REJECTED');
+            }).catch(e => {
                 resolve();
             });
         }).catch(reject);
@@ -158,6 +175,7 @@ const initUser = () => {
         .then(createUser)
         .then(checkUser)
         .then(checkAccess)
+        .then(checkHistoryAccess)
         .then(() => {
             resolve();
         }).catch(e => {

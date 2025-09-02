@@ -255,7 +255,7 @@ const checkHistoryRights = (Env, channel, sessions, _cb) => {
         // check if the user is in the allow list...
         const allowed = HKUtil.listAllowedUsers(metadata);
 
-        if (HK.isUserSessionAllowed(allowed, sessions)) {
+        if (HKUtil.isUserSessionAllowed(allowed, sessions)) {
             return void cb();
         }
 
@@ -308,6 +308,7 @@ HistoryManager.onGetHistory = (Env, args, sendMessage, _cb) => {
                 return void waitFor.abort();
             }
             if (err) { // probably restricted: reject
+                waitFor.abort();
                 return void cb(void 0, [ seq, 'ERROR', err, hkId ]);
             }
             if (!_metadata) { return; } // New pad, don't overwrite metadata
