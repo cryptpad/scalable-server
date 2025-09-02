@@ -174,7 +174,7 @@ const joinChannelHandler = (args, cb) => {
 
         // If the channel is restricted, send the history keeper ID
         // so that they can try to authenticate
-        allowed.unshift(Env.id);
+        allowed.unshift(hkId);
 
         // otherwise they're not allowed.
         // respond with a special error that includes the list of keys

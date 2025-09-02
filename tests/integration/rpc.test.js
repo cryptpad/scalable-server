@@ -143,7 +143,7 @@ const checkAccess = (args) => {
                 reject('ACCESS_NOT_REJECTED');
             }).catch(e => {
                 if (e.type !== "ERESTRICTED") {
-                    console.error("UNECPECTED ERROR", e);
+                    console.error("UNEXPECTED ERROR", e);
                     return reject("INVALID_ERROR");
                 }
                 resolve(args);
@@ -163,7 +163,7 @@ const checkHistoryAccess = () => {
                 reject('HISTORY_NOT_REJECTED');
             }).catch(e => {
                 if (e.type !== "ERESTRICTED") {
-                    console.error("UNECPECTED ERROR", e);
+                    console.error("UNEXPECTED ERROR", e);
                     return reject("INVALID_ERROR");
                 }
                 resolve();

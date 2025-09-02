@@ -256,7 +256,7 @@ const checkHistoryRights = (Env, channel, sessions, _cb) => {
         const allowed = HKUtil.listAllowedUsers(metadata);
 
         if (HKUtil.isUserSessionAllowed(allowed, sessions)) {
-            return void cb();
+            return void cb(void 0, metadata);
         }
 
 /*  Reject users that aren't in the allow list. No need to send them
