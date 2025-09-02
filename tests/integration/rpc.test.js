@@ -137,20 +137,22 @@ const checkUser = (args) => {
 };
 
 const checkAccess = (args) => {
-    const { network, rpc } = args;
     return new Promise((resolve, reject) => {
         connectUser(1).then(network => {
-            network.join(padId).then(wc => {
+            network.join(padId).then(() => {
                 reject('ACCESS_NOT_REJECTED');
             }).catch(e => {
+                if (e.type !== "ERESTRICTED") {
+                    console.error("UNECPECTED ERROR", e);
+                    return reject("INVALID_ERROR");
+                }
                 resolve(args);
             });
         }).catch(reject);
     });
 };
 
-const checkHistoryAccess = (args) => {
-    const { network, rpc } = args;
+const checkHistoryAccess = () => {
     const txid = Crypto.randomBytes(4).toString('hex');
     return new Promise((resolve, reject) => {
         connectUser(2).then(network => {
@@ -160,6 +162,10 @@ const checkHistoryAccess = (args) => {
             network.sendto(hk, JSON.stringify(msg)).then(() => {
                 reject('HISTORY_NOT_REJECTED');
             }).catch(e => {
+                if (e.type !== "ERESTRICTED") {
+                    console.error("UNECPECTED ERROR", e);
+                    return reject("INVALID_ERROR");
+                }
                 resolve();
             });
         }).catch(reject);
