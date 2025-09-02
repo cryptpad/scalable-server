@@ -39,6 +39,7 @@ const connectUser = index => {
     return Netflux.connect('', f);
 };
 
+const Env = {};
 
 const getKeys = () => {
     const kp = Nacl.sign.keyPair();
@@ -54,12 +55,32 @@ const sendMsg = wc => {
     const msg = `test-${rdm}`;
     return wc.bcast(msg);
 };
+
 const initPad = (network) => {
+    const txid = Crypto.randomBytes(4).toString('hex');
+    const {edPrivate, edPublic} = getKeys();
+    Env.keys = { edPublic, edPrivate };
     return new Promise((resolve, reject) => {
+        network.on('message', (msg, sender) => {
+            if (!Env.wc) { return; }
+            const parsed = JSON.parse(msg);
+            if (sender !== hk) { return; }
+            if (parsed?.state === 1 && parsed?.channel === padId) {
+                sendMsg(Env.wc).then(() => {
+                    resolve({network});
+                }).catch(reject);
+            }
+        });
         network.join(padId).then(wc => {
-            return sendMsg(wc);
-        }).then(() => {
-            resolve({network});
+            Env.wc = wc;
+            const msg = ['GET_HISTORY', padId, {
+                txid, metadata: {
+                    owners: [Env.keys.edPublic],
+                    restricted: true,
+                    allowed: []
+                }
+            }];
+            network.sendto(hk, JSON.stringify(msg));
         }).catch(e => {
             reject(e);
         });
@@ -83,7 +104,7 @@ const checkAnon = (args) => {
         rpc.send("GET_FILE_SIZE", padId, (e, data) => {
             if (e) { return void reject(e); }
             const size = data[0];
-            if (size !== 198) {
+            if (size !== 358) { // metadata + data
                 reject('INVALID_SIZE');
             }
             resolve({network});
@@ -94,10 +115,10 @@ const checkAnon = (args) => {
 const createUser = (args) => {
     const { network } = args;
     return new Promise((resolve, reject) => {
-        const {edPrivate, edPublic} = getKeys();
         let t = setTimeout(() => {
             reject('USER_RPC_TIMEOUT');
         }, 5000);
+        const {edPrivate, edPublic} = Env.keys;
         Rpc.create(network, edPrivate, edPublic, (e, rpc) => {
             clearTimeout(t);
             if (e) { return reject(e); }
@@ -106,12 +127,25 @@ const createUser = (args) => {
     });
 };
 
-const checkUser = (/*args*/) => {
+const checkUser = (args) => {
     //const {rpc, network} = args;
     return new Promise((resolve) => {
         // XXX later: check user commands
         // But COOKIE has already been tested while initializing RPC
-        resolve();
+        resolve(args);
+    });
+};
+
+const checkAccess = (args) => {
+    const { network, rpc } = args;
+    return new Promise((resolve, reject) => {
+        connectUser(1).then(network => {
+            network.join(padId).then(wc => {
+                reject('ACCESS_NOT_REJECTED');
+            }).catch(e => {
+                resolve();
+            });
+        }).catch(reject);
     });
 };
 
@@ -123,6 +157,7 @@ const initUser = () => {
         .then(checkAnon)
         .then(createUser)
         .then(checkUser)
+        .then(checkAccess)
         .then(() => {
             resolve();
         }).catch(e => {
