@@ -126,7 +126,17 @@ HK.trimOffsetByOrder = function (map, n) {
     }
 };
 
-// TODO: check
-HK.getNetfluxSession = function (Env, netfluxId) {
-    return Env.netfluxUsers[netfluxId];
+HK.listAllowedUsers = metadata => {
+    return (metadata.owners || []).concat((metadata.allowed || []));
 };
+
+HK.isUserSessionAllowed = (allowed, sessions) => {
+    if (!sessions) { return false; }
+    for (var unsafeKey in sessions) {
+        if (allowed.includes(unsafeKey)) {
+            return true;
+        }
+    }
+    return false;
+};
+

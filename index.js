@@ -43,6 +43,9 @@ const startNode = (type, index, forking, cb) => {
         nodeProcess.on('message', (message) => {
             if (message.msg === 'READY') {
                 Log.info(`Started: ${type}:${message.index}`);
+                if (message.dev) {
+                    Log.info('DEV mode enabled');
+                }
                 cb();
             }
         });
@@ -58,6 +61,7 @@ const coresReady = () => {
     infraConfig?.storage?.forEach((_, index) => {
         startNode('storage', index, true);
     });
+    startNode('http', 0, true);
 };
 
 const startCores = () => {

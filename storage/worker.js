@@ -3,6 +3,7 @@
 const Util = require("../common/common-util");
 const Constants = require("../common/constants");
 const Logger = require("../common/logger");
+const Core = require("../common/core");
 const File = require("./storage/file.js");
 const Tasks = require("./storage/tasks.js");
 
@@ -353,6 +354,32 @@ const getOlderHistory = function (data, cb) {
     });
 };
 
+const getFileSize = (data, cb) => {
+    const { channel } = data;
+    if (!Core.isValidId(channel)) { return void cb('INVALID_CHAN'); }
+    if (channel.length === Constants.STANDARD_CHANNEL_LENGTH ||
+        channel.length === Constants.ADMIN_CHANNEL_LENGTH) {
+        return Env.store.getChannelSize(channel, (e, size) => {
+            if (e) {
+                if (e.code === 'ENOENT') {
+                    return void cb(void 0, 0);
+                }
+                return void cb(e.code);
+            }
+            cb(void 0, size);
+        });
+    }
+
+    // 'channel' refers to a file, so you need another API
+    // XXX blobs, blobStore
+    /*
+    blobStore.size(channel, function (e, size) {
+        if (typeof(size) === 'undefined') { return void cb(e); }
+        cb(void 0, size);
+    });
+    */
+};
+
 const runTasks = (data, cb) => {
     Env.tasks.runAll(cb);
 };
@@ -361,13 +388,14 @@ const writeTask = (data, cb) => {
     Env.tasks.write(data.time, data.task_command, data.args, cb);
 };
 
-
-
 const COMMANDS = {
     COMPUTE_INDEX: computeIndex,
     COMPUTE_METADATA: computeMetadata,
     GET_HASH_OFFSET: getHashOffset,
     GET_OLDER_HISTORY: getOlderHistory,
+
+    GET_FILE_SIZE: getFileSize,
+
     RUN_TASKS: runTasks,
     WRITE_TASK: writeTask
 };

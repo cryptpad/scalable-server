@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 var Meta = module.exports;
-var Core = require("./commands/core");
+var Core = require("../common/core");
 
 var deduplicate = require("./common-util").deduplicateString;
 

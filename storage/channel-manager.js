@@ -170,7 +170,11 @@ const create = (Env) => {
                 // expiring channel nor can we possibly validate it
                 if (!_metadata) { return; }
                 metadata = _metadata;
-                // TODO: expiry verification // XXX
+
+                if (HistoryManager.checkExpired(Env, channel)) {
+                    cb('EEXPIRED');
+                    return void w.abort();
+                }
             }));
         }).nThen(function(w) {
             // Add a validation queue to make sure the messages are stored

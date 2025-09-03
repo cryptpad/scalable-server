@@ -167,6 +167,58 @@ const sendMsg = (Env, user, msg) => {
     });
 };
 
+const handleRPC = (Env, seq, message, user) => {
+    const [txid, data] = message;
+    const userId = user.id;
+
+    sendMsg(Env, user, [seq, 'ACK']);
+
+    const onError = (err) => {
+        const msg = JSON.stringify([txid, 'ERROR', err]);
+        sendMsg(Env, user, [0, hkId, 'MSG', user.id, msg]);
+    };
+
+    if (!Array.isArray(data)) {
+        return void onError('INVALID_ARG_FORMAT');
+    }
+
+    if (!data.length) {
+        return void onError("INSUFFICIENT_ARGS");
+    }
+
+    let target;
+    let query;
+    if (data.length === 2) {
+        // Anon RPC
+        target = userId;
+        query = "ANON_RPC";
+    } else if (data.length === 5) {
+        // Authenticated RPC
+        target = data[1]; // edPublic
+        query = "AUTH_RPC";
+    }
+
+    if (!target) {
+        return onError('INVALID_ARG_FORMAT');
+    }
+
+    let coreId = getCoreId(Env, target);
+
+    Env.interface.sendQuery(coreId, query, {
+        userId, txid, data
+    }, answer => {
+        let message = answer?.data;
+        let error = answer?.error;
+
+        if (error) {
+            return void onError(error);
+        }
+
+        const msg = JSON.stringify([txid].concat(message));
+        sendMsg(Env, user, [0, hkId, 'MSG', user.id, msg]);
+    });
+};
+
 const onHKMessage = (Env, seq, user, json) => {
     let parsed = Util.tryParse(json[2]);
     if (!parsed) {
@@ -176,33 +228,25 @@ const onHKMessage = (Env, seq, user, json) => {
 
     const first = parsed[0];
 
+    const userId = user.id;
+
     if (!historyCommands.includes(first)) {
         // it's either an unsupported command or an RPC call
         // TODO: to handle
-        Env.Log.error('NOT_IMPLEMENTED', first);
-        throw new Error("TODO RPC");
+        return void handleRPC(Env, seq, parsed, user);
     }
 
     const channel = parsed[1];
-    const userId = user.id;
 
     let coreId = getCoreId(Env, channel);
     Env.interface.sendQuery(coreId, first, {
         seq, userId, parsed, channel
     }, answer => {
-        let message = answer.data.message;
+        let message = answer.data?.message || answer?.data;
         let error = answer.error;
 
         if (error || !Array.isArray(message)) { return; }
         sendMsg(Env, user, message);
-
-        // TODO: sanity check on toSend
-        // TODO: to batch
-        /*
-        toSend.forEach(function(message) {
-            sendMsg(Env, user, message);
-        });
-        */
     });
 };
 const handleChannelMessage = (Env, channel, msgStruct, cb) => {

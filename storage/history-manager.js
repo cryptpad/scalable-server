@@ -189,7 +189,7 @@ const expireChannel = (Env, channel) => {
         });
     });
 };
-const checkExpired = (Env, channel) => {
+const checkExpired = HistoryManager.checkExpired = (Env, channel) => {
     const metadata_cache = Env.metadata_cache;
 
     if (!(channel && channel.length === STANDARD_CHANNEL_LENGTH)) {
@@ -222,9 +222,54 @@ const checkExpired = (Env, channel) => {
     return true;
 };
 
+const checkHistoryRights = (Env, channel, sessions, _cb) => {
+    const cb = Util.mkAsync(_cb);
+    /*  fetch the channel's metadata.
+        use it to check if the channel has expired.
+        send it to the client if it exists.
+    */
+    getMetadata(Env, channel, (err, metadata) => {
+        if (err) {
+            Env.Log.error('HK_HISTORY_METADATA', {
+                channel: channel,
+                error: err,
+            });
+            return void cb();
+        }
+
+        // No metadata? no need to check if has expired
+        // and nothing to send
+        if (!metadata?.channel) { return void cb(); }
+
+        // Expired? abort
+        // NOTE: checkExpired has side effects (bcast, archive)
+        if (checkExpired(Env, channel)) {
+            waitFor.abort();
+            return void cb('EXPIRED');
+        }
+
+        if (!metadata.restricted) {
+            return void cb(void 0, metadata);
+        }
+
+        // check if the user is in the allow list...
+        const allowed = HKUtil.listAllowedUsers(metadata);
+
+        if (HKUtil.isUserSessionAllowed(allowed, sessions)) {
+            return void cb(void 0, metadata);
+        }
+
+/*  Reject users that aren't in the allow list. No need to send them
+the list because this isn't a JOIN command. The client doesn't
+handle yet re-authentication with a new key for history commands.
+*/
+        return void cb('ERESTRICTED');
+    });
+};
+
 HistoryManager.onGetHistory = (Env, args, sendMessage, _cb) => {
     const cb = Util.once(_cb);
-    const { seq, userId, parsed } = args;
+    const { seq, userId, parsed, sessions } = args;
     const metadata_cache = Env.metadata_cache;
     const Log = Env.Log;
 
@@ -256,34 +301,30 @@ HistoryManager.onGetHistory = (Env, args, sendMessage, _cb) => {
         cb(void 0, [seq, 'ERROR', 'HK_INVALID_KEY']);
         return void Log.error('HK_INVALID_KEY', metadata.validateKey);
     }
-    cb(void 0, [seq, 'ACK']);
 
     nThen(function (waitFor) {
-        /*  fetch the channel's metadata.
-            use it to check if the channel has expired.
-            send it to the client if it exists.
-        */
-        getMetadata(Env, channel, waitFor((err, metadata) => {
-            if (err) {
-                return void Log.error('HK_GET_HISTORY_METADATA', {
-                    channel: channel,
-                    error: err,
-                });
-            }
-
-            // No metadata? no need to check if has expired
-            // and nothing to send
-            if (!metadata?.channel) { return; }
-
-            // Expired? abort
-            // NOTE: checkExpired has side effects (bcast, archive)
-            if (checkExpired(Env, channel)) {
+        const todo = (err, _metadata) => {
+            if (err === 'EXPIRED') {
                 return void waitFor.abort();
             }
+            if (err) { // probably restricted: reject
+                waitFor.abort();
+                return void cb(void 0, [ seq, 'ERROR', err, hkId ]);
+            }
+            if (!_metadata) { return; } // New pad, don't overwrite metadata
+            metadata = _metadata;
+        };
 
-            // Send metadata as first HISTORY message
-            sendMessage([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(metadata), priority], waitFor());
-        }));
+        checkHistoryRights(Env, channel, sessions, waitFor(todo));
+    }).nThen(waitFor => {
+        // Not expired nor restricted, we can send the ack
+        cb(void 0, [seq, 'ACK']);
+
+        // Send metadata as first HISTORY message and wait
+        setTimeout(() => {
+            sendMessage([0, HISTORY_KEEPER_ID, 'MSG', userId,
+                JSON.stringify(metadata), priority], waitFor());
+        });
     }).nThen(() => {
         let msgCount = 0;
 
@@ -359,7 +400,7 @@ HistoryManager.onGetHistory = (Env, args, sendMessage, _cb) => {
     });
 };
 
-HistoryManager.onGetHistoryRange = (Env, args, sendMessage, _cb) => {
+const onGetHistoryRange = (Env, args, sendMessage, _cb) => {
     const cb = Util.once(_cb);
     const { seq, userId, parsed } = args;
     const Log = Env.Log;
@@ -441,8 +482,22 @@ HistoryManager.onGetHistoryRange = (Env, args, sendMessage, _cb) => {
         sendMessage([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(['HISTORY_RANGE_END', txid, channel]) ]);
     });
 };
+HistoryManager.onGetHistoryRange = (Env, args, sendMessage, cb) => {
+    const { seq, parsed, sessions } = args;
+    const channel = parsed[1];
 
-HistoryManager.onGetFullHistory = (Env, args, sendMessage, _cb) => {
+    const todo = (err) => {
+        if (err === 'EXPIRED') { return; }
+        if (err) { // restricted: reject
+            return void cb(void 0, [ seq, 'ERROR', err, hkId ]);
+        }
+        onGetHistoryRange(Env, args, sendMessage, cb);
+    };
+
+    checkHistoryRights(Env, channel, sessions, todo);
+};
+
+const onGetFullHistory = (Env, args, sendMessage, _cb) => {
     const cb = Util.once(_cb);
     const { seq, userId, parsed } = args;
     const Log = Env.Log;
@@ -463,6 +518,20 @@ HistoryManager.onGetFullHistory = (Env, args, sendMessage, _cb) => {
         }
         sendMessage([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(parsedMsg)]);
     });
+};
+HistoryManager.onGetFullHistory = (Env, args, sendMessage, cb) => {
+    const { seq, parsed, sessions } = args;
+    const channel = parsed[1];
+
+    const todo = (err) => {
+        if (err === 'EXPIRED') { return; }
+        if (err) { // restricted
+            return void cb(void 0, [ seq, 'ERROR', err, hkId ]);
+        }
+        onGetFullHistory(Env, args, sendMessage, cb);
+    };
+
+    checkHistoryRights(Env, channel, sessions, todo);
 };
 
 module.exports = HistoryManager;

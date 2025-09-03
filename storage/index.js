@@ -9,6 +9,7 @@ const Path = require("node:path");
 
 const HistoryManager = require("./history-manager.js");
 const ChannelManager = require("./channel-manager.js");
+const HKUtil = require("./hk-util.js");
 
 const Interface = require("../common/interface.js");
 const WSConnector = require("../common/ws-connector.js");
@@ -123,16 +124,13 @@ const getHistoryHandler = f => {
     };
 };
 
-const getMetaDataHandler = (args, cb) => {
-    HistoryManager.getMetadata(Env, args.channel, cb);
-};
-
 const onChannelMessageHandler = (args, cb) => {
     Env.CM.onChannelMessage(args, cb);
 };
 
+// TODO: move to channel-manager
 const joinChannelHandler = (args, cb) => {
-    const { channel, userId } = args;
+    const { channel, userId, sessions } = args;
 
     const channelData = Env.channel_cache[channel] ||= {
         users: []
@@ -165,8 +163,24 @@ const joinChannelHandler = (args, cb) => {
             return void cb(void 0, _users);
         }
 
-        // XXX channel is restricted
-        throw new Error('NOT IMPLEMENTED');
+        // this channel is restricted. verify that the user in
+        // question is in the allow list
+
+        const allowed = HKUtil.listAllowedUsers(metadata);
+
+        if (HKUtil.isUserSessionAllowed(allowed, sessions)) {
+            return void cb();
+        }
+
+        // If the channel is restricted, send the history keeper ID
+        // so that they can try to authenticate
+        allowed.unshift(hkId);
+
+        // otherwise they're not allowed.
+        // respond with a special error that includes the list of keys
+        // which would be allowed...
+        // FIXME RESTRICT bonus points if you hash the keys to limit data exposure
+        cb("ERESTRICTED", allowed);
     });
 };
 const leaveChannelHandler = (args, cb) => {
@@ -208,18 +222,25 @@ const dropUserHandler = (args) => {
     });
 };
 
+/* RPC commands */
+
+const getFileSizeHandler = (channel, cb) => {
+    Env.worker.getFileSize(channel, cb);
+};
+
 /* Start of the node */
 
 // List accepted commands
 let COMMANDS = {
     'JOIN_CHANNEL': joinChannelHandler,
     'LEAVE_CHANNEL': leaveChannelHandler,
-    'GET_METADATA': getMetaDataHandler,
     'GET_HISTORY': getHistoryHandler(HistoryManager.onGetHistory),
     'GET_FULL_HISTORY': getHistoryHandler(HistoryManager.onGetFullHistory),
     'GET_HISTORY_RANGE': getHistoryHandler(HistoryManager.onGetHistoryRange),
     'CHANNEL_MESSAGE': onChannelMessageHandler,
     'DROP_USER': dropUserHandler,
+
+    'RPC_GET_FILE_SIZE': getFileSizeHandler,
 };
 
 const initWorkerCommands = () => {
@@ -252,6 +273,16 @@ const initWorkerCommands = () => {
             }, Util.both(next, cb));
         });
     };
+
+    // RPC
+    Env.worker.getFileSize = (channel, cb) => {
+        Env.workers.send('GET_FILE_SIZE', {
+            channel
+        }, cb);
+    };
+
+
+    // Tasks
     Env.worker.runTasks = (cb) => {
         // time out after 10 minutes
         Env.workers.send('RUN_TASKS', {}, cb, 1000 * 60 * 10);
