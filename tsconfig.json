@@ -6,6 +6,6 @@
         "moduleResolution": "node",
         "outDir": "./build"
     },
-    "include": ["core/**/*", "websocket/**/*", "storage/**/*", "common/**/*"]
+    "include": ["core/**/*", "websocket/**/*", "storage/**/*", "common/**/*", "http-server/**/*"]
 }
 

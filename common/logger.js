@@ -7,7 +7,8 @@ const Logger = (toLog = [], verbose) => {
             verbose: verbose ? console.info : noop,
             error: console.error,
             warn: console.warn,
-            debug: console.debug
+            debug: console.debug,
+            feedback: console.log
         };
     }
 
@@ -17,6 +18,7 @@ const Logger = (toLog = [], verbose) => {
         error: toLog.includes('error') ? console.error : noop,
         warn: toLog.includes('warn') ? console.warn : noop,
         debug: toLog.includes('debug') ? console.debug : noop,
+        feedback: toLog.includes('feedback') ? console.log : noop,
     };
 };
 

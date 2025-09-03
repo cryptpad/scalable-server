@@ -4,8 +4,10 @@
   "version": "0.0.1",
   "license": "AGPL-3.0+",
   "dependencies": {
+    "connect-gzip-static": "^4.2.1",
     "express": "~4.21.2",
     "fs-extra": "^7.0.0",
+    "http-proxy-middleware": "^3.0.3",
     "minimist": "^1.2.8",
     "nthen": "0.1.8",
     "pull-stream": "^3.6.1",
@@ -40,7 +42,9 @@
     "build:ws": "TYPE=ws rollup -c",
     "build:core": "TYPE=core rollup -c",
     "build:storage": "TYPE=storage rollup -c",
+    "build:http": "TYPE=http rollup -c",
     "tests": "node --test tests/",
-    "start": "node index.js"
+    "start": "node index.js",
+    "dev": "DEV=1 node index.js"
   }
 }

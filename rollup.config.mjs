@@ -92,5 +92,17 @@ if (!type || type === "storage") {
         plugins: getPlugins()
     });
 }
+if (!type || type === "http") {
+    list.push({
+        input: "./http-server/http-server.ts",
+        output: [{
+            name: 'cryptpad-http-server',
+            file: "./build/http.js",
+            format: "cjs",
+            plugins: [ getTerser() ]
+        }],
+        plugins: getPlugins()
+    });
+}
 
 export default list;

@@ -13,18 +13,19 @@ const Crypto = require('node:crypto');
 const WebSocket = require("ws");
 const Netflux = require("netflux-websocket");
 
-const infra = require('../../config/infra.json');
+//const infra = require('../../config/infra.json');
 const config = require('../../config/config.json');
 
 const nbUsers = 5;
 const users = {};
 
-const wss = infra.websocket;
-const wsCfg = config?.public?.websocket;
-
 const padId = Crypto.randomBytes(16).toString('hex');
 
 const hk = '0123456789abcdef';
+
+/*
+const wss = infra.websocket;
+const wsCfg = config?.public?.websocket;
 
 const getWsURL = (index) => {
     // Index inside infra array
@@ -39,6 +40,19 @@ const getWsURL = (index) => {
         wsUrl.protocol = ws.protocol || 'ws:';
     } else {
         wsUrl.href = ws.href;
+    }
+    return wsUrl.href;
+};
+*/
+
+const mainCfg = config?.public?.main;
+const getWsURL = () => {
+    const wsUrl = new URL('ws://localhost:3000/cryptpad_websocket');
+    if (mainCfg.origin) {
+        let url = new URL(mainCfg.origin);
+        wsUrl.hostname = url.hostname;
+        wsUrl.port = url.port;
+        wsUrl.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
     }
     return wsUrl.href;
 };
