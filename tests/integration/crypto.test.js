@@ -185,7 +185,7 @@ const checkHistory = () => {
                 resolve();
             }
             if (!Array.isArray(parsed) || parsed[3] !== padId) { return; }
-            if (Crypto.sigVerify(NaClUtil.decodeBase64(parsed[4]), validateKey) === null) { return reject('EINVALIDSIG'); }
+            if (Crypto.sigVerify(NaClUtil.decodeBase64(parsed[4]), validateKey) === null) { return void reject('EINVALIDSIG'); }
             hist.push(parsed[4]);
         };
 
