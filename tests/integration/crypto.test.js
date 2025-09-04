@@ -27,7 +27,7 @@ let padId = "";
 
 const hk = '0123456789abcdef';
 let secret = {};
-let hash_prefix = NodeCrypto.randomBytes(12).toString('base64').replace('/', '-').slice(0,14);
+let hash_prefix = NodeCrypto.randomBytes(12).toString('base64').replace('/', '-').slice(0, 14);
 let hash = "/2/undefined/edit/" + hash_prefix; // missing 10 characters
 
 const mainCfg = config?.public?.main;
@@ -52,7 +52,7 @@ const connectUser = index => {
 const startUsers = () => {
     return new Promise((resolve, reject) => {
         const all = [];
-        for (let i=0; i<nbUsers; i++) {
+        for (let i = 0; i < nbUsers; i++) {
             all.push(connectUser(i));
         }
         Promise.all(all).then(values => {
@@ -76,7 +76,7 @@ let makeHash = (id) => {
     let l = String(id).length;
     let add = 10 - l;
     let str = String(id);
-    for(let i=0; i<add; i++) {
+    for (let i = 0; i < add; i++) {
         str = 'x' + str;
     }
     let _hash = hash + str + '/';
@@ -92,13 +92,13 @@ let signMsg = (isCp, secret) => {
     Sodium.crypto_sign(signed8, msg8, signKey);
     let signed = NaClUtil.encodeBase64(signed8);
     if (!isCp) { return signed; }
-    let id = msg.slice(0,8);
+    let id = msg.slice(0, 8);
     return `cp|${id}|${signed}`;
 };
 
 const joinPad = () => {
     let res, rej;
-    const prom  = new Promise((resolve, reject) => {
+    const prom = new Promise((resolve, reject) => {
         res = resolve;
         rej = reject;
     });
@@ -107,7 +107,7 @@ const joinPad = () => {
     secret = Hash.getSecrets('pad', hash);
     padId = secret.channel;
 
-    const all = Object.values(users).map(({network}) => {
+    const all = Object.values(users).map(({ network }) => {
         return network.join(secret.channel);
     });
 
@@ -170,7 +170,7 @@ const checkHistory = () => {
         const txid = NodeCrypto.randomBytes(4).toString('hex');
 
         const expected = messages.slice(startHistIdx).map(obj => obj.msg);
-        const lastKnownHash = expected[0].slice(0,64);
+        const lastKnownHash = expected[0].slice(0, 64);
 
         const hist = [];
         const validateKey = NaClUtil.decodeBase64(secret?.keys?.validateKey);
@@ -191,19 +191,19 @@ const checkHistory = () => {
 
         let network;
         connectUser(nbUsers)
-        .then(_network => {
-            network = _network;
-            _network.on('message', onMessage);
-            return _network.join(padId);
-        }).then(() => {
-            const msg = ['GET_HISTORY', padId, {
-                txid, lastKnownHash
-            }];
-            network.sendto(hk, JSON.stringify(msg));
-        }).catch(e => {
-            console.error(e);
-            reject(e);
-        });
+            .then(_network => {
+                network = _network;
+                _network.on('message', onMessage);
+                return _network.join(padId);
+            }).then(() => {
+                const msg = ['GET_HISTORY', padId, {
+                    txid, lastKnownHash
+                }];
+                network.sendto(hk, JSON.stringify(msg));
+            }).catch(e => {
+                console.error(e);
+                reject(e);
+            });
     });
 };
 
@@ -232,19 +232,19 @@ const checkFullHistory = () => {
 
         let network;
         connectUser(nbUsers)
-        .then(_network => {
-            network = _network;
-            _network.on('message', onMessage);
-            return _network.join(padId);
-        }).then(() => {
-            const msg = ['GET_FULL_HISTORY', padId, {
-                txid
-            }];
-            network.sendto(hk, JSON.stringify(msg));
-        }).catch(e => {
-            console.error(e);
-            reject(e);
-        });
+            .then(_network => {
+                network = _network;
+                _network.on('message', onMessage);
+                return _network.join(padId);
+            }).then(() => {
+                const msg = ['GET_FULL_HISTORY', padId, {
+                    txid
+                }];
+                network.sendto(hk, JSON.stringify(msg));
+            }).catch(e => {
+                console.error(e);
+                reject(e);
+            });
     });
 };
 
@@ -256,8 +256,8 @@ const checkHistoryRange = () => {
         const txid = NodeCrypto.randomBytes(4).toString('hex');
 
         const expected = messages.slice(startHistIdx, endHistIdx).map(obj => obj.msg);
-        const to = expected[0].slice(0,64);
-        const from = expected.at(-1).slice(0,64);
+        const to = expected[0].slice(0, 64);
+        const from = expected.at(-1).slice(0, 64);
 
         const hist = [];
         const validateKey = NaClUtil.decodeBase64(secret?.keys?.validateKey);
@@ -278,19 +278,19 @@ const checkHistoryRange = () => {
 
         let network;
         connectUser(nbUsers)
-        .then(_network => {
-            network = _network;
-            _network.on('message', onMessage);
-            return _network.join(padId);
-        }).then(() => {
-            const msg = ['GET_HISTORY_RANGE', padId, {
-                txid, to, from, count: 4
-            }];
-            network.sendto(hk, JSON.stringify(msg));
-        }).catch(e => {
-            console.error(e);
-            reject(e);
-        });
+            .then(_network => {
+                network = _network;
+                _network.on('message', onMessage);
+                return _network.join(padId);
+            }).then(() => {
+                const msg = ['GET_HISTORY_RANGE', padId, {
+                    txid, to, from, count: 4
+                }];
+                network.sendto(hk, JSON.stringify(msg));
+            }).catch(e => {
+                console.error(e);
+                reject(e);
+            });
     });
 };
 
@@ -298,7 +298,7 @@ const checkUsers = () => {
     return new Promise((resolve, reject) => {
         Object.values(users).every(user => {
             const lag = user?.network?.getLag?.();
-            if (typeof(lag) !== "number") {
+            if (typeof (lag) !== "number") {
                 // reject if one user doesn't have a valid network;
                 return void reject(new Error("CHECK_USERS_EINVAL"));
             }
@@ -364,18 +364,18 @@ const checkMessages = () => {
 };
 
 startUsers()
-.then(checkUsers)
-.then(joinPad)
-.then(checkPad)
-.then(sendMessages)
-.then(checkMessages)
-.then(checkHistory)
-.then(checkFullHistory)
-.then(checkHistoryRange)
-.then(() => {
-    console.log('All pads tests passed!');
-    process.exit(0);
-}).catch(e => {
-    console.error(e);
-    process.exit(1);
-});
+    .then(checkUsers)
+    .then(joinPad)
+    .then(checkPad)
+    .then(sendMessages)
+    .then(checkMessages)
+    .then(checkHistory)
+    .then(checkFullHistory)
+    .then(checkHistoryRange)
+    .then(() => {
+        console.log('All pads tests passed!');
+        process.exit(0);
+    }).catch(e => {
+        console.error(e);
+        process.exit(1);
+    });
