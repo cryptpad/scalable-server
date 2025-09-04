@@ -17,7 +17,8 @@ Constants.paths = {
     base: './data/',
     channel: 'channel/',
     archive: 'archive/',
-    tasks: 'tasks/'
+    tasks: 'tasks/',
+    challenges: 'challenges/'
 };
 
 module.exports = Constants;

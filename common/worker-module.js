@@ -13,7 +13,7 @@ const {
 */
 const OS = require("node:os");
 
-const { fork } = require('node:child_process');
+let { fork } = require('node:child_process');
 
 const DEFAULT_QUERY_TIMEOUT = 60000 * 15;
 const WORKER_TASK_LIMIT = 250000;
@@ -29,8 +29,12 @@ const init = workerConfig => {
     const { Log, workerPath,
             maxWorkers, maxJobs,
             commandTimers,
-            config, Env } = workerConfig;
+            config, Env,
+            customFork, noTaskLimit } = workerConfig;
+    const handlers = {};
     const PID = process.pid;
+
+    if (customFork) { fork = customFork; }
 
     const limit = typeof(maxWorkers) === "number" ?
                     maxWorkers : OS.cpus().length;
@@ -177,7 +181,7 @@ const init = workerConfig => {
 
         // Check if we need to rotate the worker
         state.count++;
-        if (state.count > WORKER_TASK_LIMIT) {
+        if (!noTaskLimit && state.count > WORKER_TASK_LIMIT) {
             // Remove from list and spawn new one
             if (state.replaceWorker) { state.replaceWorker(); }
         }
@@ -200,6 +204,23 @@ const init = workerConfig => {
         }
 
         if (!res.txid) { return; }
+
+        // Command received from the worker
+        if (res.cmd && !response.expected(res.txid)) {
+            if (!Array.isArray(handlers[res.cmd])) { return; }
+            handlers[res.cmd].forEach(handler => {
+                handler(res.data, (err, data) => {
+                    state.send({
+                        pid: PID,
+                        txid: res.txid,
+                        error: err,
+                        response: data
+                    });
+                });
+            });
+            return;
+        }
+
         response.handle(res.txid, [res.error, res.value]);
         delete state.tasks[res.txid];
         state.checkTasks();
@@ -375,6 +396,13 @@ const init = workerConfig => {
     }
 
     return {
+        on: (cmd, handler) => {
+            if (typeof(cmd) !== "string" || typeof(handler) !== "function") {
+                Log.error("INVALID_COMMAND_HANDLER");
+            }
+            handlers[cmd] ||= [];
+            handlers[cmd].push(handler);
+        },
         send: (cmd, data, cb, timeout) => {
             let opts;
             if (timeout) {

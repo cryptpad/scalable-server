@@ -10,6 +10,8 @@ const Core = require("../common/core.js");
 const Util = require("../common/common-util.js");
 const Logger = require("../common/logger.js");
 const Rpc = require("./rpc.js");
+const AuthCommands = require("./http-commands.js");
+const Path = require('node:path');
 
 const {
     CHECKPOINT_PATTERN
@@ -389,6 +391,11 @@ const onAuthRpc = (args, cb, extra) => {
     });
 };
 
+const onHttpCommand = (args, cb, extra) => {
+    if (!isWsCmd(extra.from)) { return void cb('UNAUTHORIZED'); }
+    AuthCommands.handle(Env, args, cb);
+};
+
 const onWsCommand = command => {
     return (args, cb, extra) => {
         if (!isWsCmd(extra.from)) { return void cb('UNAUTHORIZED'); }
@@ -440,6 +447,9 @@ let startServers = function(config) {
         }
     };
 
+    const paths = Constants.paths;
+    const idx = String(index);
+    Env.challengePath = Path.join(paths.base, idx, paths.challenges);
     Env.workers = WorkerModule(workerConfig);
 
     let queriesToStorage = [];
@@ -454,6 +464,7 @@ let startServers = function(config) {
         'USER_MESSAGE': onUserMessage,
         'ANON_RPC': onAnonRpc,
         'AUTH_RPC': onAuthRpc,
+        'HTTP_COMMAND': onHttpCommand,
         'GET_HISTORY': onWsCommand('GET_HISTORY'),
         'GET_FULL_HISTORY': onWsCommand('GET_FULL_HISTORY'),
         'GET_HISTORY_RANGE': onWsCommand('GET_HISTORY_RANGE'),

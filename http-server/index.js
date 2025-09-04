@@ -1,5 +1,5 @@
 const Express = require('express');
-const Http = require('http');
+const Http = require('node:http');
 const Path = require('node:path');
 const Fs = require('node:fs');
 const Logger = require("../common/logger.js");
@@ -7,6 +7,7 @@ const Util = require("../common/common-util.js");
 const { createProxyMiddleware } = require("http-proxy-middleware");
 const Default = require("./defaults");
 const gzipStatic = require('connect-gzip-static');
+const Environment = require('../common/env.js');
 
 
 // XXX Later: use cluster to serve the static files
@@ -124,7 +125,8 @@ const initProxy = (Env, app, server, infra) => {
     });
     const httpProxy = createProxyMiddleware({
         router: req => {
-            return httpList[j++%httpList.length] + req.originalUrl.slice(1);
+            //return httpList[j++%httpList.length] + req.originalUrl.slice(1);
+            return httpList[j++%httpList.length] + req.baseUrl.slice(1);
         },
         logger: Logger(['error'])
     });
@@ -243,37 +245,14 @@ const initStatic = (Env, app) => {
     });
 };
 
-const initEnv = (Env, server) => {
-    const config = server?.options || {};
-    const publicConfig = server?.public || {};
-
-    // Origin and ports
-    Env.httpUnsafeOrigin = publicConfig?.main?.origin;
-    Env.httpSafeOrigin = publicConfig?.main?.sandboxOrigin;
-    const unsafe = new URL(Env.httpUnsafeOrigin);
-    const safe = new URL(Env.httpSafeOrigin);
-    Env.httpAddress = unsafe.hostname;
-    Env.httpPort = unsafe.port;
-    if (unsafe.port && unsafe.hostname === safe.hostname) {
-        Env.httpSafePort = safe.port;
-    }
-
-    Env.logFeedback = Boolean(config.logFeedback);
-
-    const DEV = process.env.DEV;
-    Env.DEV_MODE = String(DEV) === "1";
-
-    Env.enableEmbedding = false; // XXX decree...
-    Env.permittedEmbedders = publicConfig?.main?.sandboxOrigin;
-};
-
 const start = (config) => {
     const {server, infra} = config;
     const Env = {
         Log: Logger()
     };
 
-    initEnv(Env, server);
+    //initEnv(Env, server);
+    Environment.init(Env, config);
 
     const app = Express();
 

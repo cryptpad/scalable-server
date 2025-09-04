@@ -10,7 +10,9 @@ const Crypto = require('crypto');
 const Util = require("../common/common-util.js");
 const Constants = require("../common/constants.js");
 const Logger = require("../common/logger.js");
+const WorkerModule = require("../common/worker-module.js");
 const { jumpConsistentHash } = require('../common/consistent-hash.js');
+const Cluster = require("node:cluster");
 
 const {
     hkId,
@@ -398,6 +400,8 @@ const handleMessage = (Env, user, msg) => {
     });
 };
 
+// Respond to CORE commands
+
 const sendUserMessage = (Env, args, cb) => { // Query
     const { userId, message } = args;
     cb ||= () => {};
@@ -423,6 +427,32 @@ const sendChannelMessage = (Env, args) => { // Event
         sendMsg(Env, user, message);
     });
 };
+const shutdown = (Env) => {
+    if (!Env.wss) { return; }
+    Env.active = false;
+    Env.wss.close();
+    delete Env.wss;
+};
+
+// Respond to WORKER commands
+
+const onHttpCommand = (Env, data, cb) => {
+    // Add a txid on the initial command. This will be re-used in
+    // the client response with the signature, allowing us to send
+    // the command and the signature to the same core
+    if (!data.txid) {
+        data._txid = Crypto.randomBytes(24).toString('base64')
+                                          .replace(/\//g, '-');
+    }
+    const coreId = getCoreId(Env, data._txid || data.txid);
+    Env.interface.sendQuery(coreId, 'HTTP_COMMAND', data, answer => {
+        let response = answer?.data;
+        let error = answer?.error;
+        cb(error, response);
+    });
+};
+
+// Initialisation
 
 const initServerHandlers = (Env) => {
     if (!Env.wss) { throw new Error('No WebSocket Server'); }
@@ -477,25 +507,46 @@ const initServer = (Env) => {
         const app = Express();
         const httpServer = Http.createServer(app);
         httpServer.listen(Env.public.port, Env.public.host,() => {
-            if (process.send !== undefined) {
-                process.send({type: 'websocket', index: Env.config.index, msg: 'READY'});
-            } else {
-                Env.Log.info('websocket:' + Env.config.index + ' started');
-            }
+            Env.wss = new WebSocketServer({ server: httpServer });
+            initServerHandlers(Env);
+            resolve();
         });
-        Env.wss = new WebSocketServer({ server: httpServer });
-        initServerHandlers(Env);
-        resolve();
     });
 };
 
-const shutdown = (Env) => {
-    if (!Env.wss) { return; }
-    Env.active = false;
-    Env.wss.close();
-    delete Env.wss;
-};
+const initHttpCluster = (Env, config) => {
+    return new Promise((resolve) => {
+        Cluster.setupPrimary({
+            exec: './build/ws.worker.js',
+            args: [],
+        });
 
+        const WORKERS = 2;
+        const workerConfig = {
+            Log: Env.Log,
+            noTaskLimit: true,
+            customFork: () => {
+                return Cluster.fork({});
+            },
+            maxWorkers: WORKERS, // XXX
+            maxJobs: 10,
+            commandTimers: {}, // time spent on each command
+            config: config,
+            Env: { // Serialized Env (Environment.serialize)
+            }
+        };
+
+        let ready = 0;
+        Cluster.on('online', () => {
+            ready++;
+            if (ready === WORKERS) {
+                resolve();
+            }
+        });
+
+        Env.workers = WorkerModule(workerConfig);
+    });
+};
 
 const start = (config) => {
     const {myId, index, server, infra} = config;
@@ -527,13 +578,29 @@ const start = (config) => {
         };
     };
 
-    const COMMANDS = {
+    const CORE_COMMANDS = {
         'SEND_USER_MESSAGE': callWithEnv(sendUserMessage),
         'SEND_CHANNEL_MESSAGE': callWithEnv(sendChannelMessage),
         'SHUTDOWN': callWithEnv(shutdown)
     };
 
-    initServer(Env).then(() => {
+    const WORKER_COMMANDS = {
+        'HTTP_COMMAND': callWithEnv(onHttpCommand)
+    };
+
+    initServer(Env)
+    .then(() => {
+        return initHttpCluster(Env, config);
+    }).then(() => {
+        try {
+        Object.keys(WORKER_COMMANDS).forEach(cmd => {
+            let handler = WORKER_COMMANDS[cmd];
+            Env.workers.on(cmd, handler);
+        });
+        } catch (e) {
+            console.error(e);
+        }
+
         Interface.connect(interfaceConfig, (err, _interface) => {
             if (err) {
                 Env.Log.error(interfaceConfig.myId, ' error:', err);
@@ -541,7 +608,13 @@ const start = (config) => {
             }
             Env.Log.info('WS started', Env.myId);
             Env.interface = _interface;
-            _interface.handleCommands(COMMANDS);
+            _interface.handleCommands(CORE_COMMANDS);
+
+            if (process.send !== undefined) {
+                process.send({type: 'websocket', index: Env.config.index, msg: 'READY'});
+            } else {
+                Env.Log.info('websocket:' + Env.config.index + ' started');
+            }
         });
     }).catch((e) => { return Env.Log.error('Error:', e); });
 };
