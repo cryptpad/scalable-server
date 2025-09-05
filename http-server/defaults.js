@@ -76,23 +76,3 @@ Default.mainPages = function () {
  *  package manager, which usually provides a very outdated version
  */
 Default.recommendedVersion = [16,14,2];
-
-/*  By default the CryptPad server will run scheduled tasks every five minutes
- *  If you want to run scheduled tasks in a separate process (like a crontab)
- *  you can disable this behaviour by setting the following value to true
- */
-     //disableIntegratedTasks: false,
-
-    /*  CryptPad's file storage adaptor closes unused files after a configurable
-     *  number of milliseconds (default 30000 (30 seconds))
-     */
-//    channelExpirationMs: 30000,
-
-    /*  CryptPad's file storage adaptor is limited by the number of open files.
-     *  When the adaptor reaches openFileLimit, it will clean up older files
-     */
-    //openFileLimit: 2048,
-
-
-
-

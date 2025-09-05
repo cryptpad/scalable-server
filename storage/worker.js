@@ -7,14 +7,12 @@ const Core = require("../common/core");
 const File = require("./storage/file.js");
 const Tasks = require("./storage/tasks.js");
 
-const Path = require("node:path");
 const nThen = require("nthen");
 
 const HKUtil = require("./hk-util.js");
 const Meta = require('./metadata');
 
 const Env = {
-    paths: Constants.paths,
     Log: Logger()
 };
 
@@ -23,15 +21,12 @@ const {
 } = Constants;
 
 const init = (config, cb) => {
-    const paths = Env.paths;
-    const idx = String(config?.index);
-    const filePath = Path.join(paths.base, idx, paths.channel);
-    const archivePath = Path.join(paths.base, idx, paths.archive);
-    const taskPath = Path.join(paths.base, idx, paths.tasks);
+    const {
+        filePath, archivePath, taskPath
+    } = Core.getPaths(config);
     nThen(waitFor => {
         File.create({
-            filePath,
-            archivePath,
+            filePath, archivePath,
             volumeId: 'channel'
         }, waitFor((err, store) => {
             if (err) {
@@ -43,7 +38,7 @@ const init = (config, cb) => {
     }).nThen(waitFor => {
         Tasks.create({
             log: Env.Log,
-            taskPath: taskPath,
+            taskPath,
             store: Env.store,
         }, waitFor((err, tasks) => {
             if (err) {

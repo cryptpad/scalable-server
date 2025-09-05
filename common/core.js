@@ -6,6 +6,7 @@ const Core = module.exports;
 const Util = require("./common-util");
 const Constants = require("./constants");
 const escapeKeyCharacters = Util.escapeKeyCharacters;
+const Path = require('node:path');
 //const { fork } = require('child_process');
 
 Core.DEFAULT_LIMIT = 50 * 1024 * 1024;
@@ -156,5 +157,38 @@ Core.isPendingOwner = function (metadata, unsafeKey) {
 
 Core.haveACookie = function (Env, safeKey, cb) {
     cb();
+};
+
+Core.getPaths = (config, isEnv) => {
+    const { index } = config;
+    const paths = Constants.paths; // XXX use config
+
+    const idx = String(index);
+    const all = {
+        basePath: Path.join(paths.base, idx),
+        filePath: Path.join(paths.base, idx, paths.channel),
+        blobPath: Path.join(paths.base, idx, paths.blob),
+        blobStagingPath: Path.join(paths.base, idx, paths.blobstage),
+        blockPath: Path.join(paths.base, idx, paths.block),
+        archivePath: Path.join(paths.base, idx, paths.archive),
+        taskPath: Path.join(paths.base, idx, paths.tasks),
+        challengePath: Path.join(paths.base, idx, paths.challenges)
+    };
+    if (!isEnv) { return all; }
+
+    // In Env, we use different keys
+    return {
+        channel: all.filePath,
+        data: all.filePath,
+        blob: all.blobPath,
+        block: all.blockPath,
+        staging: all.blobStagingPath,
+        pin: all.pinPath,
+        decree: all.decreePath,
+        base: all.basePath,
+        archive: all.archivePath,
+        task: all.taskPath
+    };
+
 };
 

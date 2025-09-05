@@ -11,7 +11,6 @@ const Util = require("../common/common-util.js");
 const Logger = require("../common/logger.js");
 const Rpc = require("./rpc.js");
 const AuthCommands = require("./http-commands.js");
-const Path = require('node:path');
 
 const {
     CHECKPOINT_PATTERN
@@ -161,6 +160,9 @@ const dropUser = (args, _cb, extra) => {
 
     const { channels, userId } = args;
     if (!userId || !Array.isArray(channels)) { return; }
+
+    const user = Env.userCache[userId] ||= {};
+    args.sessions = user.sessions;
 
     const sent = [];
     channels.forEach(channel => {
@@ -447,9 +449,8 @@ let startServers = function(config) {
         }
     };
 
-    const paths = Constants.paths;
-    const idx = String(index);
-    Env.challengePath = Path.join(paths.base, idx, paths.challenges);
+    const { challengePath } = Core.getPaths(config);
+    Env.challengePath = challengePath;
     Env.workers = WorkerModule(workerConfig);
 
     let queriesToStorage = [];

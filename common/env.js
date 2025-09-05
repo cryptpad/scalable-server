@@ -98,6 +98,8 @@ const init = (Env, mainConfig) => {
 
     Env.shouldUpdateNode = !isRecentVersion();
 
+    Env.paths = Core.getPaths(mainConfig, true);
+
     return Env;
 };
 

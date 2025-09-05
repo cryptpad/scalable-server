@@ -16,6 +16,9 @@ Constants.TEMPORARY_CHANNEL_LIFETIME = 30 * 1000;
 Constants.paths = {
     base: './data/',
     channel: 'channel/',
+    blob: 'blob/',
+    blobstage: 'blobstage/',
+    block: 'block/',
     archive: 'archive/',
     tasks: 'tasks/',
     challenges: 'challenges/'

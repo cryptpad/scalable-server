@@ -1,15 +1,21 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2024 XWiki CryptPad Team <contact@cryptpad.org> and contributors
+const Http = require('node:http');
+
 const Util = require("./common-util.js");
 const Constants = require("../common/constants.js");
 const Logger = require("../common/logger.js");
 
+const Express = require('express');
 const nThen = require("nthen");
-const Path = require("node:path");
 
 const HistoryManager = require("./history-manager.js");
 const ChannelManager = require("./channel-manager.js");
 const HKUtil = require("./hk-util.js");
+const HttpManager = require('./http-manager.js');
+
+const Environment = require('../common/env.js');
+const Core = require('../common/core.js');
 
 const Interface = require("../common/interface.js");
 const WSConnector = require("../common/ws-connector.js");
@@ -18,6 +24,7 @@ const BatchRead = require("./batch-read.js");
 const WriteQueue = require("../common/write-queue.js");
 const WorkerModule = require("../common/worker-module.js");
 const File = require("./storage/file.js");
+const Blob = require("./storage/blob.js");
 
 const { jumpConsistentHash } = require('../common/consistent-hash.js');
 
@@ -38,6 +45,7 @@ const Env = {
     batchIndexReads: BatchRead("HK_GET_INDEX"),
     batchMetadata: BatchRead("GET_METADATA"),
     selfDestructTo: {},
+    blobstage: {} // Store file streams to write blobs
 };
 
 Env.getCoreId = (channel) => {
@@ -202,7 +210,12 @@ const leaveChannelHandler = (args, cb) => {
 };
 
 const dropUserHandler = (args) => {
-    const { channels, userId } = args;
+    const { channels, userId, sessions } = args;
+    Object.keys(sessions).forEach(unsafeKey => {
+        const safeKey = Util.escapeKeyCharacters(unsafeKey);
+        delete Env.blobstage[unsafeKey];
+        delete Env.blobstage[safeKey];
+    });
     channels.forEach(channel => {
         const cache = Env.channel_cache[channel];
         // Check if the channel exists in this storage
@@ -296,16 +309,31 @@ const initWorkerCommands = () => {
     };
 };
 
+const initHttpServer = (Env, config, _cb) => {
+    const cb = Util.mkAsync(_cb);
+    const app = Express();
+
+    HttpManager.create(Env, app);
+
+    const httpServer = Http.createServer(app);
+    const cfg = config?.infra?.storage[config.index];
+    httpServer.listen(cfg.port, cfg.host, () => {
+        cb();
+    });
+};
+
 // Connect to core
 let start = function(config) {
     const { myId, index, infra, server } = config;
 
-    Env.numberCores = infra?.core?.length;
+    Environment.init(Env, config);
 
-    const paths = Constants.paths;
-    const idx = String(index);
-    const filePath = Path.join(paths.base, idx, paths.channel);
-    const archivePath = Path.join(paths.base, idx, paths.archive);
+    Env.numberCores = infra?.core?.length;
+    Env.config = config;
+
+    const {
+        filePath, archivePath, blobPath, blobStagingPath
+    } = Env.paths;
     nThen(waitFor => {
         File.create({
             filePath, archivePath,
@@ -313,6 +341,18 @@ let start = function(config) {
         }, waitFor((err, store) => {
             if (err) { throw new Error(err); }
             Env.store = store;
+        }));
+        Blob.create({
+            blobPath,
+            blobStagingPath,
+            archivePath,
+            getSession: safeKey => {
+                Env.blobstage[safeKey] ||= {};
+                return Env.blobstage[safeKey];
+            }
+        }, waitFor((err, store) => {
+            if (err) { throw new Error(err); }
+            Env.blobStore = store;
         }));
     }).nThen(() => {
         let tasks_running;
@@ -328,7 +368,7 @@ let start = function(config) {
             });
         }, 1000 * 60 * 5); // run every five minutes
 
-    }).nThen(() => {
+    }).nThen((waitFor) => {
         const workerConfig = {
             Log: Env.Log,
             workerPath: './build/storage.worker.js',
@@ -346,6 +386,8 @@ let start = function(config) {
 
         Env.CM = ChannelManager.create(Env);
 
+        initHttpServer(Env, config, waitFor());
+    }).nThen(() => {
         const interfaceConfig = {
             connector: WSConnector,
             index,
