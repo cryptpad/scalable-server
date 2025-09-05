@@ -15,7 +15,6 @@ const HKUtil = require("./hk-util.js");
 const HttpManager = require('./http-manager.js');
 
 const Environment = require('../common/env.js');
-const Core = require('../common/core.js');
 
 const Interface = require("../common/interface.js");
 const WSConnector = require("../common/ws-connector.js");
