@@ -19,6 +19,7 @@ const Netflux = require("netflux-websocket");
 const Hash = require("./common-hash");
 
 const config = require('../../config/config.json');
+// const { Nacl } = require('chainpad-crypto');
 
 const nbUsers = 5;
 const users = {};
@@ -69,7 +70,9 @@ const startUsers = () => {
 let getMsg = isCp => {
     const base = NodeCrypto.randomBytes(30).toString('hex');
     const iterations = isCp ? 1500 + Math.floor(Math.random * 3000) : 5 + Math.floor(Math.random() * 10);
-    return base.repeat(iterations);
+    const msg = NaClUtil.decodeUTF8(base.repeat(iterations));
+    const nonce = NodeCrypto.randomBytes(24);
+    return NaClUtil.encodeBase64(Buffer.concat([nonce, Crypto.secretbox(msg, nonce, secret?.keys?.cryptKey)]));
 };
 
 let makeHash = (id) => {
@@ -185,7 +188,15 @@ const checkHistory = () => {
                 resolve();
             }
             if (!Array.isArray(parsed) || parsed[3] !== padId) { return; }
-            if (Crypto.sigVerify(NaClUtil.decodeBase64(parsed[4]), validateKey) === null) { return void reject('EINVALIDSIG'); }
+            // Signature verification
+            const signed_ct = NaClUtil.decodeBase64(parsed[4]);
+            if (Crypto.sigVerify(signed_ct, validateKey) === null) { return reject('EINVALIDSIG'); }
+            // Ciphertext decryption
+            let ciphertext = NaClUtil.decodeBase64(NaClUtil.encodeUTF8(signed_ct.subarray(Sodium.crypto_sign_BYTES)));
+            let nonce = ciphertext.subarray(0, Sodium.crypto_secretbox_NONCEBYTES);
+            let box = ciphertext.subarray(Sodium.crypto_secretbox_NONCEBYTES);
+            let plaintext = Crypto.secretboxOpen(box, nonce, secret?.keys?.cryptKey);
+            if (!plaintext) { return void reject('EINVALIDDEC'); };
             hist.push(parsed[4]);
         };
 
@@ -226,7 +237,15 @@ const checkFullHistory = () => {
                 resolve();
             }
             if (!Array.isArray(parsed) || parsed[3] !== padId) { return; }
-            if (Crypto.sigVerify(NaClUtil.decodeBase64(parsed[4]), validateKey) === null) { return reject('EINVALIDSIG'); }
+            // Signature verification
+            const signed_ct = NaClUtil.decodeBase64(parsed[4]);
+            if (Crypto.sigVerify(signed_ct, validateKey) === null) { return reject('EINVALIDSIG'); }
+            // Ciphertext decryption
+            let ciphertext = NaClUtil.decodeBase64(NaClUtil.encodeUTF8(signed_ct.subarray(Sodium.crypto_sign_BYTES)));
+            let nonce = ciphertext.subarray(0, Sodium.crypto_secretbox_NONCEBYTES);
+            let box = ciphertext.subarray(Sodium.crypto_secretbox_NONCEBYTES);
+            let plaintext = Crypto.secretboxOpen(box, nonce, secret?.keys?.cryptKey);
+            if (!plaintext) { return void reject('EINVALIDDEC'); };
             hist.push(parsed[4]);
         };
 
@@ -272,7 +291,15 @@ const checkHistoryRange = () => {
                 resolve();
             }
             if (!Array.isArray(parsed) || txid !== _txid || parsed[3] !== padId) { return; }
-            if (Crypto.sigVerify(NaClUtil.decodeBase64(parsed[4]), validateKey) === null) { return reject('EINVALIDSIG'); }
+            // Signature verification
+            const signed_ct = NaClUtil.decodeBase64(parsed[4]);
+            if (Crypto.sigVerify(signed_ct, validateKey) === null) { return reject('EINVALIDSIG'); }
+            // Ciphertext decryption
+            let ciphertext = NaClUtil.decodeBase64(NaClUtil.encodeUTF8(signed_ct.subarray(Sodium.crypto_sign_BYTES)));
+            let nonce = ciphertext.subarray(0, Sodium.crypto_secretbox_NONCEBYTES);
+            let box = ciphertext.subarray(Sodium.crypto_secretbox_NONCEBYTES);
+            let plaintext = Crypto.secretboxOpen(box, nonce, secret?.keys?.cryptKey);
+            if (!plaintext) { return void reject('EINVALIDDEC'); };
             hist.push(parsed[4]);
         };
 
