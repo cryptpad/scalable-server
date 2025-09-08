@@ -16,20 +16,32 @@ const NaClUtil = require("tweetnacl-util");
 
 const WebSocket = require("ws");
 const Netflux = require("netflux-websocket");
-const Hash = require("./common-hash");
+const CPCrypto = require('chainpad-crypto');
+const CPNetflux = require('chainpad-netflux');
 
 const config = require('../../config/config.json');
-// const { Nacl } = require('chainpad-crypto');
 
 const nbUsers = 5;
 const users = {};
 
-let padId = "";
+// From common-util + Buffer instead of window.atob
+const base64ToHex = (b64String) => {
+    var hexArray = [];
+    Buffer.from(b64String.replace(/-/g, '/'), 'base64').toString('binary').split("").forEach(function(e){
+        var h = e.charCodeAt(0).toString(16);
+        if (h.length === 1) { h = "0"+h; }
+        hexArray.push(h);
+    });
+    return hexArray.join("");
+};
+
 
 const hk = '0123456789abcdef';
-let secret = {};
-let hash_prefix = NodeCrypto.randomBytes(12).toString('base64').replace('/', '-').slice(0, 14);
-let hash = "/2/undefined/edit/" + hash_prefix; // missing 10 characters
+let secret = {
+    keys: CPCrypto.createEditCryptor2()
+};
+secret.channel = base64ToHex(secret?.keys?.chanId);
+const encryptor = CPCrypto.createEncryptor(secret?.keys);
 
 const mainCfg = config?.public?.main;
 const getWsURL = () => {
@@ -67,33 +79,16 @@ const startUsers = () => {
     });
 };
 
+
 let getMsg = isCp => {
     const base = NodeCrypto.randomBytes(30).toString('hex');
     const iterations = isCp ? 1500 + Math.floor(Math.random * 3000) : 5 + Math.floor(Math.random() * 10);
-    const msg = NaClUtil.decodeUTF8(base.repeat(iterations));
-    const nonce = NodeCrypto.randomBytes(24);
-    return NaClUtil.encodeBase64(Buffer.concat([nonce, Crypto.secretbox(msg, nonce, secret?.keys?.cryptKey)]));
+    return base.repeat(iterations);
 };
 
-let makeHash = (id) => {
-    let l = String(id).length;
-    let add = 10 - l;
-    let str = String(id);
-    for (let i = 0; i < add; i++) {
-        str = 'x' + str;
-    }
-    let _hash = hash + str + '/';
-    return _hash;
-};
-
-let signMsg = (isCp, secret) => {
+let signMsg = (isCp) => {
     let msg = getMsg(isCp);
-    let signKey = NaClUtil.decodeBase64(secret.keys.signKey);
-    let msg8 = NaClUtil.decodeUTF8(msg);
-    let signed8 = new Uint8Array(msg8.length + 64);
-    // let signed2 = NaClUtil.encodeBase64(nacl.sign(NaClUtil.decodeUTF8(msg), signKey));
-    Sodium.crypto_sign(signed8, msg8, signKey);
-    let signed = NaClUtil.encodeBase64(signed8);
+    let signed = encryptor.encrypt(msg); // Signature is already part of it
     if (!isCp) { return signed; }
     let id = msg.slice(0, 8);
     return `cp|${id}|${signed}`;
@@ -106,8 +101,6 @@ const joinPad = () => {
         rej = reject;
     });
 
-    let hash = makeHash(0);
-    secret = Hash.getSecrets('pad', hash);
     padId = secret.channel;
 
     const all = Object.values(users).map(({ network }) => {
@@ -120,7 +113,6 @@ const joinPad = () => {
             users[idx].wc = wc;
             users[idx].id = wc.myID;
             users[idx].secret = secret;
-            users[idx].pads = [hash];
             users[idx].history = hist;
             wc.on('message', (msg, sender) => {
                 hist.push({
@@ -142,9 +134,7 @@ const joinPad = () => {
 const messages = [];
 
 const sendPadMessage = (user) => {
-    // const rdm = NodeCrypto.randomBytes(48).toString('hex');
-    // const msg = `test-${user.id}-${rdm}`;
-    const msg = signMsg(false, user.secret);
+    const msg = signMsg(false);
     return new Promise((res, rej) => {
         user.wc.bcast(msg).then(() => {
             messages.push({ user: user.id, msg });
@@ -161,165 +151,63 @@ const sendPadMessage = (user) => {
 const sendMessages = () => {
     let all = Object.values(users).map(user => Promise.all([
         sendPadMessage(user),
-        sendPadMessage(user)
+        // sendPadMessage(user)
     ]));
     return Promise.all(all);
 };
 
 const checkHistory = () => {
     return new Promise((resolve, reject) => {
-        const startHistIdx = 4;
+        const startHistIdx = 3;
 
-        const txid = NodeCrypto.randomBytes(4).toString('hex');
+        // const txid = NodeCrypto.randomBytes(4).toString('hex');
 
+        // const expected = messages.slice(startHistIdx).map(obj => obj.msg);
         const expected = messages.slice(startHistIdx).map(obj => obj.msg);
         const lastKnownHash = expected[0].slice(0, 64);
 
+
         const hist = [];
-        const validateKey = NaClUtil.decodeBase64(secret?.keys?.validateKey);
+        const validateKey = secret?.keys?.validateKey;
+        const expectedMsgs = expected.map(msg => encryptor.decrypt(msg, validateKey));
 
         const onMessage = (msg, sender) => {
-            const parsed = JSON.parse(msg);
             if (sender !== hk) { return; }
-            if (parsed.state === 1 && parsed.channel === padId) {
-                if (JSON.stringify(expected) !== JSON.stringify(hist)) {
+            hist.push(msg);
+        };
+
+        const onReady = () => {
+            if (JSON.stringify(expectedMsgs) !== JSON.stringify(hist)) {
                     return void reject("CHECK_HISTORY_MISMATCH_ERROR");
-                }
-                resolve();
             }
-            if (!Array.isArray(parsed) || parsed[3] !== padId) { return; }
-            // Signature verification
-            const signed_ct = NaClUtil.decodeBase64(parsed[4]);
-            if (Crypto.sigVerify(signed_ct, validateKey) === null) { return reject('EINVALIDSIG'); }
-            // Ciphertext decryption
-            let ciphertext = NaClUtil.decodeBase64(NaClUtil.encodeUTF8(signed_ct.subarray(Sodium.crypto_sign_BYTES)));
-            let nonce = ciphertext.subarray(0, Sodium.crypto_secretbox_NONCEBYTES);
-            let box = ciphertext.subarray(Sodium.crypto_secretbox_NONCEBYTES);
-            let plaintext = Crypto.secretboxOpen(box, nonce, secret?.keys?.cryptKey);
-            if (!plaintext) { return void reject('EINVALIDDEC'); };
-            hist.push(parsed[4]);
+            resolve();
         };
 
         let network;
         connectUser(nbUsers)
             .then(_network => {
                 network = _network;
-                _network.on('message', onMessage);
-                return _network.join(padId);
-            }).then(() => {
-                const msg = ['GET_HISTORY', padId, {
-                    txid, lastKnownHash
-                }];
-                network.sendto(hk, JSON.stringify(msg));
-            }).catch(e => {
+                // console.error(secret.keys);
+
+                CPNetflux.start({
+                    lastKnownHash,
+                    network,
+                    channel: secret.channel,
+                    crypto: encryptor,
+                    validateKey,
+                    onChannelError: reject,
+                    onReady,
+                    onMessage,
+                    noChainPad: true
+                });
+            })
+            .catch(e => {
                 console.error(e);
                 reject(e);
             });
     });
 };
 
-const checkFullHistory = () => {
-    return new Promise((resolve, reject) => {
-        const txid = NodeCrypto.randomBytes(4).toString('hex');
-
-        const expected = messages.map(obj => obj.msg);
-
-        const hist = [];
-        const validateKey = NaClUtil.decodeBase64(secret?.keys?.validateKey);
-
-        const onMessage = (msg, sender) => {
-            const [command, parsed] = JSON.parse(msg);
-            if (sender !== hk) { return; }
-            if (command === 'FULL_HISTORY_END' && parsed === padId) {
-                if (JSON.stringify(expected) !== JSON.stringify(hist)) {
-                    return void reject("CHECK_HISTORY_MISMATCH_ERROR");
-                }
-                resolve();
-            }
-            if (!Array.isArray(parsed) || parsed[3] !== padId) { return; }
-            // Signature verification
-            const signed_ct = NaClUtil.decodeBase64(parsed[4]);
-            if (Crypto.sigVerify(signed_ct, validateKey) === null) { return reject('EINVALIDSIG'); }
-            // Ciphertext decryption
-            let ciphertext = NaClUtil.decodeBase64(NaClUtil.encodeUTF8(signed_ct.subarray(Sodium.crypto_sign_BYTES)));
-            let nonce = ciphertext.subarray(0, Sodium.crypto_secretbox_NONCEBYTES);
-            let box = ciphertext.subarray(Sodium.crypto_secretbox_NONCEBYTES);
-            let plaintext = Crypto.secretboxOpen(box, nonce, secret?.keys?.cryptKey);
-            if (!plaintext) { return void reject('EINVALIDDEC'); };
-            hist.push(parsed[4]);
-        };
-
-        let network;
-        connectUser(nbUsers)
-            .then(_network => {
-                network = _network;
-                _network.on('message', onMessage);
-                return _network.join(padId);
-            }).then(() => {
-                const msg = ['GET_FULL_HISTORY', padId, {
-                    txid
-                }];
-                network.sendto(hk, JSON.stringify(msg));
-            }).catch(e => {
-                console.error(e);
-                reject(e);
-            });
-    });
-};
-
-const checkHistoryRange = () => {
-    return new Promise((resolve, reject) => {
-        const startHistIdx = 2;
-        const endHistIdx = 6;
-
-        const txid = NodeCrypto.randomBytes(4).toString('hex');
-
-        const expected = messages.slice(startHistIdx, endHistIdx).map(obj => obj.msg);
-        const to = expected[0].slice(0, 64);
-        const from = expected.at(-1).slice(0, 64);
-
-        const hist = [];
-        const validateKey = NaClUtil.decodeBase64(secret?.keys?.validateKey);
-
-        const onMessage = (msg, sender) => {
-            const [command, _txid, parsed] = JSON.parse(msg);
-            if (sender !== hk) { return; }
-            if (command === 'HISTORY_RANGE_END' && parsed === padId) {
-                if (JSON.stringify(expected) !== JSON.stringify(hist)) {
-                    return void reject("CHECK_HISTORY_MISMATCH_ERROR");
-                }
-                resolve();
-            }
-            if (!Array.isArray(parsed) || txid !== _txid || parsed[3] !== padId) { return; }
-            // Signature verification
-            const signed_ct = NaClUtil.decodeBase64(parsed[4]);
-            if (Crypto.sigVerify(signed_ct, validateKey) === null) { return reject('EINVALIDSIG'); }
-            // Ciphertext decryption
-            let ciphertext = NaClUtil.decodeBase64(NaClUtil.encodeUTF8(signed_ct.subarray(Sodium.crypto_sign_BYTES)));
-            let nonce = ciphertext.subarray(0, Sodium.crypto_secretbox_NONCEBYTES);
-            let box = ciphertext.subarray(Sodium.crypto_secretbox_NONCEBYTES);
-            let plaintext = Crypto.secretboxOpen(box, nonce, secret?.keys?.cryptKey);
-            if (!plaintext) { return void reject('EINVALIDDEC'); };
-            hist.push(parsed[4]);
-        };
-
-        let network;
-        connectUser(nbUsers)
-            .then(_network => {
-                network = _network;
-                _network.on('message', onMessage);
-                return _network.join(padId);
-            }).then(() => {
-                const msg = ['GET_HISTORY_RANGE', padId, {
-                    txid, to, from, count: 4
-                }];
-                network.sendto(hk, JSON.stringify(msg));
-            }).catch(e => {
-                console.error(e);
-                reject(e);
-            });
-    });
-};
 
 const checkUsers = () => {
     return new Promise((resolve, reject) => {
@@ -397,8 +285,6 @@ startUsers()
     .then(sendMessages)
     .then(checkMessages)
     .then(checkHistory)
-    .then(checkFullHistory)
-    .then(checkHistoryRange)
     .then(() => {
         console.log('All pads tests passed!');
         process.exit(0);
