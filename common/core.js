@@ -172,6 +172,7 @@ Core.getPaths = (config, isEnv) => {
         blockPath: Path.join(paths.base, idx, paths.block),
         archivePath: Path.join(paths.base, idx, paths.archive),
         taskPath: Path.join(paths.base, idx, paths.tasks),
+        decreePath: Path.join(paths.base, "0", paths.decrees),
         challengePath: Path.join(paths.base, idx, paths.challenges)
     };
     if (!isEnv) { return all; }

@@ -12,6 +12,8 @@ const Logger = require("../common/logger.js");
 const Rpc = require("./rpc.js");
 const AuthCommands = require("./http-commands.js");
 
+const Environment = require('../common/env.js');
+
 const {
     CHECKPOINT_PATTERN
 } = Constants;
@@ -413,6 +415,42 @@ const onWsCommand = command => {
 };
 
 
+// When receiving new decrees from storage:0, update our env
+// and broadcast to all the other nodes
+const onNewDecrees = (args, cb, extra) => {
+    if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
+    Env.adminDecrees.loadRemote(Env, args.decrees);
+    // core:0 also need to broadcats to all the websocket and storage
+    // nodes
+    if (Env.myId === 'core:0') {
+        Env.interface.broadcast('websocket', 'NEW_DECREES', {
+            decrees: args.decrees
+        }, values => {
+            values.forEach(obj => {
+                if (!obj?.error) { return; }
+                const { id, error } = obj;
+                Env.Log.error("BCAST_DECREES_ERROR", { id, error });
+            });
+        });
+        const exclude = ['storage:0'];
+        Env.interface.broadcast('storage', 'NEW_DECREES', {
+            decrees: args.decrees
+        }, values => {
+            values.forEach(obj => {
+                if (!obj?.error) { return; }
+                const { id, error } = obj;
+                Env.Log.error("BCAST_DECREES_ERROR", { id, error });
+            });
+        }, exclude);
+        // XXX send to http (requires a websocket http<->core first)
+
+    }
+
+    // XXX send to workers? No need for now, Env not used
+
+    cb();
+};
+
 
 const initIntervals = () => {
     // XXX get quota every hour
@@ -428,6 +466,9 @@ const initIntervals = () => {
 let startServers = function(config) {
     let { myId, index, server, infra } = config;
     Env.numberStorages = config.infra.storage.length;
+
+    Environment.init(Env, config);
+
     const interfaceConfig = {
         connector: WSConnector,
         infra,
@@ -474,6 +515,7 @@ let startServers = function(config) {
         'DROP_CHANNEL': dropChannelHandler,
         'HISTORY_MESSAGE': onHistoryMessage,
         'HISTORY_CHANNEL_MESSAGE': onHistoryChannelMessage,
+        'NEW_DECREES': onNewDecrees
     };
     queriesToStorage.forEach(function(command) {
         COMMANDS[command] = wsToStorage(command);

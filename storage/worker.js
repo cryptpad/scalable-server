@@ -383,7 +383,14 @@ const writeTask = (data, cb) => {
     Env.tasks.write(data.time, data.task_command, data.args, cb);
 };
 
+const onNewDecrees = (data, cb) => {
+    Env.adminDecrees.loadRemote(Env, data.decrees);
+    cb();
+};
+
 const COMMANDS = {
+    NEW_DECREES: onNewDecrees,
+
     COMPUTE_INDEX: computeIndex,
     COMPUTE_METADATA: computeMetadata,
     GET_HASH_OFFSET: getHashOffset,

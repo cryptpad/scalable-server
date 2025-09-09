@@ -25,6 +25,8 @@ const WorkerModule = require("../common/worker-module.js");
 const File = require("./storage/file.js");
 const Blob = require("./storage/blob.js");
 
+const Decrees = require('./commands/decrees.js');
+
 const { jumpConsistentHash } = require('../common/consistent-hash.js');
 
 const {
@@ -234,7 +236,19 @@ const dropUserHandler = (args) => {
     });
 };
 
+const newDecreeHandler = (args, cb) => { // bcast from core:0
+    Env.adminDecrees.loadRemote(Env, args.decrees);
+    Env.workers.broadcast('NEW_DECREES', args, () => {
+        Env.Log.debug('UPDATE_DECREE_STORAGE_WORKER');
+    });
+    cb();
+};
+
 /* RPC commands */
+
+const adminDecreeHandler = (decree, cb) => { // sent from UI
+    Decrees.onNewDecree(Env, decree, cb);
+};
 
 const getFileSizeHandler = (channel, cb) => {
     Env.worker.getFileSize(channel, cb);
@@ -251,7 +265,9 @@ let COMMANDS = {
     'GET_HISTORY_RANGE': getHistoryHandler(HistoryManager.onGetHistoryRange),
     'CHANNEL_MESSAGE': onChannelMessageHandler,
     'DROP_USER': dropUserHandler,
+    'NEW_DECREE': newDecreeHandler,
 
+    'ADMIN_DECREE': adminDecreeHandler,
     'RPC_GET_FILE_SIZE': getFileSizeHandler,
 };
 
@@ -330,6 +346,19 @@ let start = function(config) {
     Env.numberCores = infra?.core?.length;
     Env.config = config;
 
+    Env.sendDecrees = (decrees) => {
+        for (let i = 0; i < Env.numberCores; i++) {
+            let coreId = `core:${i}`;
+            Env.interface.sendEvent(coreId, 'NEW_DECREES', {
+                decrees
+            });
+        }
+        // XXX send to workers
+        Env.workers.broadcast('NEW_DECREES', { decrees } , () => {
+            Env.Log.debug('UPDATE_DECREE_STORAGE_WORKER');
+        });
+    };
+
     const {
         filePath, archivePath, blobPath, blobStagingPath
     } = Env.paths;
@@ -386,6 +415,18 @@ let start = function(config) {
         Env.CM = ChannelManager.create(Env);
 
         initHttpServer(Env, config, waitFor());
+    }).nThen(waitFor => {
+        // Only storage:0 can manage decrees
+        if (index !== 0) { return; }
+
+        Decrees.load(Env, waitFor((err, toSend) => {
+            if (err) {
+                waitFor.abort();
+                return Env.Log.error('DECREES_LOADING_ERROR', err);
+            }
+
+            Env.sendDecrees(toSend);
+        }));
     }).nThen(() => {
         const interfaceConfig = {
             connector: WSConnector,

@@ -13,6 +13,7 @@ const Logger = require("../common/logger.js");
 const WorkerModule = require("../common/worker-module.js");
 const { jumpConsistentHash } = require('../common/consistent-hash.js');
 const Cluster = require("node:cluster");
+const Environment = require('../common/env.js');
 
 const {
     hkId,
@@ -427,6 +428,15 @@ const sendChannelMessage = (Env, args) => { // Event
         sendMsg(Env, user, message);
     });
 };
+
+const onNewDecrees = (Env, args, cb) => {
+    Env.adminDecrees.loadRemote(Env, args.decrees);
+    Env.workers.broadcast('NEW_DECREES', args, () => {
+        Env.Log.debug('UPDATE_DECREE_WS_WORKER');
+    });
+    cb();
+};
+
 const shutdown = (Env) => {
     if (!Env.wss) { return; }
     Env.active = false;
@@ -571,6 +581,8 @@ const start = (config) => {
         public: server?.public?.websocket?.[index],
     };
 
+    Environment.init(Env, config);
+
     const callWithEnv = f => {
         return function () {
             [].unshift.call(arguments, Env);
@@ -581,6 +593,7 @@ const start = (config) => {
     const CORE_COMMANDS = {
         'SEND_USER_MESSAGE': callWithEnv(sendUserMessage),
         'SEND_CHANNEL_MESSAGE': callWithEnv(sendChannelMessage),
+        'NEW_DECREES': callWithEnv(onNewDecrees),
         'SHUTDOWN': callWithEnv(shutdown)
     };
 

@@ -21,7 +21,9 @@ Constants.paths = {
     block: 'block/',
     archive: 'archive/',
     tasks: 'tasks/',
+    decrees: 'decrees/',
     challenges: 'challenges/'
 };
+Constants.adminDecree = 'decree.ndjson';
 
 module.exports = Constants;

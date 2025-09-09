@@ -212,6 +212,11 @@ app.post('/api/auth', (req, res) => {
     });
 });
 
+COMMANDS.NEW_DECREES = (data, cb) => {
+    Env.adminDecrees.loadRemote(Env, data.decrees);
+    cb();
+};
+
 const init = (config, cb) => {
     Env.config = config;
     Env.Log = Logger();

@@ -211,13 +211,15 @@ let communicationManager = function(ctx) {
         ctx.self.disconnect();
     };
 
-    const broadcast = (type, command, args, cb) => {
+    const broadcast = (type, command, args, cb, exclude) => {
         const all = ctx.others[type] || {};
         const promises = [];
         Object.keys(all).forEach(idx => {
             const id = `${type}:${idx}`;
+            if (Array.isArray(exclude) && exclude.includes(id)) { return; }
             const p = new Promise((resolve) => {
                 sendQuery(id, command, args, answer => {
+                    if (answer) { answer.id = id; }
                     resolve(answer);
                 });
             });

@@ -2,6 +2,8 @@ const Package = require("../package.json");
 const Keys = require('./keys');
 const Core = require('./core');
 const Default = require('../http-server/defaults');
+const DecreesCore = require('./decrees-core');
+const AdminDecrees = require('./admin-decrees');
 
 const isRecentVersion = function () {
     let R = Default.recommendedVersion;
@@ -27,6 +29,10 @@ const init = (Env, mainConfig) => {
     const { server /*, infra*/ } = mainConfig;
     const config = server?.options || {};
     const publicConfig = server?.public || {};
+
+    Env.adminDecrees = DecreesCore.create(Constants.adminDecree,
+                                          AdminDecrees);
+    Env.myId = mainConfig.myId;
 
     Env.version = Package.version;
 
@@ -90,6 +96,9 @@ const init = (Env, mainConfig) => {
     Env.instanceDescription = {};
     Env.instanceJurisdiction = {};
     Env.instanceNotice = {};
+
+    Env.limits = {};
+    Env.customLimits = {};
 
     // XXX plugins
     // plugins can includes custom Env values

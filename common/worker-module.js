@@ -412,6 +412,19 @@ const init = workerConfig => {
                 command: cmd,
                 data
             }, cb, opts);
+        },
+        broadcast: (command, data, cb) => {
+            workers.forEach(state => {
+                const txid = guid();
+                response.expect(txid, cb, DEFAULT_QUERY_TIMEOUT);
+                state.send({
+                    txid,
+                    command,
+                    data,
+                    worker: state.pid,
+                    pid: PID
+                });
+            });
         }
     };
 };
