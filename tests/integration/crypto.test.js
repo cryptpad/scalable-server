@@ -8,12 +8,7 @@
  */
 
 
-const NodeCrypto = require('node:crypto');
-/* NOTE: both are needed as signature creation is not part of the server */
-const Sodium = require('sodium-native');
-const Crypto = require("../../common/crypto.js")("sodium-native");
-const NaClUtil = require("tweetnacl-util");
-
+const Crypto = require('node:crypto');
 const WebSocket = require("ws");
 const Netflux = require("netflux-websocket");
 const CPCrypto = require('chainpad-crypto');
@@ -81,7 +76,7 @@ const startUsers = () => {
 
 
 let getMsg = isCp => {
-    const base = NodeCrypto.randomBytes(30).toString('hex');
+    const base = Crypto.randomBytes(30).toString('hex');
     const iterations = isCp ? 1500 + Math.floor(Math.random * 3000) : 5 + Math.floor(Math.random() * 10);
     return base.repeat(iterations);
 };
