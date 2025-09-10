@@ -82,6 +82,7 @@ Decrees.create = (name, commands) => {
     };
 
     const loadRemote = (Env, decrees, cb) => {
+        cb ||= () => {};
         if (Array.isArray(decrees)) {
             return void cb('INVALID_DECREES');
         }

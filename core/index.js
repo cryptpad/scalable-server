@@ -443,7 +443,9 @@ const onNewDecrees = (args, cb, extra) => {
             });
         }, exclude);
         // XXX send to http (requires a websocket http<->core first)
-
+        Env.interface.sendEvent('http:0', 'NEW_DECREES', {
+            decrees: args.decrees
+        });
     }
 
     // XXX send to workers? No need for now, Env not used

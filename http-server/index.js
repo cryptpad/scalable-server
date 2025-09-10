@@ -8,6 +8,10 @@ const Default = require("./defaults");
 const gzipStatic = require('connect-gzip-static');
 const Environment = require('../common/env.js');
 const { setHeaders } = require('./headers.js');
+const nThen = require('nthen');
+
+const Interface = require("../common/interface.js");
+const WSConnector = require("../common/ws-connector.js");
 
 
 // XXX Later: use cluster to serve the static files
@@ -182,8 +186,14 @@ const initStatic = (Env, app) => {
     });
 };
 
+const onNewDecrees = (Env, args) => {
+    Env.adminDecrees.loadRemote(Env, args.decrees);
+};
+
 const start = (config) => {
     const {server, infra} = config;
+    const index = 0;
+    const myId = 'http:0';
     const Env = {
         Log: Logger()
     };
@@ -200,31 +210,57 @@ const start = (config) => {
     initPlugins(Env, app);
     initStatic(Env, app);
 
-    const httpServer = Http.createServer(app);
-    httpServer.listen(Env.httpPort, Env.httpAddress, () => {
-        if (process.send !== undefined) {
-            process.send({
-                type: 'http',
-                index: 0,
-                dev: Env.DEV_MODE,
-                msg: 'READY'
-            });
-        } else {
+    const callWithEnv = f => {
+        return function () {
+            [].unshift.call(arguments, Env);
+            return f.apply(null, arguments);
+        };
+    };
+    const CORE_COMMANDS = {
+        NEW_DECREES: callWithEnv(onNewDecrees)
+    };
+
+    nThen(w => {
+        const interfaceConfig = {
+            connector: WSConnector,
+            index, infra, server, myId,
+            public: server?.public
+        };
+        Interface.connect(interfaceConfig, w((err, _interface) => {
+            if (err) {
+                w.abort();
+                Env.Log.error(interfaceConfig.myId, ' error:', err);
+                return;
+            }
+            Env.interface = _interface;
+            _interface.handleCommands(CORE_COMMANDS);
+        }));
+
+        const httpServer = Http.createServer(app);
+        httpServer.listen(Env.httpPort, Env.httpAddress, w(() => {
+            if (process.send) { return; }
             Env.Log.info('HTTP server started');
             if (Env.DEV_MODE) {
                 Env.Log.info('DEV mode enabled');
             }
-        }
-    });
-    httpServer.on('upgrade', wsProxy.upgrade);
+        }));
+        httpServer.on('upgrade', wsProxy.upgrade);
 
-    if (Env.httpSafePort) {
+        if (!Env.httpSafePort) { return; }
         const safeServer = Http.createServer(app);
-        safeServer.listen(Env.httpSafePort, Env.httpAddress, () => {
+        safeServer.listen(Env.httpSafePort, Env.httpAddress, w(() => {
             if (process.send) { return; }
             Env.Log.info('HTTP sandbox started');
+        }));
+    }).nThen(() => {
+        if (!process.send) { return; }
+        process.send({
+            type: 'http',
+            index: 0,
+            dev: Env.DEV_MODE,
+            msg: 'READY'
         });
-    }
+    });
 };
 
 module.exports = {

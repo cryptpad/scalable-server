@@ -263,12 +263,14 @@ let connect = function(config, cb) {
         console.log('Server response error:', error);
     });
 
+    /*
     let myConfig = Util.find(config.infra, parsedId);
 
     if (!myConfig) {
         console.log("Error: client not found in the network topology");
         throw new Error('INVALID_CLIENT_ID');
     }
+    */
 
     // Create promises
     const promises = [];
@@ -312,6 +314,7 @@ let init = function(config, cb) {
     let ctx = {
         others: {
             storage: [],
+            http: [],
             websocket: []
         },
         commands: {},

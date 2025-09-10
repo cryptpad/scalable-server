@@ -359,6 +359,14 @@ let start = function(config) {
         });
     };
 
+    const interfaceConfig = {
+        connector: WSConnector,
+        index,
+        infra,
+        server,
+        myId
+    };
+
     const {
         filePath, archivePath, blobPath, blobStagingPath
     } = Env.paths;
@@ -416,10 +424,21 @@ let start = function(config) {
 
         initHttpServer(Env, config, waitFor());
     }).nThen(waitFor => {
+        Interface.connect(interfaceConfig, waitFor((err, _interface) => {
+            if (err) {
+                console.error(interfaceConfig.myId, ' error:', err);
+                return;
+            }
+
+            // List accepted commands
+            _interface.handleCommands(COMMANDS);
+            Env.interface = _interface;
+        }));
+    }).nThen(waitFor => {
         // Only storage:0 can manage decrees
         if (index !== 0) { return; }
 
-        Decrees.load(Env, waitFor((err, toSend) => {
+        Env.adminDecrees.load(Env, waitFor((err, toSend) => {
             if (err) {
                 waitFor.abort();
                 return Env.Log.error('DECREES_LOADING_ERROR', err);
@@ -428,29 +447,11 @@ let start = function(config) {
             Env.sendDecrees(toSend);
         }));
     }).nThen(() => {
-        const interfaceConfig = {
-            connector: WSConnector,
-            index,
-            infra,
-            server,
-            myId
-        };
-        Interface.connect(interfaceConfig, (err, _interface) => {
-            if (err) {
-                console.error(interfaceConfig.myId, ' error:', err);
-                return;
-            }
-
-            // List accepted commands
-
-            _interface.handleCommands(COMMANDS);
-            Env.interface = _interface;
-            if (process.send !== undefined) {
-                process.send({ type: 'storage', index: interfaceConfig.index, msg: 'READY' });
-            } else {
-                console.log(interfaceConfig.myId, 'started');
-            }
-        });
+        if (process.send !== undefined) {
+            process.send({ type: 'storage', index: interfaceConfig.index, msg: 'READY' });
+        } else {
+            console.log(interfaceConfig.myId, 'started');
+        }
     });
 };
 
