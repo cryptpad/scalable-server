@@ -41,6 +41,7 @@ const Env = {
     channel_cache: {},
     cache_checks: {},
     intervals: {},
+    allDecrees: [],
     queueStorage: WriteQueue(),
     queueValidation: WriteQueue(),
     batchIndexReads: BatchRead("HK_GET_INDEX"),
@@ -238,8 +239,9 @@ const dropUserHandler = (args) => {
 
 const newDecreeHandler = (args, cb) => { // bcast from core:0
     Env.adminDecrees.loadRemote(Env, args.decrees);
-    Env.workers.broadcast('NEW_DECREES', args, () => {
-        Env.Log.debug('UPDATE_DECREE_STORAGE_WORKER');
+    Array.prototype.push.apply(Env.allDecrees, args.decrees);
+    Env.workers.broadcast('NEW_DECREES', args.decrees, () => {
+        Env.Log.verbose('UPDATE_DECREE_STORAGE_WORKER');
     });
     cb();
 };
@@ -265,7 +267,7 @@ let COMMANDS = {
     'GET_HISTORY_RANGE': getHistoryHandler(HistoryManager.onGetHistoryRange),
     'CHANNEL_MESSAGE': onChannelMessageHandler,
     'DROP_USER': dropUserHandler,
-    'NEW_DECREE': newDecreeHandler,
+    'NEW_DECREES': newDecreeHandler,
 
     'ADMIN_DECREE': adminDecreeHandler,
     'RPC_GET_FILE_SIZE': getFileSizeHandler,
@@ -347,15 +349,15 @@ let start = function(config) {
     Env.config = config;
 
     Env.sendDecrees = (decrees) => {
+        Array.prototype.push.apply(Env.allDecrees, decrees);
         for (let i = 0; i < Env.numberCores; i++) {
             let coreId = `core:${i}`;
             Env.interface.sendEvent(coreId, 'NEW_DECREES', {
                 decrees
             });
         }
-        // XXX send to workers
-        Env.workers.broadcast('NEW_DECREES', { decrees } , () => {
-            Env.Log.debug('UPDATE_DECREE_STORAGE_WORKER');
+        Env.workers.broadcast('NEW_DECREES', decrees, () => {
+            Env.Log.verbose('UPDATE_DECREE_STORAGE_WORKER');
         });
     };
 
@@ -411,29 +413,33 @@ let start = function(config) {
             maxWorkers: 1,
             maxJobs: 4,
             commandTimers: {}, // time spent on each command
-            config: {
-                index
-            },
+            config: config,
             Env: { // Serialized Env (Environment.serialize)
             }
         };
         Env.workers = WorkerModule(workerConfig);
+        Env.workers.onNewWorker(state => {
+            if (!Env.allDecrees.length) { return; }
+            Env.workers.sendTo(state, 'NEW_DECREES', Env.allDecrees,
+                () => {
+                Env.Log.verbose('UPDATE_DECREE_STORAGE_WORKER');
+            });
+        });
         initWorkerCommands();
 
         Env.CM = ChannelManager.create(Env);
 
         initHttpServer(Env, config, waitFor());
     }).nThen(waitFor => {
-        Interface.connect(interfaceConfig, waitFor((err, _interface) => {
+        Env.interface = Interface.connect(interfaceConfig, waitFor(err => {
             if (err) {
                 console.error(interfaceConfig.myId, ' error:', err);
                 return;
             }
 
-            // List accepted commands
-            _interface.handleCommands(COMMANDS);
-            Env.interface = _interface;
         }));
+        // List accepted commands
+        Env.interface.handleCommands(COMMANDS);
     }).nThen(waitFor => {
         // Only storage:0 can manage decrees
         if (index !== 0) { return; }

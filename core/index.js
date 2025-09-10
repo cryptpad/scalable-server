@@ -24,7 +24,8 @@ let Env = {
     channelKeyCache: {}, // Validate key of each channel
     queueValidation: WriteQueue(),
     Sessions: {},
-    intervals: {}
+    intervals: {},
+    allDecrees: []
 };
 
 const isWsCmd = id => {
@@ -420,6 +421,7 @@ const onWsCommand = command => {
 const onNewDecrees = (args, cb, extra) => {
     if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
     Env.adminDecrees.loadRemote(Env, args.decrees);
+    Array.prototype.push.apply(Env.allDecrees, args.decrees);
     // core:0 also need to broadcats to all the websocket and storage
     // nodes
     if (Env.myId === 'core:0') {
@@ -531,18 +533,24 @@ let startServers = function(config) {
 
     initIntervals();
 
-    Interface.init(interfaceConfig, (err, _interface) => {
+    Env.interface = Interface.init(interfaceConfig, err => {
         if (err) {
             console.error('E: interface initialisation error', err);
             return;
         }
         console.log("Core started", config.myId);
-        Env.interface = _interface;
-
-        _interface.handleCommands(COMMANDS);
         if (process.send !== undefined) {
             process.send({ type: 'core', index: config.index, msg: 'READY' });
         }
+    });
+    Env.interface.handleCommands(COMMANDS);
+    if (Env.myId !== 'core:0') { return; }
+    Env.interface.onNewConnection(obj => {
+        const id = `${obj.type}:${obj.index}`;
+        if (!Env.allDecrees.length) { return; }
+        Env.interface.sendEvent(id, 'NEW_DECREES', {
+            decrees: Env.allDecrees
+        });
     });
 };
 

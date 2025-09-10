@@ -5,7 +5,9 @@ const Environment = require('../common/env');
 const Logger = require('../common/logger');
 
 const COMMANDS = {};
-const Env = {};
+const Env = {
+    isWorker: true
+};
 
 const app = Express();
 
@@ -213,7 +215,7 @@ app.post('/api/auth', (req, res) => {
 });
 
 COMMANDS.NEW_DECREES = (data, cb) => {
-    Env.adminDecrees.loadRemote(Env, data.decrees);
+    Env.adminDecrees.loadRemote(Env, data);
     cb();
 };
 

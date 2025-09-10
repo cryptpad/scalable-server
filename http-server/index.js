@@ -226,15 +226,14 @@ const start = (config) => {
             index, infra, server, myId,
             public: server?.public
         };
-        Interface.connect(interfaceConfig, w((err, _interface) => {
+        Env.interface = Interface.connect(interfaceConfig, w(err => {
             if (err) {
                 w.abort();
                 Env.Log.error(interfaceConfig.myId, ' error:', err);
                 return;
             }
-            Env.interface = _interface;
-            _interface.handleCommands(CORE_COMMANDS);
         }));
+        Env.interface.handleCommands(CORE_COMMANDS);
 
         const httpServer = Http.createServer(app);
         httpServer.listen(Env.httpPort, Env.httpAddress, w(() => {

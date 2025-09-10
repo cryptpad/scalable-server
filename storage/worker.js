@@ -6,6 +6,7 @@ const Logger = require("../common/logger");
 const Core = require("../common/core");
 const File = require("./storage/file.js");
 const Tasks = require("./storage/tasks.js");
+const Environment = require('../common/env');
 
 const nThen = require("nthen");
 
@@ -13,6 +14,7 @@ const HKUtil = require("./hk-util.js");
 const Meta = require('./metadata');
 
 const Env = {
+    isWorker: true,
     Log: Logger()
 };
 
@@ -21,6 +23,7 @@ const {
 } = Constants;
 
 const init = (config, cb) => {
+    Environment.init(Env, config);
     const {
         filePath, archivePath, taskPath
     } = Core.getPaths(config);
@@ -384,7 +387,7 @@ const writeTask = (data, cb) => {
 };
 
 const onNewDecrees = (data, cb) => {
-    Env.adminDecrees.loadRemote(Env, data.decrees);
+    Env.adminDecrees.loadRemote(Env, data);
     cb();
 };
 

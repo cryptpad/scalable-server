@@ -34,6 +34,8 @@ const init = workerConfig => {
     const handlers = {};
     const PID = process.pid;
 
+    const onNewWorker = Util.mkEvent();
+
     if (customFork) { fork = customFork; }
 
     const limit = typeof(maxWorkers) === "number" ?
@@ -312,6 +314,7 @@ const init = workerConfig => {
         // for the response
         response.expect(txid, (err) => {
             if (err) { return void cb(err); }
+            onNewWorker.fire(state);
             workers.push(state);
             cb(void 0, state);
             // We just pushed a new worker, available to receive
@@ -413,7 +416,20 @@ const init = workerConfig => {
                 data
             }, cb, opts);
         },
-        broadcast: (command, data, cb) => {
+        onNewWorker: onNewWorker.reg,
+        sendTo: (state, command, data, cb) => {
+            const txid = guid();
+            response.expect(txid, cb, DEFAULT_QUERY_TIMEOUT);
+            state.send({
+                txid,
+                command,
+                data,
+                worker: state.pid,
+                pid: PID
+            });
+        },
+        broadcast: (command, data, _cb) => {
+            const cb = Util.once(_cb);
             workers.forEach(state => {
                 const txid = guid();
                 response.expect(txid, cb, DEFAULT_QUERY_TIMEOUT);

@@ -430,8 +430,9 @@ const sendChannelMessage = (Env, args) => { // Event
 };
 
 const onNewDecrees = (Env, args, cb) => {
+    Array.prototype.push.apply(Env.allDecrees, args.decrees);
     Env.adminDecrees.loadRemote(Env, args.decrees);
-    Env.workers.broadcast('NEW_DECREES', args, () => {
+    Env.workers.broadcast('NEW_DECREES', args.decrees, () => {
         Env.Log.debug('UPDATE_DECREE_WS_WORKER');
     });
     cb();
@@ -555,6 +556,12 @@ const initHttpCluster = (Env, config) => {
         });
 
         Env.workers = WorkerModule(workerConfig);
+        Env.workers.onNewWorker(state => {
+            Env.workers.sendTo(state, 'NEW_DECREES', Env.allDecrees,
+                () => {
+                Env.Log.verbose('UPDATE_DECREE_WS_WORKER');
+            });
+        });
     });
 };
 
@@ -576,6 +583,7 @@ const start = (config) => {
         Log: Logger(),
         active: true,
         users: {},
+        allDecrees: [],
         config: interfaceConfig,
         numberCores: infra?.core?.length,
         public: server?.public?.websocket?.[index],
@@ -606,22 +614,20 @@ const start = (config) => {
         return initHttpCluster(Env, config);
     }).then(() => {
         try {
-        Object.keys(WORKER_COMMANDS).forEach(cmd => {
-            let handler = WORKER_COMMANDS[cmd];
-            Env.workers.on(cmd, handler);
-        });
+            Object.keys(WORKER_COMMANDS).forEach(cmd => {
+                let handler = WORKER_COMMANDS[cmd];
+                Env.workers.on(cmd, handler);
+            });
         } catch (e) {
             console.error(e);
         }
 
-        Interface.connect(interfaceConfig, (err, _interface) => {
+        Env.interface = Interface.connect(interfaceConfig, err => {
             if (err) {
                 Env.Log.error(interfaceConfig.myId, ' error:', err);
                 return;
             }
             Env.Log.info('WS started', Env.myId);
-            Env.interface = _interface;
-            _interface.handleCommands(CORE_COMMANDS);
 
             if (process.send !== undefined) {
                 process.send({type: 'websocket', index: Env.config.index, msg: 'READY'});
@@ -629,6 +635,7 @@ const start = (config) => {
                 Env.Log.info('websocket:' + Env.config.index + ' started');
             }
         });
+        Env.interface.handleCommands(CORE_COMMANDS);
     }).catch((e) => { return Env.Log.error('Error:', e); });
 };
 

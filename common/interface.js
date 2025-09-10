@@ -22,6 +22,8 @@ let findIdFromDest = function(ctx, dest) {
     return found;
 };
 
+const onNewConnection = Util.mkEvent();
+
 const newConnection = (ctx, other, txid, type, data) => {
     if (type === 'ACCEPT') {
         const coreId = ctx.pendingConnections?.[txid];
@@ -72,6 +74,10 @@ const newConnection = (ctx, other, txid, type, data) => {
     other.send([txid, 'ACCEPT', ctx.myId]);
 
     ctx.others[rcvType][idx] = other;
+    onNewConnection.fire({
+        type: rcvType,
+        index: idx
+    });
     return;
 };
 
@@ -115,6 +121,8 @@ let handleMessage = function(ctx, other, message) {
         }, {
             from: fromId
         });
+    } else {
+        console.log('NO HANDLER', ctx.myId, args);
     }
 };
 
@@ -230,7 +238,11 @@ let communicationManager = function(ctx) {
         });
     };
 
-    return { sendEvent, sendQuery, handleCommands, disconnect, broadcast };
+    return {
+        sendEvent, sendQuery,
+        handleCommands, disconnect, broadcast,
+        onNewConnection: onNewConnection.reg
+    };
 };
 
 /* Creates a connection to another node.
@@ -293,18 +305,20 @@ let connect = function(config, cb) {
     if (!connector) {
         return cb('E_MISSINGCONNECTOR');
     }
+
+    let manager = communicationManager(ctx);
     connector.initClient(ctx, config, onConnected, (err) => {
         if (err) {
             return cb(err);
         }
-        let manager = communicationManager(ctx);
 
         Promise.all(promises).then(() => {
-            return cb(void 0, manager);
+            return cb();
         }).catch(e => {
             throw new Error(e);
         });
     });
+    return manager;
 };
 
 /* This function initializes the different ws servers on the Core components */
@@ -349,6 +363,8 @@ let init = function(config, cb) {
     if (!connector) {
         return cb('E_MISSINGCONNECTOR');
     }
+
+    let manager = communicationManager(ctx);
     connector.initServer(ctx, myConfig, createHandlers, (err, selfClient) => {
         if (err) {
             return cb(err);
@@ -356,10 +372,10 @@ let init = function(config, cb) {
         if (!selfClient) {
             return cb('E_INITWSSERVER');
         }
-        let manager = communicationManager(ctx);
 
-        return cb(void 0, manager);
+        return cb();
     });
+    return manager;
 };
 
 module.exports = { connect, init };
