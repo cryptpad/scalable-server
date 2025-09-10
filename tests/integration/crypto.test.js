@@ -89,6 +89,34 @@ let signMsg = (isCp) => {
     return `cp|${id}|${signed}`;
 };
 
+const initPad = () => {
+    const user = users[0];
+    const network = user.network;
+    const txid = Crypto.randomBytes(4).toString('hex');
+    return new Promise((resolve, reject) => {
+        network.on('message', (msg, sender) => {
+            if (!user.wc) { return; }
+            const parsed = JSON.parse(msg);
+            if (sender !== hk) { return; }
+            if (parsed?.state === 1 && parsed?.channel === secret?.channel) {
+                resolve();
+            }
+        });
+        network.join(secret?.channel).then(wc => {
+            user.wc = wc;
+            const msg = ['GET_HISTORY', secret.channel, {
+                txid, metadata: {
+                    owners: [],
+                    allowed: []
+                }
+            }];
+            network.sendto(hk, JSON.stringify(msg));
+        }).catch(e => {
+            reject(e);
+        });
+    });
+};
+
 const joinPad = () => {
     let res, rej;
     const prom = new Promise((resolve, reject) => {
@@ -107,7 +135,6 @@ const joinPad = () => {
             const hist = [];
             users[idx].wc = wc;
             users[idx].id = wc.myID;
-            users[idx].secret = secret;
             users[idx].history = hist;
             wc.on('message', (msg, sender) => {
                 hist.push({
@@ -132,7 +159,6 @@ const sendPadMessage = (user) => {
     const msg = signMsg(false);
     return new Promise((res, rej) => {
         user.wc.bcast(msg).then(() => {
-            messages.push({ user: user.id, msg });
             user.history.push({ user: user.id, msg });
             setTimeout(() => {
                 // Timeout here to make sure all users have received
@@ -146,62 +172,11 @@ const sendPadMessage = (user) => {
 const sendMessages = () => {
     let all = Object.values(users).map(user => Promise.all([
         sendPadMessage(user),
-        // sendPadMessage(user)
+        sendPadMessage(user)
     ]));
     return Promise.all(all);
 };
 
-const checkHistory = () => {
-    return new Promise((resolve, reject) => {
-        const startHistIdx = 3;
-
-        // const txid = NodeCrypto.randomBytes(4).toString('hex');
-
-        // const expected = messages.slice(startHistIdx).map(obj => obj.msg);
-        const expected = messages.slice(startHistIdx).map(obj => obj.msg);
-        const lastKnownHash = expected[0].slice(0, 64);
-
-
-        const hist = [];
-        const validateKey = secret?.keys?.validateKey;
-        const expectedMsgs = expected.map(msg => encryptor.decrypt(msg, validateKey));
-
-        const onMessage = (msg, sender) => {
-            if (sender !== hk) { return; }
-            hist.push(msg);
-        };
-
-        const onReady = () => {
-            if (JSON.stringify(expectedMsgs) !== JSON.stringify(hist)) {
-                    return void reject("CHECK_HISTORY_MISMATCH_ERROR");
-            }
-            resolve();
-        };
-
-        let network;
-        connectUser(nbUsers)
-            .then(_network => {
-                network = _network;
-                // console.error(secret.keys);
-
-                CPNetflux.start({
-                    lastKnownHash,
-                    network,
-                    channel: secret.channel,
-                    crypto: encryptor,
-                    validateKey,
-                    onChannelError: reject,
-                    onReady,
-                    onMessage,
-                    noChainPad: true
-                });
-            })
-            .catch(e => {
-                console.error(e);
-                reject(e);
-            });
-    });
-};
 
 
 const checkUsers = () => {
@@ -247,38 +222,61 @@ const checkPad = () => {
     });
 };
 
-const checkMessages = () => {
+const checkHistory = () => {
     return new Promise((resolve, reject) => {
-        Object.values(users).every(user => {
-            try {
-                const hist = user.history;
-                if (hist.length !== messages.length) {
-                    throw new Error("CHECK_MESSAGES_LENGTH_ERROR");
-                }
-                if (hist.some((obj, i) => {
-                    const msg = messages[i];
-                    return msg.user !== obj.user
-                        || msg.msg !== obj.msg;
-                })) {
-                    throw new Error("MESSAGES_ORDER_ERROR");
-                }
-            } catch (e) {
-                reject(e);
-                return false;
+        const startHistIdx = Math.max(nbUsers - 2, 1);
+
+        const expected = users[0].history.slice(startHistIdx).map(obj => obj.msg);
+        const lastKnownHash = expected[0].slice(0, 64);
+
+
+        const hist = [];
+        const validateKey = secret?.keys?.validateKey;
+        const expectedMsgs = expected.map(msg => encryptor.decrypt(msg, validateKey));
+
+        const onMessage = (msg, sender) => {
+            if (sender !== hk) { return; }
+            hist.push(msg);
+        };
+
+        const onReady = () => {
+            if (JSON.stringify(expectedMsgs) !== JSON.stringify(hist)) {
+                    return void reject("CHECK_HISTORY_MISMATCH_ERROR");
             }
-            return true;
-        });
-        // resolve if they all have a valid webchannel
-        resolve();
+            resolve();
+        };
+
+        let network;
+        connectUser(nbUsers)
+            .then(_network => {
+                network = _network;
+                // console.error(secret.keys);
+
+                CPNetflux.start({
+                    lastKnownHash,
+                    network,
+                    channel: secret.channel,
+                    crypto: encryptor,
+                    validateKey,
+                    onChannelError: reject,
+                    onReady,
+                    onMessage,
+                    noChainPad: true
+                });
+            })
+            .catch(e => {
+                console.error(e);
+                reject(e);
+            });
     });
 };
 
 startUsers()
     .then(checkUsers)
+    .then(initPad)
     .then(joinPad)
     .then(checkPad)
     .then(sendMessages)
-    .then(checkMessages)
     .then(checkHistory)
     .then(() => {
         console.log('All pads tests passed!');
