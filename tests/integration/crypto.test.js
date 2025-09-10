@@ -153,8 +153,6 @@ const joinPad = () => {
     return prom;
 };
 
-const messages = [];
-
 const sendPadMessage = (user) => {
     const msg = signMsg(false);
     return new Promise((res, rej) => {
