@@ -99,7 +99,8 @@ const initPad = () => {
             const parsed = JSON.parse(msg);
             if (sender !== hk) { return; }
             if (parsed?.state === 1 && parsed?.channel === secret?.channel) {
-                resolve();
+                // Timeout to make sure that the chan is creadet before joining it
+                setTimeout(resolve, 200);
             }
         });
         network.join(secret?.channel).then(wc => {
