@@ -106,6 +106,7 @@ const initPad = () => {
             user.wc = wc;
             const msg = ['GET_HISTORY', secret.channel, {
                 txid, metadata: {
+                    validateKey: secret?.keys?.validateKey,
                     owners: [],
                     allowed: []
                 }
