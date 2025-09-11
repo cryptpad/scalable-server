@@ -220,14 +220,8 @@ const checkPad = () => {
     });
 };
 
-const checkHistory = () => {
+const checkHistory = (index, expected, lastKnownHash) => {
     return new Promise((resolve, reject) => {
-        const startHistIdx = Math.max(nbUsers - 2, 1);
-
-        const expected = users[0].history.slice(startHistIdx).map(obj => obj.msg);
-        const lastKnownHash = expected[0].slice(0, 64);
-
-
         const hist = [];
         const validateKey = secret?.keys?.validateKey;
         const expectedMsgs = expected.map(msg => encryptor.decrypt(msg, validateKey));
@@ -245,7 +239,7 @@ const checkHistory = () => {
         };
 
         let network;
-        connectUser(nbUsers)
+        connectUser(index)
             .then(_network => {
                 network = _network;
                 // console.error(secret.keys);
@@ -269,13 +263,26 @@ const checkHistory = () => {
     });
 };
 
+const checkHistories = () => {
+    // Check Full History
+    let expected = users[0].history.map(obj => obj.msg);
+    let checkHistoryPromises = Object.keys(users).map(user => checkHistory(user, expected));
+
+    // Check with lastKnownHash
+    const startHistIdx = Math.max(nbUsers - 2, 1);
+    expected = users[0].history.slice(startHistIdx).map(obj => obj.msg);
+    const lastKnownHash = expected[0].slice(0, 64);
+    checkHistoryPromises.concat(Object.keys(users).map(user => checkHistory(user, expected, lastKnownHash)));
+    return Promise.all(checkHistoryPromises);
+};
+
 startUsers()
     .then(checkUsers)
     .then(initPad)
     .then(joinPad)
     .then(checkPad)
     .then(sendMessages)
-    .then(checkHistory)
+    .then(checkHistories)
     .then(() => {
         console.log('All pads tests passed!');
         process.exit(0);
