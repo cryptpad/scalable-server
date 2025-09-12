@@ -7,14 +7,11 @@
  * JOIN, MSG and LEAVE messages as weell as the pad history.
  */
 
+const { connectUser, getChannelPath } = require('./common/utils');
 
 const Crypto = require('node:crypto');
-const WebSocket = require("ws");
-const Netflux = require("netflux-websocket");
 const CPCrypto = require('chainpad-crypto');
 const CPNetflux = require('chainpad-netflux');
-
-const config = require('../config/config.json');
 
 const nbUsers = 5;
 const users = {};
@@ -36,26 +33,8 @@ let secret = {
     keys: CPCrypto.createEditCryptor2()
 };
 secret.channel = base64ToHex(secret?.keys?.chanId);
+console.log(getChannelPath(secret.channel));
 const encryptor = CPCrypto.createEncryptor(secret?.keys);
-
-const mainCfg = config?.public?.main;
-const getWsURL = () => {
-    const wsUrl = new URL('ws://localhost:3000/cryptpad_websocket');
-    if (mainCfg.origin) {
-        let url = new URL(mainCfg.origin);
-        wsUrl.hostname = url.hostname;
-        wsUrl.port = url.port;
-        wsUrl.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
-    }
-    return wsUrl.href;
-};
-
-const connectUser = index => {
-    const f = () => {
-        return new WebSocket(getWsURL(index));
-    };
-    return Netflux.connect('', f);
-};
 
 const startUsers = () => {
     return new Promise((resolve, reject) => {
@@ -229,22 +208,18 @@ const checkPad = () => {
     });
 };
 
-const checkHistory = (index, expected, lastKnownHash) => {
+const checkHistory = (index, lastKnownHash) => {
     return new Promise((resolve, reject) => {
         const hist = [];
         const validateKey = secret?.keys?.validateKey;
-        const expectedMsgs = expected.map(msg => encryptor.decrypt(msg, validateKey));
 
-        const onMessage = (msg, sender) => {
+        const onMessage = (_msg, sender, _validateKey, _isCp, hash) => {
             if (sender !== hk) { return; }
-            hist.push(msg);
+            hist.push(hash);
         };
 
         const onReady = () => {
-            if (JSON.stringify(expectedMsgs) !== JSON.stringify(hist)) {
-                    return void reject("CHECK_HISTORY_MISMATCH_ERROR");
-            }
-            resolve();
+            resolve(hist);
         };
 
         let network;
