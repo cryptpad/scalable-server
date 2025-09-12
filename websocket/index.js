@@ -433,7 +433,7 @@ const onNewDecrees = (Env, args, cb) => {
     Array.prototype.push.apply(Env.allDecrees, args.decrees);
     Env.adminDecrees.loadRemote(Env, args.decrees);
     Env.workers.broadcast('NEW_DECREES', args.decrees, () => {
-        Env.Log.debug('UPDATE_DECREE_WS_WORKER');
+        Env.Log.verbose('UPDATE_DECREE_WS_WORKER');
     });
     cb();
 };

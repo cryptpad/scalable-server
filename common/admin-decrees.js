@@ -422,4 +422,12 @@ commands.SET_BEARER_SECRET = function (Env, args) {
     return true;
 };
 
+commands.TEST_DECREE = (Env, args) => {
+    if (typeof(args) !== "string") {
+        throw new Error("INVALID_ARGS");
+    }
+    Env.testDecreeValue = args;
+    return true;
+};
+
 module.exports = commands;

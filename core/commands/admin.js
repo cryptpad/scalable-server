@@ -25,32 +25,21 @@ the server adds two pieces of information to the supplied decree:
 
 */
 
-    const decree = [command, args, unsafeKey, +new Date()];
+    const decree = [command, args, publicKey, +new Date()];
 
     // Send to storage:0
-
-    let changed;
-    try {
-        changed = Decrees.handleCommand(Env, decree) || false;
-    } catch (err) {
-        return void cb(err);
-    }
-
-    if (!changed) { return void cb(); }
-    Env.Log.info('ADMIN_DECREE', decree);
-    let _err;
-    nThen((waitFor) => {
-        Decrees.write(Env, decree, waitFor((err) => {
-            _err = err;
-        }));
-        setTimeout(waitFor(), 300); // NOTE: 300 because cache update may take up to 250ms
-    }).nThen(function () {
-        cb(_err);
+    Env.interface.sendQuery('storage:0', 'ADMIN_DECREE', decree, response => {
+        cb(response.error, response.data);
     });
 };
 
+const checkTestDecree = (Env, publicKey, data, cb) => {
+    cb(void 0, Env.testDecreeValue);
+};
+
 const commands = {
-    ADMIN_DECREE: adminDecree
+    CHECK_TEST_DECREE: checkTestDecree,
+    ADMIN_DECREE: Admin.sendDecree
 };
 
 Admin.command = (Env, safeKey, data, _cb) => {

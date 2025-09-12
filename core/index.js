@@ -11,6 +11,7 @@ const Util = require("../common/common-util.js");
 const Logger = require("../common/logger.js");
 const Rpc = require("./rpc.js");
 const AuthCommands = require("./http-commands.js");
+const nThen = require('nthen');
 
 const Environment = require('../common/env.js');
 
@@ -165,7 +166,7 @@ const dropUser = (args, _cb, extra) => {
     if (!userId || !Array.isArray(channels)) { return; }
 
     const user = Env.userCache[userId] ||= {};
-    args.sessions = user.sessions;
+    args.sessions = user.sessions || {};
 
     const sent = [];
     channels.forEach(channel => {
@@ -422,37 +423,37 @@ const onNewDecrees = (args, cb, extra) => {
     if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
     Env.adminDecrees.loadRemote(Env, args.decrees);
     Array.prototype.push.apply(Env.allDecrees, args.decrees);
-    // core:0 also need to broadcats to all the websocket and storage
+    // core:0 also has to broadcast to all the websocket and storage
     // nodes
-    if (Env.myId === 'core:0') {
+    nThen(waitFor => {
+        if (Env.myId !== 'core:0') { return; }
         Env.interface.broadcast('websocket', 'NEW_DECREES', {
             decrees: args.decrees
-        }, values => {
+        }, waitFor(values => {
             values.forEach(obj => {
                 if (!obj?.error) { return; }
                 const { id, error } = obj;
                 Env.Log.error("BCAST_DECREES_ERROR", { id, error });
             });
-        });
+        }));
         const exclude = ['storage:0'];
         Env.interface.broadcast('storage', 'NEW_DECREES', {
             decrees: args.decrees
-        }, values => {
+        }, waitFor(values => {
             values.forEach(obj => {
                 if (!obj?.error) { return; }
                 const { id, error } = obj;
                 Env.Log.error("BCAST_DECREES_ERROR", { id, error });
             });
-        }, exclude);
-        // XXX send to http (requires a websocket http<->core first)
-        Env.interface.sendEvent('http:0', 'NEW_DECREES', {
+        }), exclude);
+        Env.interface.sendQuery('http:0', 'NEW_DECREES', {
             decrees: args.decrees
-        });
-    }
+        }, waitFor());
+    }).nThen(() => {
+        cb();
+    });
 
-    // XXX send to workers? No need for now, Env not used
 
-    cb();
 };
 
 

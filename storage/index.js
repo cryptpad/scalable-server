@@ -5,6 +5,7 @@ const Http = require('node:http');
 const Util = require("./common-util.js");
 const Constants = require("../common/constants.js");
 const Logger = require("../common/logger.js");
+const Core = require("../common/core.js");
 
 const Express = require('express');
 const nThen = require("nthen");
@@ -348,16 +349,21 @@ let start = function(config) {
     Env.numberCores = infra?.core?.length;
     Env.config = config;
 
-    Env.sendDecrees = (decrees) => {
+    Env.sendDecrees = (decrees, _cb) => {
+        const cb = Util.mkAsync(_cb || function () {});
         Array.prototype.push.apply(Env.allDecrees, decrees);
-        for (let i = 0; i < Env.numberCores; i++) {
-            let coreId = `core:${i}`;
-            Env.interface.sendEvent(coreId, 'NEW_DECREES', {
-                decrees
-            });
-        }
-        Env.workers.broadcast('NEW_DECREES', decrees, () => {
-            Env.Log.verbose('UPDATE_DECREE_STORAGE_WORKER');
+        nThen(waitFor => {
+            for (let i = 0; i < Env.numberCores; i++) {
+                let coreId = `core:${i}`;
+                Env.interface.sendQuery(coreId, 'NEW_DECREES', {
+                    decrees
+                }, waitFor());
+            }
+            Env.workers.broadcast('NEW_DECREES', decrees, waitFor(() => {
+                Env.Log.verbose('UPDATE_DECREE_STORAGE_WORKER');
+            }));
+        }).nThen(() => {
+            cb();
         });
     };
 
@@ -371,7 +377,7 @@ let start = function(config) {
 
     const {
         filePath, archivePath, blobPath, blobStagingPath
-    } = Env.paths;
+    } = Core.getPaths(config);
     nThen(waitFor => {
         File.create({
             filePath, archivePath,
