@@ -28,15 +28,17 @@ Data.getMetadataRaw = (Env, channel, _cb) => {
         return void cb(void 0, cached);
     }
 
-    Env.batchMetadata(channel, cb, function(done) {
-        Env.worker.computeMetadata(channel, function(err, meta) {
-            if (!err && HKUtil.isMetadataMessage(meta)) {
-                Env.metadata_cache[channel] = meta;
-                // clear metadata after a delay if nobody has joined the channel within 30s
-                Env.checkCache(channel);
-            }
-            done(err, meta);
-        });
+    const batchCb = (err, meta) => {
+        if (!err && HKUtil.isMetadataMessage(meta) && !Env.metadata_cache[channel]) {
+            Env.metadata_cache[channel] = meta;
+            // clear metadata after a delay if nobody has joined the channel within 30s
+            Env.checkCache(channel);
+        }
+        cb(err, meta);
+    };
+
+    Env.batchMetadata(channel, batchCb, function(done) {
+        Env.worker.computeMetadata(channel, done);
     });
 };
 

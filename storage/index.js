@@ -146,14 +146,18 @@ const joinChannelHandler = (args, cb) => {
     const channelData = Env.channel_cache[channel] ||= {
         users: []
     };
-    const _users = channelData.users.slice();
-    if (!channelData.users.includes(userId)) {
-        channelData.users.push(userId);
-    }
+    const onSuccess = () => {
+        // If you're allowed to join the channel, add yourself
+        // and callback with the old userlist (without you)
+        const _users = channelData.users.slice();
+        if (!channelData.users.includes(userId)) {
+            channelData.users.push(userId);
+        }
+        return void cb(void 0, _users);
+    };
     HistoryManager.getMetadata(Env, channel, (err, metadata) => {
-        // XXX handle allow list
         if (err) {
-            console.error('HK_METADATA_ERR', {
+            Env.Log.error('HK_METADATA_ERR', {
                 channel, error: err,
             });
         }
@@ -171,7 +175,7 @@ const joinChannelHandler = (args, cb) => {
         if (!metadata?.restricted) {
             // the channel doesn't have metadata, or it does and
             // it's not restricted: either way, let them join.
-            return void cb(void 0, _users);
+            return void onSuccess();
         }
 
         // this channel is restricted. verify that the user in
@@ -180,7 +184,7 @@ const joinChannelHandler = (args, cb) => {
         const allowed = HKUtil.listAllowedUsers(metadata);
 
         if (HKUtil.isUserSessionAllowed(allowed, sessions)) {
-            return void cb();
+            return void onSuccess();
         }
 
         // If the channel is restricted, send the history keeper ID
