@@ -3,6 +3,7 @@ const Express = require('express');
 const BlockStore = require("./storage/block");
 const { setHeaders } = require('../http-server/headers.js');
 const CpCrypto = require("../common/crypto.js")('sodiumnative');
+const Util = require('../common/common-util');
 
 
 const create = (Env, app) => {
@@ -94,7 +95,18 @@ const create = (Env, app) => {
         next();
     });
 
-    app.post('/upload-blob', Express.json({limit:"500kb"}), (req, res) => {
+    app.use('/upload-blob', Express.json({limit:"500kb"}), (req, res) => {
+        if (req.method === 'OPTIONS') {
+            res.setHeader('Access-Control-Allow-Origin', Env.enableEmbedding? '*': Env.permittedEmbedders);
+            res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+            res.setHeader('Access-Control-Allow-Headers', 'DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Content-Range,Range,Access-Control-Allow-Origin');
+            res.setHeader('Access-Control-Max-Age', 1728000);
+            res.setHeader('Content-Type', 'application/octet-stream; charset=utf-8');
+            res.setHeader('Content-Length', 0);
+            res.statusCode = 204;
+            return void res.end();
+        }
+
         const { chunk, sig, edPublic } = req.body;
 
         const forbidden = reason => {

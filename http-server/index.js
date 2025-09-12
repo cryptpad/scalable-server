@@ -4,6 +4,7 @@ const Path = require('node:path');
 const Fs = require('node:fs');
 const Logger = require("../common/logger.js");
 const { createProxyMiddleware } = require("http-proxy-middleware");
+const { jumpConsistentHash } = require('../common/consistent-hash');
 const Default = require("./defaults");
 const gzipStatic = require('connect-gzip-static');
 const Environment = require('../common/env.js');
@@ -39,6 +40,12 @@ const initFeedback = (Env, app) => {
     });
 };
 
+const getStorageId = (Env, channel) => {
+    // We need a 8 byte key
+    let key = Buffer.from(channel.slice(0, 8));
+    return +String(jumpConsistentHash(key, Env.numberStorages));
+};
+
 const initProxy = (Env, app, server, infra) => {
     const getURL = obj => {
         if (obj.href) {
@@ -51,6 +58,7 @@ const initProxy = (Env, app, server, infra) => {
     };
     const wsList = server?.public?.websocket?.map(getURL);
     const httpList = infra?.websocket?.map(getURL);
+    const storageList = infra?.storage?.map(getURL);
 
     let i = 0;
     let j = 0;
@@ -79,26 +87,23 @@ const initProxy = (Env, app, server, infra) => {
 
     const storeProxy = createProxyMiddleware({
         router: req => {
-            // XXX consistent hash
-            // NOTE: for /blob and /datastore and /block
-            // NOTE2: we'll have to add the express middleware for
-            //        these endpoints in storage's server
-            console.log(req.url);
-            throw new Error('NOT_IMPLEMENTED');
-            return '';
+            const split = req.url.split('/');
+            const dataId = split[2];
+            const id = getStorageId(Env, dataId);
+            return storageList[id] + req.baseUrl.slice(1);
         },
         logger: Logger(['error'])
     });
     app.use('/blob', storeProxy);
     app.use('/datastore', storeProxy);
     app.use('/block', storeProxy);
+    app.use('/upload-blob', storeProxy);
 
     return wsProxy;
 };
 
 const initHeaders = (Env, app) => {
     app.use((req, res, next) => {
-        // XXX OPTIONS method?
         setHeaders(Env, req, res);
         if (/[\?\&]ver=[^\/]+$/.test(req.url)) {
             res.setHeader("Cache-Control", "max-age=31536000");
@@ -201,6 +206,7 @@ const start = (config) => {
 
     //initEnv(Env, server);
     Environment.init(Env, config);
+    Env.numberStorages = config.infra.storage.length;
 
     const app = Express();
 
