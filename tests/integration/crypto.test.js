@@ -169,6 +169,7 @@ const sendPadMessage = (user) => {
         }).catch(rej);
     });
 };
+
 const sendMessages = () => {
     let all = Object.values(users).map(user => Promise.all([
         sendPadMessage(user),
@@ -177,7 +178,13 @@ const sendMessages = () => {
     return Promise.all(all);
 };
 
-
+const checkRejectSignature = () => {
+    const msg = getMsg(false);
+    const user = users[0];
+    return new Promise((resolve, reject) =>
+        user?.wc?.bcast(msg).then(reject).catch(resolve)
+    );
+};
 
 const checkUsers = () => {
     return new Promise((resolve, reject) => {
@@ -284,6 +291,7 @@ startUsers()
     .then(joinPad)
     .then(checkPad)
     .then(sendMessages)
+    .then(checkRejectSignature)
     .then(checkHistories)
     .then(() => {
         console.log('All pads tests passed!');
