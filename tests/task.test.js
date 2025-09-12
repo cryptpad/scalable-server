@@ -15,7 +15,6 @@ const hk = '0123456789abcdef';
 
 const {
     connectUser,
-    getRandomMsg,
     getChannelPath
 } = require('./common/utils.js');
 console.log('task', getChannelPath(padId));

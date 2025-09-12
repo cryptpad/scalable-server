@@ -8,8 +8,6 @@ const Crypto = require('node:crypto');
 
 const decreeValue= Crypto.randomBytes(16).toString('hex');
 
-const hk = '0123456789abcdef';
-
 const {
     connectUser,
     createUserRpc,
@@ -20,7 +18,7 @@ const initAdmin = (network) => {
         edPrivate: 'Kr9wV6O/9qea9LasPAJSC247FBKnSTLfx048/rpXs4z0wRJj2FE3qztPwz3j6/GFLr1n0e765Bpe2UoW7HEVjQ==',
         edPublic: '9MESY9hRN6s7T8M94+vxhS69Z9Hu+uQaXtlKFuxxFY0='
     };
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         resolve({network, keys});
     });
 };

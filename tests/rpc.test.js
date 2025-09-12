@@ -4,7 +4,7 @@ const padId = Crypto.randomBytes(16).toString('hex');
 const hk = '0123456789abcdef';
 
 const {
-    getWsURL, connectUser,
+    connectUser,
     createAnonRpc, createUserRpc,
     getRandomKeys, getRandomMsg,
     getChannelPath

@@ -11,7 +11,7 @@ Fs.readdir(Path.join('.', 'tests'), (err, dir) => {
 });
 
 let done = 0;
-global.onTestEnd = (success) => {
+global.onTestEnd = () => {
     done++;
     if (done === number) { process.exit(0); }
 };
