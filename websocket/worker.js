@@ -216,6 +216,9 @@ app.post('/api/auth', (req, res) => {
 
 COMMANDS.NEW_DECREES = (data, cb) => {
     Env.adminDecrees.loadRemote(Env, data);
+    [ 'configCache', 'broadcastCache', ].forEach(key => {
+        Env[key] = {};
+    });
     cb();
 };
 
