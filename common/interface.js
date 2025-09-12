@@ -121,8 +121,6 @@ let handleMessage = function(ctx, other, message) {
         }, {
             from: fromId
         });
-    } else {
-        console.log('NO HANDLER', ctx.myId, args);
     }
 };
 
