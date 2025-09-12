@@ -10,6 +10,10 @@ const Core = require("../common/core.js");
 const Util = require("../common/common-util.js");
 const Logger = require("../common/logger.js");
 const Rpc = require("./rpc.js");
+const AuthCommands = require("./http-commands.js");
+const nThen = require('nthen');
+
+const Environment = require('../common/env.js');
 
 const {
     CHECKPOINT_PATTERN
@@ -21,7 +25,8 @@ let Env = {
     channelKeyCache: {}, // Validate key of each channel
     queueValidation: WriteQueue(),
     Sessions: {},
-    intervals: {}
+    intervals: {},
+    allDecrees: []
 };
 
 const isWsCmd = id => {
@@ -159,6 +164,9 @@ const dropUser = (args, _cb, extra) => {
 
     const { channels, userId } = args;
     if (!userId || !Array.isArray(channels)) { return; }
+
+    const user = Env.userCache[userId] ||= {};
+    args.sessions = user.sessions || {};
 
     const sent = [];
     channels.forEach(channel => {
@@ -389,6 +397,11 @@ const onAuthRpc = (args, cb, extra) => {
     });
 };
 
+const onHttpCommand = (args, cb, extra) => {
+    if (!isWsCmd(extra.from)) { return void cb('UNAUTHORIZED'); }
+    AuthCommands.handle(Env, args, cb);
+};
+
 const onWsCommand = command => {
     return (args, cb, extra) => {
         if (!isWsCmd(extra.from)) { return void cb('UNAUTHORIZED'); }
@@ -403,6 +416,45 @@ const onWsCommand = command => {
     };
 };
 
+
+// When receiving new decrees from storage:0, update our env
+// and broadcast to all the other nodes
+const onNewDecrees = (args, cb, extra) => {
+    if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
+    Env.adminDecrees.loadRemote(Env, args.decrees);
+    Array.prototype.push.apply(Env.allDecrees, args.decrees);
+    // core:0 also has to broadcast to all the websocket and storage
+    // nodes
+    nThen(waitFor => {
+        if (Env.myId !== 'core:0') { return; }
+        Env.interface.broadcast('websocket', 'NEW_DECREES', {
+            decrees: args.decrees
+        }, waitFor(values => {
+            values.forEach(obj => {
+                if (!obj?.error) { return; }
+                const { id, error } = obj;
+                Env.Log.error("BCAST_DECREES_ERROR", { id, error });
+            });
+        }));
+        const exclude = ['storage:0'];
+        Env.interface.broadcast('storage', 'NEW_DECREES', {
+            decrees: args.decrees
+        }, waitFor(values => {
+            values.forEach(obj => {
+                if (!obj?.error) { return; }
+                const { id, error } = obj;
+                Env.Log.error("BCAST_DECREES_ERROR", { id, error });
+            });
+        }), exclude);
+        Env.interface.sendQuery('http:0', 'NEW_DECREES', {
+            decrees: args.decrees
+        }, waitFor());
+    }).nThen(() => {
+        cb();
+    });
+
+
+};
 
 
 const initIntervals = () => {
@@ -419,6 +471,9 @@ const initIntervals = () => {
 let startServers = function(config) {
     let { myId, index, server, infra } = config;
     Env.numberStorages = config.infra.storage.length;
+
+    Environment.init(Env, config);
+
     const interfaceConfig = {
         connector: WSConnector,
         infra,
@@ -440,6 +495,8 @@ let startServers = function(config) {
         }
     };
 
+    const { challengePath } = Core.getPaths(config);
+    Env.challengePath = challengePath;
     Env.workers = WorkerModule(workerConfig);
 
     let queriesToStorage = [];
@@ -454,6 +511,7 @@ let startServers = function(config) {
         'USER_MESSAGE': onUserMessage,
         'ANON_RPC': onAnonRpc,
         'AUTH_RPC': onAuthRpc,
+        'HTTP_COMMAND': onHttpCommand,
         'GET_HISTORY': onWsCommand('GET_HISTORY'),
         'GET_FULL_HISTORY': onWsCommand('GET_FULL_HISTORY'),
         'GET_HISTORY_RANGE': onWsCommand('GET_HISTORY_RANGE'),
@@ -462,6 +520,7 @@ let startServers = function(config) {
         'DROP_CHANNEL': dropChannelHandler,
         'HISTORY_MESSAGE': onHistoryMessage,
         'HISTORY_CHANNEL_MESSAGE': onHistoryChannelMessage,
+        'NEW_DECREES': onNewDecrees
     };
     queriesToStorage.forEach(function(command) {
         COMMANDS[command] = wsToStorage(command);
@@ -475,18 +534,24 @@ let startServers = function(config) {
 
     initIntervals();
 
-    Interface.init(interfaceConfig, (err, _interface) => {
+    Env.interface = Interface.init(interfaceConfig, err => {
         if (err) {
             console.error('E: interface initialisation error', err);
             return;
         }
         console.log("Core started", config.myId);
-        Env.interface = _interface;
-
-        _interface.handleCommands(COMMANDS);
         if (process.send !== undefined) {
             process.send({ type: 'core', index: config.index, msg: 'READY' });
         }
+    });
+    Env.interface.handleCommands(COMMANDS);
+    if (Env.myId !== 'core:0') { return; }
+    Env.interface.onNewConnection(obj => {
+        const id = `${obj.type}:${obj.index}`;
+        if (!Env.allDecrees.length) { return; }
+        Env.interface.sendEvent(id, 'NEW_DECREES', {
+            decrees: Env.allDecrees
+        });
     });
 };
 

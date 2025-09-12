@@ -1,6 +1,7 @@
 const { jumpConsistentHash } = require('../common/consistent-hash.js');
 const Util = require("../common/common-util");
 const Core = require('../common/core');
+const Admin = require('./commands/admin');
 const Rpc = {};
 
 // XXX deduplicate with index
@@ -49,7 +50,7 @@ const upload = () => { };
 const uploadComplete = () => { };
 const uploadCancel = () => { };
 const uploadCompleteOwned = () => { };
-const adminCommand = () => { };
+const adminCommand = Admin.command;
 const setMetadata = () => { };
 
 const getHash = () => { };
@@ -122,7 +123,7 @@ Rpc.handleUnauthenticated = (Env, data, userId, cb) => {
     const method = UNAUTHENTICATED_CALLS[command];
     method(Env, content, (err, value) => {
         if (err) {
-            Env.Log.warn(err, content);
+            Env.Log.warn('ANON_RPC_ERROR', err, content);
             return void cb(err);
         }
         cb(void 0, [null, value, null]);
@@ -155,15 +156,18 @@ Rpc.handleAuthenticated = (Env, publicKey, data, cb) => {
 
     if (typeof(AUTHENTICATED_USER_TARGETED[TYPE]) === 'function') {
         return void AUTHENTICATED_USER_TARGETED[TYPE](Env, safeKey, data[1], (e, value) => {
-            Env.Log.warn(e, value);
-            return void Respond(e, value);
+            if (e) {
+                Env.Log.warn('RPC_ERROR', e, safeKey);
+                return void Respond(e);
+            }
+            Respond(e, value);
         });
     }
 
     if (typeof(AUTHENTICATED_USER_SCOPED[TYPE]) === 'function') {
         return void AUTHENTICATED_USER_SCOPED[TYPE](Env, safeKey, (e, value) => {
             if (e) {
-                Env.Log.warn(e, safeKey);
+                Env.Log.warn('RPC_ERROR', e, safeKey);
                 return void Respond(e);
             }
             Respond(e, value);

@@ -1,12 +1,17 @@
 const Express = require('express');
-const Http = require('http');
+const Http = require('node:http');
 const Path = require('node:path');
 const Fs = require('node:fs');
 const Logger = require("../common/logger.js");
-const Util = require("../common/common-util.js");
 const { createProxyMiddleware } = require("http-proxy-middleware");
 const Default = require("./defaults");
 const gzipStatic = require('connect-gzip-static');
+const Environment = require('../common/env.js');
+const { setHeaders } = require('./headers.js');
+const nThen = require('nthen');
+
+const Interface = require("../common/interface.js");
+const WSConnector = require("../common/ws-connector.js");
 
 
 // XXX Later: use cluster to serve the static files
@@ -15,69 +20,6 @@ const gzipStatic = require('connect-gzip-static');
     Load balancing with consistent hash? Or cycle between each node
 */
 
-const EXEMPT = [
-    /^\/common\/onlyoffice\/.*\.html.*/,
-    /^\/common\/onlyoffice\/dist\/.*\/sdkjs\/common\/spell\/spell\/spell.js.*/,  // OnlyOffice loads spell.wasm in a way that needs unsave-eval
-    /^\/(sheet|presentation|doc)\/inner\.html.*/,
-    /^\/unsafeiframe\/inner\.html.*$/,
-];
-
-const applyHeaderMap = (res, map) => {
-    for (let header in map) {
-        if (typeof(map[header]) === 'string') { res.setHeader(header, map[header]); }
-    }
-};
-
-const cacheHeaders = (Env, key, headers) => {
-    if (Env.DEV_MODE) { return; }
-    Env[key] = headers;
-};
-
-const getHeaders = (Env, type) => {
-    const key = type + 'HeadersCache';
-    if (Env[key]) { return Util.clone(Env[key]); }
-
-    const headers = Default.httpHeaders(Env);
-
-    let csp;
-    if (type === 'office') {
-        csp = Default.padContentSecurity(Env);
-    } else {
-        csp = Default.contentSecurity(Env);
-    }
-    headers['Content-Security-Policy'] = csp;
-    headers["Cross-Origin-Resource-Policy"] = 'cross-origin';
-    headers["Cross-Origin-Embedder-Policy"] = 'require-corp';
-    cacheHeaders(Env, key, headers);
-
-    // Don't set CSP headers on /api/ endpoints
-    // because they aren't necessary and they cause problems
-    // when duplicated by NGINX in production environments
-    if (type === 'api') { delete headers['Content-Security-Policy']; }
-
-    return Util.clone(headers);
-};
-
-const setHeaders = (Env, req, res) => {
-    let type;
-    if (EXEMPT.some(regex => regex.test(req.url))) {
-        type = 'office';
-    } else if (/^\/api\/(broadcast|config)/.test(req.url)) {
-        type = 'api';
-    } else {
-        type = 'standard';
-    }
-
-    let h = getHeaders(Env, type);
-
-    // Allow main domain to load resources from the sandbox URL
-    if (!Env.enableEmbedding && req.get('origin') === Env.httpUnsafeOrigin &&
-        /^\/common\/onlyoffice\/dist\/.*\/fonts\/.*/.test(req.url)) {
-        h['Access-Control-Allow-Origin'] = Env.httpUnsafeOrigin;
-    }
-
-    applyHeaderMap(res, h);
-};
 
 
 Express.static.mime.define({'application/wasm': ['wasm']});
@@ -124,7 +66,8 @@ const initProxy = (Env, app, server, infra) => {
     });
     const httpProxy = createProxyMiddleware({
         router: req => {
-            return httpList[j++%httpList.length] + req.originalUrl.slice(1);
+            //return httpList[j++%httpList.length] + req.originalUrl.slice(1);
+            return httpList[j++%httpList.length] + req.baseUrl.slice(1);
         },
         logger: Logger(['error'])
     });
@@ -243,37 +186,21 @@ const initStatic = (Env, app) => {
     });
 };
 
-const initEnv = (Env, server) => {
-    const config = server?.options || {};
-    const publicConfig = server?.public || {};
-
-    // Origin and ports
-    Env.httpUnsafeOrigin = publicConfig?.main?.origin;
-    Env.httpSafeOrigin = publicConfig?.main?.sandboxOrigin;
-    const unsafe = new URL(Env.httpUnsafeOrigin);
-    const safe = new URL(Env.httpSafeOrigin);
-    Env.httpAddress = unsafe.hostname;
-    Env.httpPort = unsafe.port;
-    if (unsafe.port && unsafe.hostname === safe.hostname) {
-        Env.httpSafePort = safe.port;
-    }
-
-    Env.logFeedback = Boolean(config.logFeedback);
-
-    const DEV = process.env.DEV;
-    Env.DEV_MODE = String(DEV) === "1";
-
-    Env.enableEmbedding = false; // XXX decree...
-    Env.permittedEmbedders = publicConfig?.main?.sandboxOrigin;
+const onNewDecrees = (Env, args, cb) => {
+    Env.adminDecrees.loadRemote(Env, args.decrees);
+    cb();
 };
 
 const start = (config) => {
     const {server, infra} = config;
+    const index = 0;
+    const myId = 'http:0';
     const Env = {
         Log: Logger()
     };
 
-    initEnv(Env, server);
+    //initEnv(Env, server);
+    Environment.init(Env, config);
 
     const app = Express();
 
@@ -284,31 +211,56 @@ const start = (config) => {
     initPlugins(Env, app);
     initStatic(Env, app);
 
-    const httpServer = Http.createServer(app);
-    httpServer.listen(Env.httpPort, Env.httpAddress, () => {
-        if (process.send !== undefined) {
-            process.send({
-                type: 'http',
-                index: 0,
-                dev: Env.DEV_MODE,
-                msg: 'READY'
-            });
-        } else {
+    const callWithEnv = f => {
+        return function () {
+            [].unshift.call(arguments, Env);
+            return f.apply(null, arguments);
+        };
+    };
+    const CORE_COMMANDS = {
+        NEW_DECREES: callWithEnv(onNewDecrees)
+    };
+
+    nThen(w => {
+        const interfaceConfig = {
+            connector: WSConnector,
+            index, infra, server, myId,
+            public: server?.public
+        };
+        Env.interface = Interface.connect(interfaceConfig, w(err => {
+            if (err) {
+                w.abort();
+                Env.Log.error(interfaceConfig.myId, ' error:', err);
+                return;
+            }
+        }));
+        Env.interface.handleCommands(CORE_COMMANDS);
+
+        const httpServer = Http.createServer(app);
+        httpServer.listen(Env.httpPort, Env.httpAddress, w(() => {
+            if (process.send) { return; }
             Env.Log.info('HTTP server started');
             if (Env.DEV_MODE) {
                 Env.Log.info('DEV mode enabled');
             }
-        }
-    });
-    httpServer.on('upgrade', wsProxy.upgrade);
+        }));
+        httpServer.on('upgrade', wsProxy.upgrade);
 
-    if (Env.httpSafePort) {
+        if (!Env.httpSafePort) { return; }
         const safeServer = Http.createServer(app);
-        safeServer.listen(Env.httpSafePort, Env.httpAddress, () => {
+        safeServer.listen(Env.httpSafePort, Env.httpAddress, w(() => {
             if (process.send) { return; }
             Env.Log.info('HTTP sandbox started');
+        }));
+    }).nThen(() => {
+        if (!process.send) { return; }
+        process.send({
+            type: 'http',
+            index: 0,
+            dev: Env.DEV_MODE,
+            msg: 'READY'
         });
-    }
+    });
 };
 
 module.exports = {

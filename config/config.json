@@ -18,6 +18,9 @@
         ]
     },
     "options": {
-        "logFeedback": true
+        "logFeedback": true,
+        "adminKeys": [
+            "[test@cryptpad/9MESY9hRN6s7T8M94+vxhS69Z9Hu+uQaXtlKFuxxFY0=]"
+        ]
     }
 }

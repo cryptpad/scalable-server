@@ -16,8 +16,14 @@ Constants.TEMPORARY_CHANNEL_LIFETIME = 30 * 1000;
 Constants.paths = {
     base: './data/',
     channel: 'channel/',
+    blob: 'blob/',
+    blobstage: 'blobstage/',
+    block: 'block/',
     archive: 'archive/',
-    tasks: 'tasks/'
+    tasks: 'tasks/',
+    decrees: 'decrees/',
+    challenges: 'challenges/'
 };
+Constants.adminDecree = 'decree.ndjson';
 
 module.exports = Constants;

@@ -22,6 +22,8 @@ let findIdFromDest = function(ctx, dest) {
     return found;
 };
 
+const onNewConnection = Util.mkEvent();
+
 const newConnection = (ctx, other, txid, type, data) => {
     if (type === 'ACCEPT') {
         const coreId = ctx.pendingConnections?.[txid];
@@ -72,6 +74,10 @@ const newConnection = (ctx, other, txid, type, data) => {
     other.send([txid, 'ACCEPT', ctx.myId]);
 
     ctx.others[rcvType][idx] = other;
+    onNewConnection.fire({
+        type: rcvType,
+        index: idx
+    });
     return;
 };
 
@@ -211,13 +217,15 @@ let communicationManager = function(ctx) {
         ctx.self.disconnect();
     };
 
-    const broadcast = (type, command, args, cb) => {
+    const broadcast = (type, command, args, cb, exclude) => {
         const all = ctx.others[type] || {};
         const promises = [];
         Object.keys(all).forEach(idx => {
             const id = `${type}:${idx}`;
+            if (Array.isArray(exclude) && exclude.includes(id)) { return; }
             const p = new Promise((resolve) => {
                 sendQuery(id, command, args, answer => {
+                    if (answer) { answer.id = id; }
                     resolve(answer);
                 });
             });
@@ -228,7 +236,11 @@ let communicationManager = function(ctx) {
         });
     };
 
-    return { sendEvent, sendQuery, handleCommands, disconnect, broadcast };
+    return {
+        sendEvent, sendQuery,
+        handleCommands, disconnect, broadcast,
+        onNewConnection: onNewConnection.reg
+    };
 };
 
 /* Creates a connection to another node.
@@ -261,12 +273,14 @@ let connect = function(config, cb) {
         console.log('Server response error:', error);
     });
 
+    /*
     let myConfig = Util.find(config.infra, parsedId);
 
     if (!myConfig) {
         console.log("Error: client not found in the network topology");
         throw new Error('INVALID_CLIENT_ID');
     }
+    */
 
     // Create promises
     const promises = [];
@@ -289,18 +303,20 @@ let connect = function(config, cb) {
     if (!connector) {
         return cb('E_MISSINGCONNECTOR');
     }
+
+    let manager = communicationManager(ctx);
     connector.initClient(ctx, config, onConnected, (err) => {
         if (err) {
             return cb(err);
         }
-        let manager = communicationManager(ctx);
 
         Promise.all(promises).then(() => {
-            return cb(void 0, manager);
+            return cb();
         }).catch(e => {
             throw new Error(e);
         });
     });
+    return manager;
 };
 
 /* This function initializes the different ws servers on the Core components */
@@ -310,6 +326,7 @@ let init = function(config, cb) {
     let ctx = {
         others: {
             storage: [],
+            http: [],
             websocket: []
         },
         commands: {},
@@ -344,6 +361,8 @@ let init = function(config, cb) {
     if (!connector) {
         return cb('E_MISSINGCONNECTOR');
     }
+
+    let manager = communicationManager(ctx);
     connector.initServer(ctx, myConfig, createHandlers, (err, selfClient) => {
         if (err) {
             return cb(err);
@@ -351,10 +370,10 @@ let init = function(config, cb) {
         if (!selfClient) {
             return cb('E_INITWSSERVER');
         }
-        let manager = communicationManager(ctx);
 
-        return cb(void 0, manager);
+        return cb();
     });
+    return manager;
 };
 
 module.exports = { connect, init };

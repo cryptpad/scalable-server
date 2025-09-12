@@ -47,6 +47,16 @@ if (!type || type === "ws") {
         }],
         plugins: getPlugins()
     });
+    list.push({
+        input: "./websocket/worker.js",
+        output: [{
+            name: 'cryptpad-server-websocket-worker',
+            file: "./build/ws.worker.js",
+            format: "cjs",
+            plugins: [ getTerser() ]
+        }],
+        plugins: getPlugins()
+    });
 }
 if (!type || type === "core") {
     list.push({

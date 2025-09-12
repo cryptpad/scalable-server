@@ -1,15 +1,21 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2024 XWiki CryptPad Team <contact@cryptpad.org> and contributors
+const Http = require('node:http');
+
 const Util = require("./common-util.js");
 const Constants = require("../common/constants.js");
 const Logger = require("../common/logger.js");
+const Core = require("../common/core.js");
 
+const Express = require('express');
 const nThen = require("nthen");
-const Path = require("node:path");
 
 const HistoryManager = require("./history-manager.js");
 const ChannelManager = require("./channel-manager.js");
 const HKUtil = require("./hk-util.js");
+const HttpManager = require('./http-manager.js');
+
+const Environment = require('../common/env.js');
 
 const Interface = require("../common/interface.js");
 const WSConnector = require("../common/ws-connector.js");
@@ -18,6 +24,9 @@ const BatchRead = require("./batch-read.js");
 const WriteQueue = require("../common/write-queue.js");
 const WorkerModule = require("../common/worker-module.js");
 const File = require("./storage/file.js");
+const Blob = require("./storage/blob.js");
+
+const Decrees = require('./commands/decrees.js');
 
 const { jumpConsistentHash } = require('../common/consistent-hash.js');
 
@@ -33,11 +42,13 @@ const Env = {
     channel_cache: {},
     cache_checks: {},
     intervals: {},
+    allDecrees: [],
     queueStorage: WriteQueue(),
     queueValidation: WriteQueue(),
     batchIndexReads: BatchRead("HK_GET_INDEX"),
     batchMetadata: BatchRead("GET_METADATA"),
     selfDestructTo: {},
+    blobstage: {} // Store file streams to write blobs
 };
 
 Env.getCoreId = (channel) => {
@@ -202,7 +213,12 @@ const leaveChannelHandler = (args, cb) => {
 };
 
 const dropUserHandler = (args) => {
-    const { channels, userId } = args;
+    const { channels, userId, sessions } = args;
+    Object.keys(sessions).forEach(unsafeKey => {
+        const safeKey = Util.escapeKeyCharacters(unsafeKey);
+        delete Env.blobstage[unsafeKey];
+        delete Env.blobstage[safeKey];
+    });
     channels.forEach(channel => {
         const cache = Env.channel_cache[channel];
         // Check if the channel exists in this storage
@@ -222,7 +238,20 @@ const dropUserHandler = (args) => {
     });
 };
 
+const newDecreeHandler = (args, cb) => { // bcast from core:0
+    Env.adminDecrees.loadRemote(Env, args.decrees);
+    Array.prototype.push.apply(Env.allDecrees, args.decrees);
+    Env.workers.broadcast('NEW_DECREES', args.decrees, () => {
+        Env.Log.verbose('UPDATE_DECREE_STORAGE_WORKER');
+    });
+    cb();
+};
+
 /* RPC commands */
+
+const adminDecreeHandler = (decree, cb) => { // sent from UI
+    Decrees.onNewDecree(Env, decree, cb);
+};
 
 const getFileSizeHandler = (channel, cb) => {
     Env.worker.getFileSize(channel, cb);
@@ -239,7 +268,9 @@ let COMMANDS = {
     'GET_HISTORY_RANGE': getHistoryHandler(HistoryManager.onGetHistoryRange),
     'CHANNEL_MESSAGE': onChannelMessageHandler,
     'DROP_USER': dropUserHandler,
+    'NEW_DECREES': newDecreeHandler,
 
+    'ADMIN_DECREE': adminDecreeHandler,
     'RPC_GET_FILE_SIZE': getFileSizeHandler,
 };
 
@@ -296,16 +327,57 @@ const initWorkerCommands = () => {
     };
 };
 
+const initHttpServer = (Env, config, _cb) => {
+    const cb = Util.mkAsync(_cb);
+    const app = Express();
+
+    HttpManager.create(Env, app);
+
+    const httpServer = Http.createServer(app);
+    const cfg = config?.infra?.storage[config.index];
+    httpServer.listen(cfg.port, cfg.host, () => {
+        cb();
+    });
+};
+
 // Connect to core
 let start = function(config) {
     const { myId, index, infra, server } = config;
 
-    Env.numberCores = infra?.core?.length;
+    Environment.init(Env, config);
 
-    const paths = Constants.paths;
-    const idx = String(index);
-    const filePath = Path.join(paths.base, idx, paths.channel);
-    const archivePath = Path.join(paths.base, idx, paths.archive);
+    Env.numberCores = infra?.core?.length;
+    Env.config = config;
+
+    Env.sendDecrees = (decrees, _cb) => {
+        const cb = Util.mkAsync(_cb || function () {});
+        Array.prototype.push.apply(Env.allDecrees, decrees);
+        nThen(waitFor => {
+            for (let i = 0; i < Env.numberCores; i++) {
+                let coreId = `core:${i}`;
+                Env.interface.sendQuery(coreId, 'NEW_DECREES', {
+                    decrees
+                }, waitFor());
+            }
+            Env.workers.broadcast('NEW_DECREES', decrees, waitFor(() => {
+                Env.Log.verbose('UPDATE_DECREE_STORAGE_WORKER');
+            }));
+        }).nThen(() => {
+            cb();
+        });
+    };
+
+    const interfaceConfig = {
+        connector: WSConnector,
+        index,
+        infra,
+        server,
+        myId
+    };
+
+    const {
+        filePath, archivePath, blobPath, blobStagingPath
+    } = Core.getPaths(config);
     nThen(waitFor => {
         File.create({
             filePath, archivePath,
@@ -313,6 +385,18 @@ let start = function(config) {
         }, waitFor((err, store) => {
             if (err) { throw new Error(err); }
             Env.store = store;
+        }));
+        Blob.create({
+            blobPath,
+            blobStagingPath,
+            archivePath,
+            getSession: safeKey => {
+                Env.blobstage[safeKey] ||= {};
+                return Env.blobstage[safeKey];
+            }
+        }, waitFor((err, store) => {
+            if (err) { throw new Error(err); }
+            Env.blobStore = store;
         }));
     }).nThen(() => {
         let tasks_running;
@@ -328,47 +412,58 @@ let start = function(config) {
             });
         }, 1000 * 60 * 5); // run every five minutes
 
-    }).nThen(() => {
+    }).nThen((waitFor) => {
         const workerConfig = {
             Log: Env.Log,
             workerPath: './build/storage.worker.js',
             maxWorkers: 1,
             maxJobs: 4,
             commandTimers: {}, // time spent on each command
-            config: {
-                index
-            },
+            config: config,
             Env: { // Serialized Env (Environment.serialize)
             }
         };
         Env.workers = WorkerModule(workerConfig);
+        Env.workers.onNewWorker(state => {
+            if (!Env.allDecrees.length) { return; }
+            Env.workers.sendTo(state, 'NEW_DECREES', Env.allDecrees,
+                () => {
+                Env.Log.verbose('UPDATE_DECREE_STORAGE_WORKER');
+            });
+        });
         initWorkerCommands();
 
         Env.CM = ChannelManager.create(Env);
 
-        const interfaceConfig = {
-            connector: WSConnector,
-            index,
-            infra,
-            server,
-            myId
-        };
-        Interface.connect(interfaceConfig, (err, _interface) => {
+        initHttpServer(Env, config, waitFor());
+    }).nThen(waitFor => {
+        Env.interface = Interface.connect(interfaceConfig, waitFor(err => {
             if (err) {
                 console.error(interfaceConfig.myId, ' error:', err);
                 return;
             }
 
-            // List accepted commands
+        }));
+        // List accepted commands
+        Env.interface.handleCommands(COMMANDS);
+    }).nThen(waitFor => {
+        // Only storage:0 can manage decrees
+        if (index !== 0) { return; }
 
-            _interface.handleCommands(COMMANDS);
-            Env.interface = _interface;
-            if (process.send !== undefined) {
-                process.send({ type: 'storage', index: interfaceConfig.index, msg: 'READY' });
-            } else {
-                console.log(interfaceConfig.myId, 'started');
+        Env.adminDecrees.load(Env, waitFor((err, toSend) => {
+            if (err) {
+                waitFor.abort();
+                return Env.Log.error('DECREES_LOADING_ERROR', err);
             }
-        });
+
+            Env.sendDecrees(toSend);
+        }));
+    }).nThen(() => {
+        if (process.send !== undefined) {
+            process.send({ type: 'storage', index: interfaceConfig.index, msg: 'READY' });
+        } else {
+            console.log(interfaceConfig.myId, 'started');
+        }
     });
 };
 
