@@ -208,7 +208,7 @@ const checkPad = () => {
     });
 };
 
-const checkHistory = (index, lastKnownHash) => {
+const getHistory = (index, lastKnownHash) => {
     return new Promise((resolve, reject) => {
         const hist = [];
         const validateKey = secret?.keys?.validateKey;
@@ -251,7 +251,7 @@ const checkHistories = () => new Promise((resolve, reject) => {
     const startHistIdx = Math.max(nbUsers - 2, 1);
     let lastKnownHash;
     // Check Full History
-    checkHistory(nbUsers).then(expected => {
+    getHistory(nbUsers).then(expected => {
         let failed = [];
         lastKnownHash = expected[startHistIdx];
         for (let i in Object.keys(users)) {
@@ -266,7 +266,7 @@ const checkHistories = () => new Promise((resolve, reject) => {
         reject('CHECK_FULL_HISTORY_ERROR' + JSON.stringify(e));
     });
 
-    checkHistory(nbUsers, lastKnownHash).then(expected => {
+    getHistory(nbUsers, lastKnownHash).then(expected => {
         let failed = [];
         for (let i in Object.keys(users)) {
             const user = users[i];
