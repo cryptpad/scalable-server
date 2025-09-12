@@ -6,13 +6,13 @@ const WebSocket = require("ws");
 const Netflux = require("netflux-websocket");
 const Nacl = require('tweetnacl/nacl-fast');
 
-const Rpc = require('./integration/rpc');
-const { jumpConsistentHash } = require('../common/consistent-hash.js');
-const Util = require('../common/common-util');
-const Core = require('../common/core');
+const Rpc = require('./rpc');
+const { jumpConsistentHash } = require('../../common/consistent-hash.js');
+const Util = require('../../common/common-util');
+const Core = require('../../common/core');
 
-const config = require('../config/config.json');
-const infra = require('../config/infra.json');
+const config = require('../../config/config.json');
+const infra = require('../../config/infra.json');
 
 const hk = '0123456789abcdef';
 

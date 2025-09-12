@@ -8,9 +8,9 @@ const {
     createAnonRpc, createUserRpc,
     getRandomKeys, getRandomMsg,
     getChannelPath
-} = require('../utils.js');
+} = require('./common/utils.js');
 
-console.log(getChannelPath(padId));
+console.log('rpc', getChannelPath(padId));
 
 const Env = {};
 
@@ -133,9 +133,12 @@ const initUser = () => {
 
 initUser()
 .then(() => {
-    console.log('SUCCESS');
-    process.exit(1);
+    console.log('RPC: success');
+    if (require.main === module) { process.exit(0); }
+    global?.onTestEnd?.(true);
 }).catch(e => {
-    console.log('FAILED', e);
-    process.exit(0);
+    console.log('RPC: failure');
+    console.log(e);
+    if (require.main === module) { process.exit(1); }
+    global?.onTestEnd?.(false);
 });

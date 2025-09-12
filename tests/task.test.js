@@ -10,44 +10,16 @@
 
 const Crypto = require('node:crypto');
 
-const WebSocket = require("ws");
-const Netflux = require("netflux-websocket");
-
-const infra = require('../../config/infra.json');
-const config = require('../../config/config.json');
-
-const wss = infra.websocket;
-const wsCfg = config?.public?.websocket;
-
 const padId = Crypto.randomBytes(16).toString('hex');
-
 const hk = '0123456789abcdef';
 
-const getWsURL = (index) => {
-    // Index inside infra array
-    const wssIndex = index % wss.length;
-    // Public config
-    const ws = wsCfg[wssIndex];
+const {
+    connectUser,
+    getRandomMsg,
+    getChannelPath
+} = require('./common/utils.js');
+console.log('task', getChannelPath(padId));
 
-    const wsUrl = new URL('ws://localhost:3000');
-    if (ws.host && ws.port) {
-        wsUrl.host = ws.host;
-        wsUrl.port = ws.port;
-        wsUrl.protocol = ws.protocol || 'ws:';
-    } else {
-        wsUrl.href = ws.href;
-    }
-    return wsUrl.href;
-};
-
-const connectUser = index => {
-    const f = () => {
-        return new WebSocket(getWsURL(index));
-    };
-    return Netflux.connect('', f);
-};
-
-console.log(padId);
 const setExpire = () => {
     return new Promise((resolve, reject) => {
         const txid = Crypto.randomBytes(4).toString('hex');
@@ -86,8 +58,11 @@ const setExpire = () => {
 setExpire()
 //.then(checkHistoryRange)
 .then(() => {
-    console.log('All pads tests passed!');
-    process.exit(0);
+    console.log('TASKS: success');
+    if (require.main === module) { process.exit(0); }
+    global?.onTestEnd?.(true);
 }).catch(e => {
+    console.log('TASKS: failure');
+    global?.onTestEnd?.(false);
     console.error(e);
 });

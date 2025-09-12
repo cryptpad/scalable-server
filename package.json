@@ -46,6 +46,7 @@
     "build:storage": "TYPE=storage rollup -c",
     "build:http": "TYPE=http rollup -c",
     "tests": "node --test tests/",
+    "test": "node tests/runAll.js",
     "start": "node index.js",
     "dev": "DEV=1 node index.js"
   }

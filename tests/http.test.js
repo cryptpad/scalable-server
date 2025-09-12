@@ -2,9 +2,9 @@
 // SPDX-FileCopyrightText: 2025 XWiki CryptPad Team <contact@cryptpad.org> and contributors
 
 const Nacl = require('tweetnacl/nacl-fast');
-const ServerCommand = require('./http-command');
+const ServerCommand = require('./common/http-command');
 
-const config = require('../../config/config.json');
+const config = require('../config/config.json');
 
 const origin = config?.public?.main?.origin;
 ServerCommand.setCustomize({
@@ -32,10 +32,13 @@ const checkCommand = () => {
 
 checkCommand()
 .then(() => {
-    console.log('SUCCESS');
-    process.exit(1);
+    console.log('HTTP: success');
+    if (require.main === module) { process.exit(0); }
+    global?.onTestEnd?.(true);
 }).catch(e => {
-    console.log('FAILED', e);
-    process.exit(0);
+    console.log('HTTP: failure');
+    console.log(e);
+    if (require.main === module) { process.exit(1); }
+    global?.onTestEnd?.(false);
 });
 

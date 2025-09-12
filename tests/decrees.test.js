@@ -13,7 +13,7 @@ const hk = '0123456789abcdef';
 const {
     connectUser,
     createUserRpc,
-} = require('../utils.js');
+} = require('./common/utils.js');
 
 const initAdmin = (network) => {
     const keys = {
@@ -73,9 +73,12 @@ const initTest = () => {
 
 initTest()
 .then(() => {
-    console.log('SUCCESS');
-    process.exit(1);
+    console.log('DECREES: success');
+    if (require.main === module) { process.exit(0); }
+    global?.onTestEnd?.(true);
 }).catch(e => {
-    console.log('FAILED', e);
-    process.exit(0);
+    console.log('DECREES: failure');
+    console.log(e);
+    if (require.main === module) { process.exit(1); }
+    global?.onTestEnd?.(false);
 });

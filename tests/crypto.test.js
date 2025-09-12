@@ -14,7 +14,7 @@ const Netflux = require("netflux-websocket");
 const CPCrypto = require('chainpad-crypto');
 const CPNetflux = require('chainpad-netflux');
 
-const config = require('../../config/config.json');
+const config = require('../config/config.json');
 
 const nbUsers = 5;
 const users = {};
@@ -294,9 +294,12 @@ startUsers()
     .then(checkRejectSignature)
     .then(checkHistories)
     .then(() => {
-        console.log('All pads tests passed!');
-        process.exit(0);
+        console.log('CRYPTO: success');
+        if (require.main === module) { process.exit(0); }
+        global?.onTestEnd?.(true);
     }).catch(e => {
+        console.log('CRYPTO: failure');
         console.error(e);
-        process.exit(1);
+        if (require.main === module) { process.exit(1); }
+        global?.onTestEnd?.(false);
     });

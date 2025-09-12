@@ -7,62 +7,20 @@
  * JOIN, MSG and LEAVE messages as weell as the pad history.
  */
 
-
 const Crypto = require('node:crypto');
-
-const WebSocket = require("ws");
-const Netflux = require("netflux-websocket");
-
-//const infra = require('../../config/infra.json');
-const config = require('../../config/config.json');
 
 const nbUsers = 5;
 const users = {};
 
 const padId = Crypto.randomBytes(16).toString('hex');
-
 const hk = '0123456789abcdef';
 
-/*
-const wss = infra.websocket;
-const wsCfg = config?.public?.websocket;
-
-const getWsURL = (index) => {
-    // Index inside infra array
-    const wssIndex = index % wss.length;
-    // Public config
-    const ws = wsCfg[wssIndex];
-
-    const wsUrl = new URL('ws://localhost:3000');
-    if (ws.host && ws.port) {
-        wsUrl.host = ws.host;
-        wsUrl.port = ws.port;
-        wsUrl.protocol = ws.protocol || 'ws:';
-    } else {
-        wsUrl.href = ws.href;
-    }
-    return wsUrl.href;
-};
-*/
-
-const mainCfg = config?.public?.main;
-const getWsURL = () => {
-    const wsUrl = new URL('ws://localhost:3000/cryptpad_websocket');
-    if (mainCfg.origin) {
-        let url = new URL(mainCfg.origin);
-        wsUrl.hostname = url.hostname;
-        wsUrl.port = url.port;
-        wsUrl.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
-    }
-    return wsUrl.href;
-};
-
-const connectUser = index => {
-    const f = () => {
-        return new WebSocket(getWsURL(index));
-    };
-    return Netflux.connect('', f);
-};
+const {
+    connectUser,
+    getRandomMsg,
+    getChannelPath
+} = require('./common/utils.js');
+console.log('pad', getChannelPath(padId));
 
 const startUsers = () => {
     return new Promise((resolve, reject) => {
@@ -118,8 +76,7 @@ const joinPad = () => {
 const messages = [];
 
 const sendPadMessage = (user) => {
-    const rdm = Crypto.randomBytes(48).toString('hex');
-    const msg = `test-${user.id}-${rdm}`;
+    const msg = getRandomMsg();
     return new Promise((res, rej) => {
         user.wc.bcast(msg).then(() => {
             messages.push({ user: user.id, msg });
@@ -345,8 +302,11 @@ startUsers()
 .then(checkFullHistory)
 .then(checkHistoryRange)
 .then(() => {
-    console.log('All pads tests passed!');
-    process.exit(0);
+    console.log('PAD: success');
+    if (require.main === module) { process.exit(0); }
+    global?.onTestEnd?.(true);
 }).catch(e => {
+    console.log('PAD: failure');
     console.error(e);
+    global?.onTestEnd?.(false);
 });
