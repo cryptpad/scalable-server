@@ -431,8 +431,9 @@ const sendChannelMessage = (Env, args) => { // Event
 
 const onNewDecrees = (Env, args, cb) => {
     Array.prototype.push.apply(Env.allDecrees, args.decrees);
+    Env.FRESH_KEY = args.freshKey;
     Env.adminDecrees.loadRemote(Env, args.decrees);
-    Env.workers.broadcast('NEW_DECREES', args.decrees, () => {
+    Env.workers.broadcast('NEW_DECREES', args, () => {
         Env.Log.verbose('UPDATE_DECREE_WS_WORKER');
     });
     cb();
@@ -557,8 +558,10 @@ const initHttpCluster = (Env, config) => {
 
         Env.workers = WorkerModule(workerConfig);
         Env.workers.onNewWorker(state => {
-            Env.workers.sendTo(state, 'NEW_DECREES', Env.allDecrees,
-                () => {
+            Env.workers.sendTo(state, 'NEW_DECREES', {
+                decrees: Env.allDecrees,
+                freshKey: Env.FRESH_KEY
+            }, () => {
                 Env.Log.verbose('UPDATE_DECREE_WS_WORKER');
             });
         });

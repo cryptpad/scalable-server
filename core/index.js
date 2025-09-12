@@ -421,6 +421,7 @@ const onWsCommand = command => {
 // and broadcast to all the other nodes
 const onNewDecrees = (args, cb, extra) => {
     if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
+    Env.FRESH_KEY = args.freshKey;
     Env.adminDecrees.loadRemote(Env, args.decrees);
     Array.prototype.push.apply(Env.allDecrees, args.decrees);
     // core:0 also has to broadcast to all the websocket and storage
@@ -428,6 +429,7 @@ const onNewDecrees = (args, cb, extra) => {
     nThen(waitFor => {
         if (Env.myId !== 'core:0') { return; }
         Env.interface.broadcast('websocket', 'NEW_DECREES', {
+            freshKey: args.freshKey,
             decrees: args.decrees
         }, waitFor(values => {
             values.forEach(obj => {
@@ -438,6 +440,7 @@ const onNewDecrees = (args, cb, extra) => {
         }));
         const exclude = ['storage:0'];
         Env.interface.broadcast('storage', 'NEW_DECREES', {
+            freshKey: args.freshKey,
             decrees: args.decrees
         }, waitFor(values => {
             values.forEach(obj => {
@@ -550,6 +553,7 @@ let startServers = function(config) {
         const id = `${obj.type}:${obj.index}`;
         if (!Env.allDecrees.length) { return; }
         Env.interface.sendEvent(id, 'NEW_DECREES', {
+            freshKey: Env.FRESH_KEY,
             decrees: Env.allDecrees
         });
     });

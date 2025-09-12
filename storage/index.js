@@ -355,11 +355,13 @@ let start = function(config) {
 
     Env.sendDecrees = (decrees, _cb) => {
         const cb = Util.mkAsync(_cb || function () {});
+        const freshKey = String(+new Date());
         Array.prototype.push.apply(Env.allDecrees, decrees);
         nThen(waitFor => {
             for (let i = 0; i < Env.numberCores; i++) {
                 let coreId = `core:${i}`;
                 Env.interface.sendQuery(coreId, 'NEW_DECREES', {
+                    freshKey,
                     decrees
                 }, waitFor());
             }
