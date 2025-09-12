@@ -247,18 +247,39 @@ const checkHistory = (index, lastKnownHash) => {
     });
 };
 
-const checkHistories = () => {
-    // Check Full History
-    let expected = users[0].history.map(obj => obj.msg);
-    let checkHistoryPromises = Object.keys(users).map(user => checkHistory(user, expected));
-
-    // Check with lastKnownHash
+const checkHistories = () => new Promise((resolve, reject) => {
     const startHistIdx = Math.max(nbUsers - 2, 1);
-    expected = users[0].history.slice(startHistIdx).map(obj => obj.msg);
-    const lastKnownHash = expected[0].slice(0, 64);
-    checkHistoryPromises.concat(Object.keys(users).map(user => checkHistory(user, expected, lastKnownHash)));
-    return Promise.all(checkHistoryPromises);
-};
+    let lastKnownHash;
+    // Check Full History
+    checkHistory(nbUsers).then(expected => {
+        let failed = [];
+        lastKnownHash = expected[startHistIdx];
+        for (let i in Object.keys(users)) {
+            const user = users[i];
+            const historyHashes = user?.history?.map(obj => { return obj.msg.slice(0, 64); });
+            if ( JSON.stringify(historyHashes) !== JSON.stringify(expected) ) {
+                failed.push([i, users[i].id, historyHashes]);
+            }
+        }
+        failed.length ? reject(expected.concat(failed)) : resolve();
+    }).catch(e => {
+        reject('CHECK_FULL_HISTORY_ERROR' + JSON.stringify(e));
+    });
+
+    checkHistory(nbUsers, lastKnownHash).then(expected => {
+        let failed = [];
+        for (let i in Object.keys(users)) {
+            const user = users[i];
+            const historyHashes = user?.history?.map(obj => { return obj.msg.slice(0, 64); });
+            if ( JSON.stringify(historyHashes) !== JSON.stringify(expected) ) {
+                failed.push([i, users[i].id, historyHashes]);
+            }
+        }
+        failed.length ? reject(expected.concat(failed)) : resolve();
+    }).catch(e => {
+        reject('CHECK_HISTORY_ERROR' + JSON.stringify(e));
+    });
+});
 
 startUsers()
     .then(checkUsers)
