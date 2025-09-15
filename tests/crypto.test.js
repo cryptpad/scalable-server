@@ -78,8 +78,7 @@ const initPad = () => {
             const parsed = JSON.parse(msg);
             if (sender !== hk) { return; }
             if (parsed?.state === 1 && parsed?.channel === secret?.channel) {
-                // Timeout to make sure that the chan is creadet before joining it
-                setTimeout(resolve, 200);
+                resolve();
             }
         });
         network.join(secret?.channel).then(wc => {
@@ -139,12 +138,7 @@ const sendPadMessage = (user) => {
     return new Promise((res, rej) => {
         user.wc.bcast(msg).then(() => {
             user.history.push({ user: user.id, msg });
-            setTimeout(() => {
-                // Timeout here to make sure all users have received
-                // all messages (race condition possible due to
-                // the use of multiple ws nodes)
-                res();
-            }, 200);
+            res();
         }).catch(rej);
     });
 };
