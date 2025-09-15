@@ -21,11 +21,15 @@ const file = new Uint8Array(Crypto.randomBytes(256000));
 const file2 = new Uint8Array(Crypto.randomBytes(256000));
 
 console.log('Blob path', getBlobPath(blobId));
-console.log('Owner key', keys.edPublic);
+console.log('Blob path2', getBlobPath(blobId2));
 
 const isEqual = (a, b) => {
     return Buffer.compare(a, b) === 0;
 };
+
+const log = (require.main === module) ? console.log : function () {};
+
+log('Blob Owner key', keys.edPublic);
 
 const getUploadCmd = (rpc) => {
     return {
@@ -83,7 +87,7 @@ const uploadBlob = args => {
             u8, key, rpcCmd,
             origin, keys,
             updateProgress: (val) => {
-                console.log("Progress WS upload:", Math.floor(val)+"%");
+                log("Progress WS upload:", Math.floor(val)+"%");
             }
         }, (err, url) => {
             if (err) { return reject(err); }
@@ -95,7 +99,7 @@ const uploadBlob = args => {
 const checkBlob = (args) => {
     const { network, rpc, url } = args;
     const blobUrl = origin + url;
-    console.log('Encrypted Blob URL:', blobUrl);
+    log('Encrypted Blob URL:', blobUrl);
     // fetch encrypted blob
     return new Promise((resolve, reject) => {
         fetch(blobUrl).then(res => {
@@ -140,7 +144,7 @@ const uploadBlobHttp = args => {
             u8, key, rpcCmd,
             origin, keys,
             updateProgress: (val) => {
-                console.log("Progress HTTP upload:", Math.floor(val)+"%");
+                log("Progress HTTP upload:", Math.floor(val)+"%");
             }
         }, (err, url) => {
             if (err) { return reject(err); }
@@ -152,7 +156,7 @@ const uploadBlobHttp = args => {
 const checkBlobHttp = (args) => {
     const { network, rpc, url } = args;
     const blobUrl = origin + url;
-    console.log('Encrypted Blob2 URL:', blobUrl);
+    log('Encrypted Blob2 URL:', blobUrl);
     // fetch encrypted blob
     return new Promise((resolve, reject) => {
         fetch(blobUrl).then(res => {
