@@ -27,6 +27,7 @@ const File = require("./storage/file.js");
 const Blob = require("./storage/blob.js");
 
 const Decrees = require('./commands/decrees.js');
+const Upload = require('./commands/upload.js');
 
 const { jumpConsistentHash } = require('../common/consistent-hash.js');
 
@@ -40,6 +41,7 @@ const Env = {
     Log: Logger(),
     metadata_cache: {},
     channel_cache: {},
+    pin_cache: {},
     cache_checks: {},
     intervals: {},
     allDecrees: [],
@@ -47,6 +49,8 @@ const Env = {
     queueValidation: WriteQueue(),
     batchIndexReads: BatchRead("HK_GET_INDEX"),
     batchMetadata: BatchRead("GET_METADATA"),
+    batchUserPins:  BatchRead('LOAD_USER_PINS'),
+    batchTotalSize: BatchRead('GET_TOTAL_SIZE'),
     selfDestructTo: {},
     blobstage: {} // Store file streams to write blobs
 };
@@ -261,6 +265,12 @@ const getFileSizeHandler = (channel, cb) => {
     Env.worker.getFileSize(channel, cb);
 };
 
+const uploadHandler = (f) => {
+    return (data, cb) => {
+        f(Env, data, cb);
+    };
+};
+
 /* Start of the node */
 
 // List accepted commands
@@ -275,7 +285,14 @@ let COMMANDS = {
     'NEW_DECREES': newDecreeHandler,
 
     'ADMIN_DECREE': adminDecreeHandler,
+
     'RPC_GET_FILE_SIZE': getFileSizeHandler,
+    'RPC_UPLOAD_COOKIE': uploadHandler(Upload.cookie),
+    'RPC_UPLOAD_STATUS': uploadHandler(Upload.status),
+    'RPC_UPLOAD_CANCEL': uploadHandler(Upload.cancel),
+    'RPC_UPLOAD_CHUNK': uploadHandler(Upload.upload),
+    'RPC_UPLOAD_COMPLETE': uploadHandler(Upload.complete),
+    'RPC_UPLOAD_COMPLETE_OWNED': uploadHandler(Upload.completeOwned),
 };
 
 const initWorkerCommands = () => {
@@ -301,12 +318,51 @@ const initWorkerCommands = () => {
             }, Util.both(next, cb));
         });
     };
-    Env.worker.getOlderHistory = function (channel, oldestKnownHash, untilHash, desiredMessages, desiredCheckpoint, cb) {
-        Env.store.getWeakLock(channel, function (next) {
+    Env.worker.getOlderHistory = (channel, oldestKnownHash, untilHash, desiredMessages, desiredCheckpoint, cb) => {
+        Env.store.getWeakLock(channel, (next) => {
             Env.workers.send('GET_OLDER_HISTORY', {
                 channel, oldestKnownHash, untilHash, desiredMessages, desiredCheckpoint
             }, Util.both(next, cb));
         });
+    };
+
+    // Pinning
+    // XXX Env.worker.?
+    Env.getMultipleFileSize = (channels, cb) => {
+        Env.workers.send("GET_MULTIPLE_FILE_SIZE", {
+            channels: channels,
+        }, cb);
+    };
+    Env.getTotalSize = (channels, cb) => {
+        // we could take out locks for all of these channels,
+        // but it's OK if the size is slightly off
+        Env.workers.send('GET_TOTAL_SIZE', {
+            channels: channels,
+        }, cb);
+    };
+    Env.getPinState = (safeKey, cb) => {
+        Env.pinStore.getWeakLock(safeKey, (next) => {
+            Env.workers.send('GET_PIN_STATE', {
+                key: safeKey
+            }, Util.both(next, cb));
+        });
+    };
+
+    Env.getDeletedPads = (channels, cb) => {
+        Env.workers.send("GET_DELETED_PADS", {
+            channels: channels,
+        }, cb);
+    };
+    Env.hashChannelList = (channels, cb) => {
+        Env.workers.send('HASH_CHANNEL_LIST', {
+            channels: channels,
+        }, cb);
+    };
+
+    Env.completeUpload = (safeKey, arg, owned, size, cb) => {
+        Env.workers.send('COMPLETE_UPLOAD', {
+            safeKey, arg, owned, size
+        }, cb);
     };
 
     // RPC
@@ -392,6 +448,13 @@ let start = function(config) {
             if (err) { throw new Error(err); }
             Env.store = store;
         }));
+        File.create({
+            filePath, archivePath,
+            volumeId: 'pins',
+        }, waitFor((err, s) => {
+            if (err) { throw err; }
+            Env.pinStore = s;
+        }));
         Blob.create({
             blobPath,
             blobStagingPath,
@@ -417,6 +480,10 @@ let start = function(config) {
                 tasks_running = false;
             });
         }, 1000 * 60 * 5); // run every five minutes
+
+        Env.intervals.pinExpirationInterval = setInterval(() => {
+            Core.expireSessions(Env.pin_cache);
+        }, Core.SESSION_EXPIRATION_TIME);
 
     }).nThen((waitFor) => {
         const workerConfig = {

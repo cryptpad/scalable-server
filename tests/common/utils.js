@@ -28,6 +28,11 @@ const getWsURL = () => {
     return wsUrl.href;
 };
 
+const getOrigin = () => {
+    let url = new URL(mainCfg.origin);
+    return url.origin;
+};
+
 const connectUser = index => {
     const f = () => {
         return new WebSocket(getWsURL(index));
@@ -40,6 +45,8 @@ const getRandomKeys = () => {
     const edPublic = Util.encodeBase64(kp.publicKey);
     const edPrivate = Util.encodeBase64(kp.secretKey);
     return {
+        publicKey: kp.publicKey,
+        secretKey: kp.secretKey,
         edPublic, edPrivate
     };
 };
@@ -85,10 +92,19 @@ const getChannelPath = channel => {
     const file = `${channel}.ndjson`;
     return Path.join(p.filePath, channel.slice(0,2), file);
 };
+const getBlobPath = channel => {
+    // We need a 8 byte key
+    const nb = infra.storage.length;
+    let key = Buffer.from(channel.slice(0, 8));
+    let index = jumpConsistentHash(key, nb);
+    const p = Core.getPaths({ index });
+    const file = `${channel}.ndjson`;
+    return Path.join(p.blobPath, channel.slice(0,2), file);
+};
 
 module.exports = {
-    getWsURL, connectUser,
+    getWsURL, connectUser, getOrigin,
     createAnonRpc, createUserRpc,
     getRandomKeys, getRandomMsg,
-    getChannelPath
+    getChannelPath, getBlobPath
 };

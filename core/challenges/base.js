@@ -3,10 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 const Commands = module.exports;
+const Util = require("../../common/common-util");
 
 
 /*
-const Util = require("../../common/common-util");
 const Block = require("../commands/block");
 const MFA = require("../storage/mfa");
 const Sessions = require("../storage/sessions");
@@ -137,3 +137,30 @@ testCommand.complete = function (Env, body, cb) {
     });
 };
 
+// Get an upload cookie
+// Get a cookie allowing you to upload to the blobstage of your user
+const uploadCookie = Commands.UPLOAD_COOKIE = function (Env, body, cb) {
+    const { publicKey } = body;
+
+    // they must provide a valid public key
+    if (publicKey && typeof(publicKey) === "string"
+        && publicKey.length === 44) {
+        return cb();
+    }
+
+    cb("INVALID_KEY");
+};
+
+uploadCookie.complete = function (Env, body, cb) {
+    const { id, publicKey } = body;
+
+    const safeKey = Util.escapeKeyCharacters(publicKey);
+    const storageId = Env.getStorageId(id);
+    Env.interface.sendQuery(storageId, 'RPC_UPLOAD_COOKIE', {
+        safeKey, id
+    }, res => {
+        cb(res.error, {
+            cookie: res.data
+        });
+    });
+};

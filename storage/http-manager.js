@@ -117,7 +117,7 @@ const create = (Env, app) => {
             // Check signature
             const sigu8 = Util.decodeBase64(sig);
             const vkey = Util.decodeBase64(edPublic);
-            const ok = CpCrypto.open(sigu8, vkey);
+            const ok = CpCrypto.sigVerify(sigu8, vkey);
             if (!ok) { return forbidden('INVALID_KEY'); }
             const cookie = Util.encodeUTF8(sigu8.subarray(64));
             // Check cookie

@@ -41,7 +41,7 @@ const isValidChannel = str => {
 
 
 // TODO: implement storage migration later (in /storage/)
-const getStorageId = channel => {
+const getStorageId = Env.getStorageId = channel => {
     if (!channel) {
         console.error('getStorageId: No channel provided');
         return void 0;

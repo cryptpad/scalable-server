@@ -45,11 +45,49 @@ const unpinChannel = () => { };
 const clearOwnedChannel = () => { };
 const removeOwnedChannel = () => { };
 const trimHistory = () => { };
-const uploadStatus = () => { };
-const upload = () => { };
-const uploadComplete = () => { };
-const uploadCancel = () => { };
-const uploadCompleteOwned = () => { };
+const uploadStatus = (Env, safeKey, data, cb) => {
+    const { size, id } = data;
+    const storageId = getStorageId(Env, id);
+    Env.interface.sendQuery(storageId, 'RPC_UPLOAD_STATUS', {
+        safeKey, size
+    }, res => {
+        cb(res.error, res.data);
+    });
+};
+const uploadCancel = (Env, safeKey, data, cb) => {
+    const { size, id } = data;
+    const storageId = getStorageId(Env, id);
+    Env.interface.sendQuery(storageId, 'RPC_UPLOAD_CANCEL', {
+        safeKey, size
+    }, res => {
+        cb(res.error, res.data);
+    });
+};
+const upload = (Env, safeKey, data, cb) => {
+    const { chunk, id } = data;
+    const storageId = getStorageId(Env, id);
+    Env.interface.sendQuery(storageId, 'RPC_UPLOAD_CHUNK', {
+        safeKey, chunk
+    }, res => {
+        cb(res.error, res.data);
+    });
+};
+const uploadComplete = (Env, safeKey, id, cb) => {
+    const storageId = getStorageId(Env, id);
+    Env.interface.sendQuery(storageId, 'RPC_UPLOAD_COMPLETE', {
+        safeKey, id
+    }, res => {
+        cb(res.error, res.data);
+    });
+};
+const uploadCompleteOwned = (Env, safeKey, id, cb) => {
+    const storageId = getStorageId(Env, id);
+    Env.interface.sendQuery(storageId, 'RPC_UPLOAD_COMPLETE_OWNED', {
+        safeKey, id
+    }, res => {
+        cb(res.error, res.data);
+    });
+};
 const adminCommand = Admin.command;
 const setMetadata = () => { };
 

@@ -68,6 +68,7 @@ const COMMANDS = {};
 const NOAUTH = require("./challenges/base.js");
 
 COMMANDS.TEST = NOAUTH.TEST;
+COMMANDS.UPLOAD_COOKIE = NOAUTH.UPLOAD_COOKIE;
 /*
 COMMANDS.MFA_CHECK = NOAUTH.MFA_CHECK;
 COMMANDS.WRITE_BLOCK = NOAUTH.WRITE_BLOCK; // Account creation + password change

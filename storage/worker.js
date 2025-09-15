@@ -5,13 +5,18 @@ const Constants = require("../common/constants");
 const Logger = require("../common/logger");
 const Core = require("../common/core");
 const File = require("./storage/file.js");
+const Blob = require("./storage/blob.js");
 const Tasks = require("./storage/tasks.js");
 const Environment = require('../common/env');
 
+const Nacl = require('tweetnacl/nacl-fast');
+
 const nThen = require("nthen");
+const Saferphore = require("saferphore");
 
 const HKUtil = require("./hk-util.js");
 const Meta = require('./metadata');
+const Pins = require('./pin-manager');
 
 const Env = {
     isWorker: true,
@@ -25,7 +30,7 @@ const {
 const init = (config, cb) => {
     Environment.init(Env, config);
     const {
-        filePath, archivePath, taskPath
+        filePath, archivePath, taskPath, blobPath, blobStagingPath
     } = Core.getPaths(config);
     nThen(waitFor => {
         File.create({
@@ -37,6 +42,32 @@ const init = (config, cb) => {
                 return void cb(err);
             }
             Env.store = store;
+        }));
+        Blob.create({
+            blobPath,
+            blobStagingPath,
+            archivePath,
+            getSession: () => {}
+        }, waitFor((err, store) => {
+            if (err) {
+                waitFor.abort();
+                return void cb(err);
+            }
+            Env.blobStore = store;
+        }));
+        File.create({
+            filePath: config.pinPath,
+            archivePath: config.archivePath,
+            // important to initialize the pinstore with its own
+            // volume id otherwise archived pin logs will get mixed
+            // in with channels
+            volumeId: 'pins',
+        }, waitFor((err, store) => {
+            if (err) {
+                waitFor.abort();
+                return void cb(err);
+            }
+            Env.pinStore = store;
         }));
     }).nThen(waitFor => {
         Tasks.create({
@@ -50,9 +81,6 @@ const init = (config, cb) => {
             }
             Env.tasks = tasks;
         }));
-    //}).nThen(waitFor => {
-        // XXX pinStore
-        // XXX blobStore
     }).nThen(() => {
         cb();
     });
@@ -352,6 +380,45 @@ const getOlderHistory = function (data, cb) {
     });
 };
 
+const getPinState = (data, cb) => {
+    if (typeof(data.key) !== 'string') {
+        return void cb('INVALID_KEY');
+    }
+    const safeKey = Util.escapeKeyCharacters(data.key);
+    const ref = {};
+    // XXX Pins
+    const lineHandler = Pins.createLineHandler(ref, Env.Log.error);
+
+    // if channels aren't in memory. load them from disk
+    monitoringIncrement('getPin');
+    Env.pinStore.readMessagesBin(safeKey, 0, (msgObj, readMore) => {
+        lineHandler(msgObj.buff.toString('utf8'));
+        readMore();
+    }, () => {
+        cb(void 0, ref.pins);
+    });
+};
+
+const _iterateFiles = (channels, handler, cb) => {
+    if (!Array.isArray(channels)) { return cb('INVALID_LIST'); }
+    const L = channels.length;
+    const sem = Saferphore.create(10);
+
+    const job = (channel, wait) => {
+        return (give) => {
+            handler(channel, wait(give()));
+        };
+    };
+
+    nThen(function (w) {
+        for (var i = 0; i < L; i++) {
+            sem.take(job(channels[i], w));
+        }
+    }).nThen(function () {
+        cb();
+    });
+};
+
 const getFileSize = (data, cb) => {
     const { channel } = data;
     if (!Core.isValidId(channel)) { return void cb('INVALID_CHAN'); }
@@ -368,14 +435,109 @@ const getFileSize = (data, cb) => {
         });
     }
 
-    // 'channel' refers to a file, so you need another API
-    // XXX blobs, blobStore
-    /*
-    blobStore.size(channel, function (e, size) {
+    Env.blobStore.size(channel, (e, size) => {
         if (typeof(size) === 'undefined') { return void cb(e); }
         cb(void 0, size);
     });
-    */
+};
+
+const getMultipleFileSize = (data, cb) => {
+    const counts = {};
+    monitoringIncrement('getMultipleFileSize');
+    _iterateFiles(data.channels, (channel, next) => {
+        getFileSize({ channel }, (err, size) => {
+            counts[channel] = err? 0: size;
+            next();
+        });
+    }, (err) => {
+        if (err) {
+            return void cb(err);
+        }
+        cb(void 0, counts);
+    });
+};
+
+const getTotalSize = (data, cb) => {
+    let bytes = 0;
+    monitoringIncrement('getTotalSize');
+    _iterateFiles(data.channels, (channel, next) => {
+        _getFileSize(channel, (err, size) => {
+            if (!err) { bytes += size; }
+            next();
+        });
+    }, (err) => {
+        if (err) { return cb(err); }
+        cb(void 0, bytes);
+    });
+};
+
+const getDeletedPads = (data, cb) => {
+    const absentees = [];
+    _iterateFiles(data.channels, (channel, next) => {
+        _getFileSize(channel, (err, size) => {
+            if (err) { return next(); }
+            if (size === 0) { absentees.push(channel); }
+            next();
+        });
+    }, (err) => {
+        if (err) { return void cb(err); }
+        cb(void 0, absentees);
+    });
+};
+
+const hashChannelList = (data, cb) => {
+    const channels = data.channels;
+    if (!Array.isArray(channels)) {
+        return void cb('INVALID_CHANNEL_LIST');
+    }
+    const uniques = [];
+
+    channels.forEach(a => {
+        if (!uniques.includes(a)) { uniques.push(a); }
+    });
+    uniques.sort();
+
+    // XXX Nacl.hash?
+    const hash = Util.encodeBase64(Nacl.hash(Util.decodeUTF8(JSON.stringify(uniques))));
+
+    cb(void 0, hash);
+};
+
+
+const reportStatus = (Env, label, safeKey, err, id, size) => {
+    const data = {
+        safeKey, id, size,
+        err: err?.message || err,
+        sizeMB: round((size || 0) / 1024 / 1024),
+    };
+    const method = err? 'error': 'info';
+    Env.Log[method](label, data);
+};
+const completeUpload = (data, cb) => {
+    const { owned, arg, size } = data;
+
+    if (!data) { return void cb('INVALID_ARGS'); }
+    if (typeof(data.safeKey) !== 'string') {
+        return void cb("INVALID_KEY");
+    }
+    const safeKey = Util.escapeKeyCharacters(data.safeKey);
+
+    monitoringIncrement('uploadedBlob');
+
+    let method;
+    let label;
+    if (owned) {
+        method = 'completeOwned';
+        label = 'UPLOAD_COMPLETE_OWNED';
+    } else {
+        method = 'complete';
+        label = 'UPLOAD_COMPLETE';
+    }
+
+    Env.blobStore[method](safeKey, arg, (err, id) => {
+        reportStatus(Env, label, safeKey, err, id, size);
+        cb(err, id);
+    });
 };
 
 const runTasks = (data, cb) => {
@@ -400,6 +562,13 @@ const COMMANDS = {
     GET_OLDER_HISTORY: getOlderHistory,
 
     GET_FILE_SIZE: getFileSize,
+    GET_MULTIPLE_FILE_SIZE: getMultipleFileSize,
+    GET_TOTAL_SIZE: getTotalSize,
+    GET_PIN_STATE: getPinState,
+    GET_DELETED_PADS: getDeletedPads,
+    HASH_CHANNEL_LIST: hashChannelList,
+
+    COMPLETE_UPLOAD: completeUpload,
 
     RUN_TASKS: runTasks,
     WRITE_TASK: writeTask
