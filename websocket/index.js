@@ -11,7 +11,6 @@ const Util = require("../common/common-util.js");
 const Constants = require("../common/constants.js");
 const Logger = require("../common/logger.js");
 const WorkerModule = require("../common/worker-module.js");
-const { jumpConsistentHash } = require('../common/consistent-hash.js');
 const Cluster = require("node:cluster");
 const Environment = require('../common/env.js');
 
@@ -22,9 +21,7 @@ const {
 
 // Use consistentHash for that
 const getCoreId = (Env, channel) => {
-    let key = Buffer.from(channel.slice(0, 8));
-    let coreId = 'core:' + jumpConsistentHash(key, Env.numberCores);
-    return coreId;
+    return Env.getCoreId(channel);
 };
 
 
@@ -588,7 +585,6 @@ const start = (config) => {
         users: {},
         allDecrees: [],
         config: interfaceConfig,
-        numberCores: infra?.core?.length,
         public: server?.public?.websocket?.[index],
     };
 

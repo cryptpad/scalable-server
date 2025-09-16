@@ -193,3 +193,13 @@ Core.getPaths = (config, isEnv) => {
 
 };
 
+Core.getChannelsStorage = (Env, channels) => {
+    const channelsByStorage = {};
+    channels.forEach(channel => {
+        const storageId = getStorageId(Env, channel);
+        const list = channelsByStorage[storageId] ||= [];
+        if (list.includes(channel)) { return; }
+        list.push(channel);
+    });
+    return channelsByStorage;
+};

@@ -28,8 +28,7 @@ const Blob = require("./storage/blob.js");
 
 const Decrees = require('./commands/decrees.js');
 const Upload = require('./commands/upload.js');
-
-const { jumpConsistentHash } = require('../common/consistent-hash.js');
+const Pinning = require('./commands/pin.js');
 
 const {
     TEMPORARY_CHANNEL_LIFETIME,
@@ -53,12 +52,6 @@ const Env = {
     batchTotalSize: BatchRead('GET_TOTAL_SIZE'),
     selfDestructTo: {},
     blobstage: {} // Store file streams to write blobs
-};
-
-Env.getCoreId = (channel) => {
-    let key = Buffer.from(channel.slice(0, 8));
-    let coreId = 'core:' + jumpConsistentHash(key, Env.numberCores);
-    return coreId;
 };
 
 Env.checkCache = channel => {
@@ -255,6 +248,10 @@ const newDecreeHandler = (args, cb) => { // bcast from core:0
     cb();
 };
 
+const getChannelListHandler = (args, cb) => {
+    Pinning.getChannelList(Env, args.safeKey, cb, true);
+};
+
 /* RPC commands */
 
 const adminDecreeHandler = (decree, cb) => { // sent from UI
@@ -262,7 +259,42 @@ const adminDecreeHandler = (decree, cb) => { // sent from UI
 };
 
 const getFileSizeHandler = (channel, cb) => {
-    Env.worker.getFileSize(channel, cb);
+    Pinning.getFileSize(Env, channel, cb);
+};
+const getMultipleFileSizeHandler = (channels, cb) => {
+    Pinning.getMultipleFileSize(Env, channels, cb, true);
+};
+const getDeletedPadsHandler = (channels, cb) => {
+    Pinning.getDeletedPads(Env, channels, cb);
+};
+const getTotalSizeHandler = (args, cb) => {
+    Pinning.getTotalSize(Env, args.safeKey, cb, true);
+};
+const getChannelsTotalSizeHandler = (channels, cb) => {
+    Pinning.getChannelsTotalSize(Env, channels, cb, true);
+};
+
+const getPinningResetHandler = (data, cb) => {
+    const { channels, safeKey } = data;
+    Pinning.resetUserPin(Env, safeKey, channels, cb);
+};
+const getPinningPinHandler = (data, cb) => {
+    const { channels, safeKey } = data;
+    Pinning.pinChannel(Env, safeKey, channels, cb);
+};
+const getPinningUnpinHandler = (data, cb) => {
+    const { channels, safeKey } = data;
+    Pinning.unpinChannel(Env, safeKey, channels, cb);
+};
+
+const getHashHandler = (data, cb) => {
+    Pinning.getHash(Env, data.safeKey, cb);
+};
+const archivePinLogHandler = (data, cb) => {
+    Pinning.removePins(Env, data.safeKey, cb);
+};
+const trimPinLogHandler = (data, cb) => {
+    Pinning.trimPins(Env, data.safeKey, cb);
 };
 
 const uploadHandler = (f) => {
@@ -286,7 +318,20 @@ let COMMANDS = {
 
     'ADMIN_DECREE': adminDecreeHandler,
 
+    'GET_CHANNEL_LIST': getChannelListHandler,
+    'GET_MULTIPLE_FILE_SIZE': getMultipleFileSizeHandler,
+    'GET_TOTAL_SIZE': getTotalSizeHandler,
+    'GET_CHANNELS_TOTAL_SIZE': getChannelsTotalSizeHandler,
+
     'RPC_GET_FILE_SIZE': getFileSizeHandler,
+    'RPC_GET_DELETED_PADS': getDeletedPadsHandler,
+    'RPC_PINNING_RESET': getPinningResetHandler,
+    'RPC_PINNING_PIN': getPinningPinHandler,
+    'RPC_PINNING_UNPIN': getPinningUnpinHandler,
+    'RPC_GET_HASH': getHashHandler,
+    'RPC_ARCHIVE_PIN_LOG': archivePinLogHandler,
+    'RPC_TRIM_PIN_LOG': trimPinLogHandler,
+
     'RPC_UPLOAD_COOKIE': uploadHandler(Upload.cookie),
     'RPC_UPLOAD_STATUS': uploadHandler(Upload.status),
     'RPC_UPLOAD_CANCEL': uploadHandler(Upload.cancel),
@@ -327,13 +372,13 @@ const initWorkerCommands = () => {
     };
 
     // Pinning
-    // XXX Env.worker.?
-    Env.getMultipleFileSize = (channels, cb) => {
+    Env.worker.getMultipleFileSize = (channels, cb) => {
         Env.workers.send("GET_MULTIPLE_FILE_SIZE", {
             channels: channels,
-        }, cb);
+        }, cb, true);
     };
-    Env.getTotalSize = (channels, cb) => {
+    // XXX Env.worker.?
+    Env.worker.getTotalSize = (channels, cb) => {
         // we could take out locks for all of these channels,
         // but it's OK if the size is slightly off
         Env.workers.send('GET_TOTAL_SIZE', {
@@ -348,7 +393,7 @@ const initWorkerCommands = () => {
         });
     };
 
-    Env.getDeletedPads = (channels, cb) => {
+    Env.worker.getDeletedPads = (channels, cb) => {
         Env.workers.send("GET_DELETED_PADS", {
             channels: channels,
         }, cb);
@@ -406,7 +451,6 @@ let start = function(config) {
 
     Environment.init(Env, config);
 
-    Env.numberCores = infra?.core?.length;
     Env.config = config;
 
     Env.sendDecrees = (decrees, _cb) => {

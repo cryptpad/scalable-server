@@ -4,7 +4,6 @@ const Path = require('node:path');
 const Fs = require('node:fs');
 const Logger = require("../common/logger.js");
 const { createProxyMiddleware } = require("http-proxy-middleware");
-const { jumpConsistentHash } = require('../common/consistent-hash');
 const Default = require("./defaults");
 const gzipStatic = require('connect-gzip-static');
 const Environment = require('../common/env.js');
@@ -41,9 +40,7 @@ const initFeedback = (Env, app) => {
 };
 
 const getStorageId = (Env, channel) => {
-    // We need a 8 byte key
-    let key = Buffer.from(channel.slice(0, 8));
-    return +String(jumpConsistentHash(key, Env.numberStorages));
+    return Env.getStorageId(channel);
 };
 
 const initProxy = (Env, app, server, infra) => {
@@ -204,9 +201,7 @@ const start = (config) => {
         Log: Logger()
     };
 
-    //initEnv(Env, server);
     Environment.init(Env, config);
-    Env.numberStorages = config.infra.storage.length;
 
     const app = Express();
 

@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2024 XWiki CryptPad Team <contact@cryptpad.org> and contributors
 const Interface = require("../common/interface.js");
 const WSConnector = require("../common/ws-connector.js");
-const { jumpConsistentHash } = require('../common/consistent-hash.js');
 const WorkerModule = require("../common/worker-module.js");
 const WriteQueue = require("../common/write-queue.js");
 const Constants = require("../common/constants.js");
@@ -12,6 +11,8 @@ const Logger = require("../common/logger.js");
 const Rpc = require("./rpc.js");
 const AuthCommands = require("./http-commands.js");
 const nThen = require('nthen');
+
+const StorageCommands = require('./commands/storage');
 
 const Environment = require('../common/env.js');
 
@@ -40,21 +41,7 @@ const isValidChannel = str => {
 };
 
 
-// TODO: implement storage migration later (in /storage/)
-const getStorageId = Env.getStorageId = channel => {
-    if (!channel) {
-        console.error('getStorageId: No channel provided');
-        return void 0;
-    }
-    if (typeof (Env.numberStorages) === 'undefined') {
-        console.error('getStorageId: number of storages undefined');
-        return void 0;
-    }
-    // We need a 8 byte key
-    let key = Buffer.from(channel.slice(0, 8));
-    let ret = 'storage:' + jumpConsistentHash(key, Env.numberStorages);
-    return ret;
-};
+const getStorageId = Env.getStorageId;
 
 let getWsId = function(userId) {
     return Env.userCache?.[userId]?.from || 'websocket:0';
@@ -397,6 +384,25 @@ const onAuthRpc = (args, cb, extra) => {
     });
 };
 
+const onGetChannelList = (args, cb, extra) => {
+    if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
+    const { safeKey } = args;
+    StorageCommands.getChannlList(Env, safeKey, cb);
+};
+const onGetMultipleFileSize = (channels, cb, extra) => {
+    if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
+    StorageCommands.getMultipleFileSize(Env, channels, cb);
+};
+const onGetTotalSize = (args, cb, extra) => {
+    if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
+    const { safeKey } = args;
+    StorageCommands.getTotalSize(Env, safeKey, cb);
+};
+const onGetChannelsTotalSize = (channels, cb, extra) => {
+    if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
+    StorageCommands.getChannelsTotalSize(Env, channels, cb);
+};
+
 const onHttpCommand = (args, cb, extra) => {
     if (!isWsCmd(extra.from)) { return void cb('UNAUTHORIZED'); }
     AuthCommands.handle(Env, args, cb);
@@ -473,8 +479,6 @@ const initIntervals = () => {
 
 let startServers = function(config) {
     let { myId, index, server, infra } = config;
-    Env.numberStorages = config.infra.storage.length;
-
     Environment.init(Env, config);
 
     const interfaceConfig = {
@@ -523,7 +527,12 @@ let startServers = function(config) {
         'DROP_CHANNEL': dropChannelHandler,
         'HISTORY_MESSAGE': onHistoryMessage,
         'HISTORY_CHANNEL_MESSAGE': onHistoryChannelMessage,
-        'NEW_DECREES': onNewDecrees
+        'NEW_DECREES': onNewDecrees,
+
+        'GET_CHANNEL_LIST': onGetChannelList,
+        'GET_MULTIPLE_FILE_SIZE': onGetMultipleFileSize,
+        'GET_TOTAL_SIZE': onGetTotalSize,
+        'GET_CHANNELS_TOTAL_SIZE': onGetChannelsTotalSize,
     };
     queriesToStorage.forEach(function(command) {
         COMMANDS[command] = wsToStorage(command);

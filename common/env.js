@@ -27,7 +27,7 @@ const isRecentVersion = function () {
 };
 
 const init = (Env, mainConfig) => {
-    const { server /*, infra*/ } = mainConfig;
+    const { server , infra } = mainConfig;
     const config = server?.options || {};
     const publicConfig = server?.public || {};
 
@@ -36,6 +36,27 @@ const init = (Env, mainConfig) => {
     Env.myId = mainConfig.myId;
 
     Env.version = Package.version;
+
+    Env.numberStorages = infra.storage.length;
+    Env.numberCores = infra.core.length;
+
+    // TODO: implement storage migration later (in /storage/)
+    Env.getStorageId = data => {
+        // We need a 8 byte key
+        // For public keys, make sure we always use the safe one
+        // to avoid leading some commands to different nodes for
+        // the same user
+        data = Util.escapeKeyCharacters(data);
+        const key = Buffer.from(data.slice(0, 8));
+        const id = jumpConsistentHash(key, Env.numberStorages);
+        return 'storage:' + id;
+    };
+    Env.getCoreId = data => {
+        data = Util.escapeKeyCharacters(data);
+        const key = Buffer.from(data.slice(0, 8));
+        const id = jumpConsistentHash(key, Env.numberCores);
+        return 'core:' + id;
+    };
 
     // Network
     Env.httpUnsafeOrigin = publicConfig?.main?.origin;

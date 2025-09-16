@@ -1,29 +1,43 @@
-const { jumpConsistentHash } = require('../common/consistent-hash.js');
 const Util = require("../common/common-util");
 const Core = require('../common/core');
 const Admin = require('./commands/admin');
+const StorageCommands = require('./commands/storage');
+
+const nThen = require('nthen');
+
 const Rpc = {};
 
-// XXX deduplicate with index
-const getStorageId = (Env, channel) => {
-    // We need a 8 byte key
-    const key = Buffer.from(channel.slice(0, 8));
-    return 'storage:' + jumpConsistentHash(key, Env.numberStorages);
+const getStorageId = (Env, contentId) => {
+    return Env.getStorageId(contentId);
 };
 
 // Anon
 
-const getFileSize = (Env, channel, cb) => {
-    const storageId = getStorageId(Env, channel);
-    Env.interface.sendQuery(storageId, 'RPC_GET_FILE_SIZE', channel, res => {
-        if (res.error) { return void cb(res.error); }
-        cb(void 0, res.data);
-    });
-};
+const getFileSize = StorageCommands.getFileSize;
 
-const getMultipleFileSize = () => {
-};
-const getDeletedPads = () => {
+const getMultipleFileSize = StorageCommands.getMultipleFileSize;
+
+const getDeletedPads = (Env, channels, _cb) => {
+    const cb = Util.once(_cb);
+
+    const result = [];
+    const channelsByStorage = Core.getChannelsStorage(Env, channels);
+
+    nThen(waitFor => {
+        Object.keys(channelByStorage).forEach(storageId => {
+            const channels = channelsByStorage[storageId];
+            Env.interface.sendQuery(storageId,
+            'RPC_GET_DELETED_PADS', channels, waitFor(res => {
+                if (res.error) {
+                    waitFor.abort();
+                    return void cb(res.error);
+                }
+                Array.prototype.push.apply(result, res.data);
+            }));
+        });
+    }).nThen(() => {
+        cb(void 0, result);
+    });
 };
 const isNewChannel = () => {
 };
@@ -33,71 +47,92 @@ const deleteMailboxMessage = () => {
 };
 const getMetadata = () => {
 };
-const isPremium = () => {
+const isPremium = (Env, userKey, cb) => {
+    const storageId = getStorageId(Env, userKey);
+    throw new Error("NOT_IMPLEMENTED");
+    // XXX LIMITS
 };
 const addFirstAdmin = () => {
 };
 
 // Auth
-const resetUserPins = () => { };
-const pinChannel = () => { };
-const unpinChannel = () => { };
+const resetUserPins = (Env, safeKey, channels, cb) => {
+    const storageId = getStorageId(Env, safeKey);
+    Env.interface.sendQuery(storageId, 'RPC_PINNING_RESET',
+        { channels, safeKey }, res => { cb(res.error, res.data); });
+};
+const pinChannel = (Env, safeKey, channels, cb) => {
+    const storageId = getStorageId(Env, safeKey);
+    Env.interface.sendQuery(storageId, 'RPC_PINNING_PIN', 
+        { channels, safeKey }, res => { cb(res.error, res.data); });
+};
+const unpinChannel = (Env, safeKey, channels, cb) => {
+    const storageId = getStorageId(Env, safeKey);
+    Env.interface.sendQuery(storageId, 'RPC_PINNING_UNPIN',
+        { channels, safeKey }, res => { cb(res.error, res.data); });
+};
 const clearOwnedChannel = () => { };
 const removeOwnedChannel = () => { };
 const trimHistory = () => { };
 const uploadStatus = (Env, safeKey, data, cb) => {
     const { size, id } = data;
     const storageId = getStorageId(Env, id);
-    Env.interface.sendQuery(storageId, 'RPC_UPLOAD_STATUS', {
-        safeKey, size
-    }, res => {
-        cb(res.error, res.data);
-    });
+    Env.interface.sendQuery(storageId, 'RPC_UPLOAD_STATUS',
+        { safeKey, size }, res => { cb(res.error, res.data); });
 };
 const uploadCancel = (Env, safeKey, data, cb) => {
     const { size, id } = data;
     const storageId = getStorageId(Env, id);
-    Env.interface.sendQuery(storageId, 'RPC_UPLOAD_CANCEL', {
-        safeKey, size
-    }, res => {
-        cb(res.error, res.data);
-    });
+    Env.interface.sendQuery(storageId, 'RPC_UPLOAD_CANCEL',
+        { safeKey, size }, res => { cb(res.error, res.data); });
 };
 const upload = (Env, safeKey, data, cb) => {
     const { chunk, id } = data;
     const storageId = getStorageId(Env, id);
-    Env.interface.sendQuery(storageId, 'RPC_UPLOAD_CHUNK', {
-        safeKey, chunk
-    }, res => {
-        cb(res.error, res.data);
-    });
+    Env.interface.sendQuery(storageId, 'RPC_UPLOAD_CHUNK',
+        { safeKey, chunk }, res => { cb(res.error, res.data); });
 };
 const uploadComplete = (Env, safeKey, id, cb) => {
     const storageId = getStorageId(Env, id);
-    Env.interface.sendQuery(storageId, 'RPC_UPLOAD_COMPLETE', {
-        safeKey, id
-    }, res => {
-        cb(res.error, res.data);
-    });
+    Env.interface.sendQuery(storageId, 'RPC_UPLOAD_COMPLETE',
+        { safeKey, id }, res => { cb(res.error, res.data); });
 };
 const uploadCompleteOwned = (Env, safeKey, id, cb) => {
     const storageId = getStorageId(Env, id);
-    Env.interface.sendQuery(storageId, 'RPC_UPLOAD_COMPLETE_OWNED', {
-        safeKey, id
-    }, res => {
-        cb(res.error, res.data);
-    });
+    Env.interface.sendQuery(storageId, 'RPC_UPLOAD_COMPLETE_OWNED',
+        { safeKey, id }, res => { cb(res.error, res.data); });
 };
 const adminCommand = Admin.command;
 const setMetadata = () => { };
 
-const getHash = () => { };
-const getTotalSize = () => { };
+const getHash = (Env, safeKey, cb) => {
+    const storageId = getStorageId(Env, safeKey);
+    Env.interface.sendQuery(storageId, 'RPC_GET_HASH',
+        { safeKey }, res => { cb(res.error, res.data); });
+};
+const getTotalSize = (Env, safeKey, cb) => {
+    // XXX limits compute batchKey here to send to correct storage
+    const limit = Env.limits[unsafeKey];
+    const batchKey = (limit && Array.isArray(limit.users)) ?
+                        limit.users.join('') : safeKey;
+
+    StorageCommands.getTotalSize(Env, batchKey, cb);
+};
 const getUpdatedLimit = () => { };
-const getLimit = () => { };
+const getLimit = (Env, safeKey, cb) => {
+
+};
 const expireSessionAsync = () => { };
-const removePins = () => { };
-const trimPins = () => { };
+const removePins = (Env, safeKey, cb) => {
+    const storageId = getStorageId(Env, safeKey);
+    Env.interface.sendQuery(storageId, 'RPC_ARCHIVE_PIN_LOG',
+        { safeKey }, res => { cb(res.error, res.data); });
+};
+const trimPins = (Env, safeKey, cb) => {
+    const storageId = getStorageId(Env, safeKey);
+    Env.interface.sendQuery(storageId, 'RPC_TRIM_PIN_LOG',
+        { safeKey }, res => { cb(res.error, res.data); });
+};
 const haveACookie = (Env, key, cb) => {
     cb();
 };

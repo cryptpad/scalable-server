@@ -36,8 +36,45 @@ const getLimit = Pinning.getLimit = (Env, safeKey, cb) => {
     cb(void 0, toSend);
 };
 
-const getMultipleFileSize = (Env, channels, cb) => {
-    Env.getMultipleFileSize(channels, cb);
+const getMultipleFileSize = Pinning.getMultipleFileSize = (Env, channels, cb, noRedirect) => {
+    cb = Util.once(cb);
+    const storages = Core.getChannelsStorage(Env, channels);
+    const toSend = [];
+    let toKeep;
+    storages.forEach(storageId => {
+        const _channels = storages[storageId];
+        if (storageId !== Env.myId) {
+            Array.prototype.push.apply(toSend, _channels);
+            return;
+        }
+        toKeep = _channels;
+    });
+
+    const result = {};
+    nThen(w => {
+        if (toSend.length && !noRedirect) {
+            // FIXME don't always send to core:0
+            Env.interface.sendQuery('core:0',
+                'GET_MULTIPLE_FILE_SIZE', toSend, w(res => {
+                if (res.error) {
+                    w.abort();
+                    return void cb(res.error);
+                }
+                Util.extend(result, res.data);
+            }));
+        }
+        if (toKeep && toKeep.length) {
+            Env.worker.getMultipleFileSize(toKeep, w((err, value) => {
+                if (err) {
+                    w.abort();
+                    return void cb(res.error);
+                }
+                Util.extend(result, value);
+            }));
+        }
+    }).nThen(() => {
+        cb(void 0, result);
+    });
 };
 
 const loadUserPins = (Env, safeKey, cb) => {
@@ -68,19 +105,84 @@ const truthyKeys = (O) => {
     }
 };
 
-const getChannelList = Pinning.getChannelList = (Env, safeKey, _cb) => {
+const getChannelList = Pinning.getChannelList =
+                    (Env, safeKey, _cb, noRedirect) => {
     const cb = Util.once(Util.mkAsync(_cb));
+
+    const storageId = Env.getStorageId(safeKey);
+    if (storageId !== Env.myId && !noRedirect) {
+        const coreId = Env.getCoreId(safeKey);
+        return Env.interface.sendQuery(coreId, 'GET_CHANNEL_LIST', {
+            safeKey
+        }, res => {
+            cb(res.data || []);
+        });
+    }
+
     loadUserPins(Env, safeKey, (pins) => {
         cb(truthyKeys(pins));
     });
 };
 
-Pinning.getTotalSize = (Env, safeKey, cb) => {
+Pinning.getChannelsTotalSize = (Env, channels, cb, noRedirect) => {
+    cb = Util.once(cb);
+    const storages = Core.getChannelsStorage(Env, channels);
+    const toSend = [];
+    let toKeep;
+    storages.forEach(storageId => {
+        const _channels = storages[storageId];
+        if (storageId !== Env.myId) {
+            Array.prototype.push.apply(toSend, _channels);
+            return;
+        }
+        toKeep = _channels;
+    });
+
+    const result = 0;
+    nThen(w => {
+        if (toSend.length && !noRedirect) {
+            // FIXME don't always send to core:0
+            Env.interface.sendQuery('core:0',
+                'GET_CHANNELS_TOTAL_SIZE', toSend, w(res => {
+                if (res.error || typeof(res.data) !== "number") {
+                    w.abort();
+                    return void cb(res.error);
+                }
+                result += res.data;
+            }));
+        }
+        if (toKeep && toKeep.length) {
+            Env.worker.getTotalSize(toKeep, w((err, value) => {
+                if (err) {
+                    w.abort();
+                    return void cb(res.error);
+                }
+                result += value;
+            }));
+        }
+    }).nThen(() => {
+        cb(void 0, result);
+    });
+
+};
+
+Pinning.getTotalSize = (Env, safeKey, cb, noRedirect) => {
     const unsafeKey = unescapeKeyCharacters(safeKey);
     const limit = Env.limits[unsafeKey];
 
     // Get a common key if multiple users share the same quota, otherwise take the public key
     const batchKey = (limit && Array.isArray(limit.users)) ? limit.users.join('') : safeKey;
+
+    const storageId = Env.getStorageId(batchKey);
+    if (Env.myId !== storageId && !noRedirect) {
+        const coreId = Env.getStorageId(batchKey);
+        return Env.interface.sendQuery(coreId, 'GET_TOTAL_SIZE', {
+            safeKey,
+            batchKey
+        }, res => {
+            cb(res.error, res.data);
+        });
+    }
 
     Env.batchTotalSize(batchKey, cb, (done) => {
         const channels = [];
@@ -110,7 +212,7 @@ Pinning.getTotalSize = (Env, safeKey, cb) => {
                 });
             }
         }).nThen(() => {
-            Env.getTotalSize(channels, done);
+            getChannelsTotalSize(Env, channels, done);
         });
     });
 };
@@ -249,7 +351,7 @@ Pinning.resetUserPins = (Env, safeKey, channelList, _cb) => {
     }
 
     let reset = () => {
-        var pins = {};
+        const pins = {};
         Env.pinStore.message(safeKey, JSON.stringify([
             'RESET', channelList, +new Date()
         ]), (e) => {
@@ -297,7 +399,7 @@ Pinning.resetUserPins = (Env, safeKey, channelList, _cb) => {
 };
 
 Pinning.getFileSize = (Env, channel, cb) => {
-    Env.getFileSize(channel, cb);
+    Env.worker.getFileSize(channel, cb);
 };
 
 /*  accepts a list, and returns a sublist of channel or file ids which seem
@@ -307,10 +409,11 @@ Pinning.getFileSize = (Env, channel, cb) => {
     ENOENT, but for now it's simplest to just rely on getFileSize...
 */
 Pinning.getDeletedPads = (Env, channels, cb) => {
-    Env.getDeletedPads(channels, cb);
+    Env.worker.getDeletedPads(channels, cb);
 };
 
 Pinning.isPremium = (Env, userKey, cb) => {
+    // XXX LIMITS
     const limit = Env.limits[userKey];
     return void cb(void 0, !!limit?.plan);
 };
