@@ -29,6 +29,7 @@ const Blob = require("./storage/blob.js");
 const Decrees = require('./commands/decrees.js');
 const Upload = require('./commands/upload.js');
 const Pinning = require('./commands/pin.js');
+const Quota = require('./commands/quota.js');
 
 const {
     TEMPORARY_CHANNEL_LIFETIME,
@@ -50,6 +51,8 @@ const Env = {
     batchMetadata: BatchRead("GET_METADATA"),
     batchUserPins:  BatchRead('LOAD_USER_PINS'),
     batchTotalSize: BatchRead('GET_TOTAL_SIZE'),
+    batchRegisteredUsers: BatchRead("GET_REGISTERED_USERS"),
+    batchAccountQuery: BatchRead("QUERY_ACCOUNT_SERVER"),
     selfDestructTo: {},
     blobstage: {} // Store file streams to write blobs
 };
@@ -252,12 +255,17 @@ const getChannelListHandler = (args, cb) => {
     Pinning.getChannelList(Env, args.safeKey, cb, true);
 };
 
+const accountsLimitsHandler = (args, cb) => { // sent from UI
+    Env.limits = args.limits;
+    Core.applyLimits(Env);
+    cb();
+};
+
 /* RPC commands */
 
 const adminDecreeHandler = (decree, cb) => { // sent from UI
     Decrees.onNewDecree(Env, decree, cb);
 };
-
 const getFileSizeHandler = (channel, cb) => {
     Pinning.getFileSize(Env, channel, cb);
 };
@@ -272,6 +280,9 @@ const getTotalSizeHandler = (args, cb) => {
 };
 const getChannelsTotalSizeHandler = (channels, cb) => {
     Pinning.getChannelsTotalSize(Env, channels, cb, true);
+};
+const getRegisteredUsersHandler = (args, cb) => {
+    Pinning.getRegisteredUsers(Env, cb);
 };
 
 const getPinningResetHandler = (data, cb) => {
@@ -317,11 +328,13 @@ let COMMANDS = {
     'NEW_DECREES': newDecreeHandler,
 
     'ADMIN_DECREE': adminDecreeHandler,
+    'ACCOUNTS_LIMITS': accountsLimitsHandler,
 
     'GET_CHANNEL_LIST': getChannelListHandler,
     'GET_MULTIPLE_FILE_SIZE': getMultipleFileSizeHandler,
     'GET_TOTAL_SIZE': getTotalSizeHandler,
     'GET_CHANNELS_TOTAL_SIZE': getChannelsTotalSizeHandler,
+    'GET_REGISTERED_USERS': getRegisteredUsersHandler,
 
     'RPC_GET_FILE_SIZE': getFileSizeHandler,
     'RPC_GET_DELETED_PADS': getDeletedPadsHandler,
@@ -432,6 +445,24 @@ const initWorkerCommands = () => {
     };
 };
 
+const initAccountsIntervals = () => {
+    const pingAccountsDaily = () => {
+        Quota.pingAccountsDaily(Env, e => {
+            if (e) { Env.Log.warn('dailyPing', e); }
+        });
+    };
+    pingAccountsDaily();
+    Env.intervals.dailyPing = setInterval(pingAccountsDaily, 24*3600*1000);
+
+    const updateLimits = () => { Env.updateLimits(); };
+    Quota.applyCustomLimits(Env);
+    updateLimits();
+    if (Env.accounts_api) {
+        Env.intervals.quotaUpdate = setInterval(updateLimits, 3600*1000);
+    }
+
+};
+
 const initHttpServer = (Env, config, _cb) => {
     const cb = Util.mkAsync(_cb);
     const app = Express();
@@ -453,18 +484,25 @@ let start = function(config) {
 
     Env.config = config;
 
+    Env.updateLimits = () => {
+        Quota.updateCachedLimits(Env, (e, limits) => {
+            if (!Env.accounts_api) { return; }
+            if (e) { return Env.Log.warn('LIMIT_UPDATE', e); }
+            if (!limits) { return; }
+            Env.interface.broadcast('core', 'ACCOUNTS_LIMITS', {
+                limits
+            }, () => {});
+        });
+    };
     Env.sendDecrees = (decrees, _cb) => {
         const cb = Util.mkAsync(_cb || function () {});
         const freshKey = String(+new Date());
         Array.prototype.push.apply(Env.allDecrees, decrees);
         nThen(waitFor => {
-            for (let i = 0; i < Env.numberCores; i++) {
-                let coreId = `core:${i}`;
-                Env.interface.sendQuery(coreId, 'NEW_DECREES', {
-                    freshKey,
-                    decrees
-                }, waitFor());
-            }
+            Env.interface.broadcast('core', 'NEW_DECREES', {
+                freshKey,
+                decrees
+            }, waitFor());
             Env.workers.broadcast('NEW_DECREES', decrees, waitFor(() => {
                 Env.Log.verbose('UPDATE_DECREE_STORAGE_WORKER');
             }));
@@ -564,8 +602,9 @@ let start = function(config) {
         // List accepted commands
         Env.interface.handleCommands(COMMANDS);
     }).nThen(waitFor => {
-        // Only storage:0 can manage decrees
+        // Only storage:0 can manage decrees and accounts
         if (index !== 0) { return; }
+        initAccountsIntervals();
 
         Env.adminDecrees.load(Env, waitFor((err, toSend) => {
             if (err) {

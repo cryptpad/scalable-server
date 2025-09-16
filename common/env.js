@@ -36,6 +36,7 @@ const init = (Env, mainConfig) => {
     Env.myId = mainConfig.myId;
 
     Env.version = Package.version;
+    Env.launchTime = +new Date();
 
     Env.numberStorages = infra.storage.length;
     Env.numberCores = infra.core.length;
@@ -102,7 +103,18 @@ const init = (Env, mainConfig) => {
     Env.permittedEmbedders = publicConfig?.main?.sandboxOrigin;
     Env.restrictRegistration = false; // XXX decree
 
+    Env.disableIntegratedTasks = config.disableIntegratedTasks || false;
+    Env.disableIntegratedEviction = typeof(config.disableIntegratedEviction) === 'undefined'? true: config.disableIntegratedEviction;
+    Env.lastEviction = +new Date();
+    Env.evictionReport = {};
+
+    Env.installMethod = config.installMethod || undefined;
+
     Env.inactiveTime = config.inactiveTime;
+    Env.accountRetentionTime = config.accountRetentionTime;
+    Env.archiveRetentionTime = config.archiveRetentionTime;
+
+
     Env.defaultStorageLimit = typeof(config.defaultStorageLimit) === 'number' && config.defaultStorageLimit >= 0?
         config.defaultStorageLimit:
         Core.DEFAULT_LIMIT;
@@ -114,16 +126,30 @@ const init = (Env, mainConfig) => {
     Env.listMyInstance = false;
     Env.enforceMFA = config.enforceMFA;
 
+    Env.consentToContact = false;
     Env.instanceName = {};
     Env.instanceDescription = {};
     Env.instanceJurisdiction = {};
     Env.instanceNotice = {};
 
-    Env.limits = {};
-    Env.customLimits = {};
+    // Accounts
+    Env.blockDailyCheck = config.blockDailyCheck === true;
+    Env.provideAggregateStatistics = false;
+    Env.updateAvailable = undefined;
+    Env.accountsLimits = {}; // from accounts
+    Env.customLimits = {}; // from decrees
+    Env.limits = {}; // accounts & decrees merged
 
     // XXX plugins
     // plugins can includes custom Env values
+
+    // XXX ACCOUNTS
+    Env.accounts_api = config.accounts_api; // XXX move to plugin
+    let acc_domain = new URL(Env.httpUnsafeOrigin);
+    Env.accounts_domain = acc_domain.host;
+
+    // XXX curve keys for form deletion
+    // XXX enforceMFA
 
     Env.onlyOffice = false; // XXX TODO OO
 

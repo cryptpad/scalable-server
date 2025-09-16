@@ -118,7 +118,6 @@ const getTotalSize = (Env, safeKey, cb) => {
 
     StorageCommands.getTotalSize(Env, batchKey, cb);
 };
-const getUpdatedLimit = () => { };
 const getLimit = (Env, safeKey, cb) => {
 
 };
@@ -168,7 +167,6 @@ const AUTHENTICATED_USER_TARGETED = {
 const AUTHENTICATED_USER_SCOPED = {
     GET_HASH: getHash,
     GET_TOTAL_SIZE: getTotalSize,
-    UPDATE_LIMITS: getUpdatedLimit,
     GET_LIMIT: getLimit,
     EXPIRE_SESSION: expireSessionAsync,
     REMOVE_PINS: removePins,

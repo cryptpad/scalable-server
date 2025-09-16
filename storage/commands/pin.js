@@ -4,6 +4,7 @@
 
 const Core = require("../../common/core");
 
+const Fs = require('node:fs');
 const Pinning = module.exports;
 const Util = require("../../common/common-util");
 const nThen = require("nthen");
@@ -418,3 +419,56 @@ Pinning.isPremium = (Env, userKey, cb) => {
     return void cb(void 0, !!limit?.plan);
 };
 
+const computeRegisteredUsers = (Env, cb) => {
+    Env.batchRegisteredUsers('', cb, (done) => {
+        const dir = Env.paths.pin;
+        let folders;
+        let users = 0;
+        nThen(waitFor => {
+            Fs.readdir(dir, waitFor((err, list) => {
+                if (err) {
+                    waitFor.abort();
+                    return void done(err);
+                }
+                folders = list;
+            }));
+        }).nThen(waitFor => {
+            folders.forEach((f) => {
+                const dir = Env.paths.pin + '/' + f;
+                Fs.readdir(dir, waitFor((err, list) => {
+                    if (err) { return; }
+                    // Don't count placeholders
+                    list = list.filter(name => {
+                        return !/\.placeholder$/.test(name);
+                    });
+                    users += list.length;
+                }));
+            });
+        }).nThen(() => {
+            done(void 0, {users});
+        });
+    });
+};
+Pinning.getRegisteredUsers = (Env, cb) => {
+    if (Env.myId !== "storage:0") {
+        return void computeRegisteredUsers(Env, cb);
+    }
+
+    const users = 0;
+    const onResult = (err, value) => {
+        if (err || typeof(value) !== "number") {
+            Env.Log.error("GET_REGISTERED_USERS_ERR", err);
+            return;
+        }
+        users += value?.users;
+    };
+
+    nThen(waitFor => {
+        Env.interface.sendQuery('core:0', 'GET_REGISTERED_USERS', {},
+            waitFor(res => { onResult(res.error, res.data); }));
+
+        computeRegisteredUsers(Env, waitFor(onResult));
+    }).nThen(() => {
+        cb(void 0, {users});
+    });
+};

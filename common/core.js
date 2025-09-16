@@ -7,6 +7,7 @@ const Util = require("./common-util");
 const Constants = require("./constants");
 const escapeKeyCharacters = Util.escapeKeyCharacters;
 const Path = require('node:path');
+const Keys = require("./keys");
 //const { fork } = require('child_process');
 
 Core.DEFAULT_LIMIT = 50 * 1024 * 1024;
@@ -202,4 +203,25 @@ Core.getChannelsStorage = (Env, channels) => {
         list.push(channel);
     });
     return channelsByStorage;
+};
+
+Core.applyLimits = (Env) => {
+    // DecreedLimits > customLimits > serverLimits;
+
+    // read custom limits from the Environment (taken from config)
+    const customLimits = (function (custom) {
+        const limits = {};
+        Object.keys(custom).forEach(k => {
+            const unsafeKey = Keys.canonicalize(k);
+            if (!unsafeKey) { return; }
+            limits[unsafeKey] = custom[k];
+        });
+        return limits;
+    }(Env.customLimits || {}));
+
+    Env.limits = Env.limits || {};
+    Object.keys(customLimits).forEach(k => {
+        if (!Quota.isValidLimit(customLimits[k])) { return; }
+        Env.limits[k] = customLimits[k];
+    });
 };

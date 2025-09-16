@@ -3,7 +3,7 @@ const Logger = (toLog = [], verbose) => {
 
     if (!toLog.length) {
         return {
-            info: console.log,
+            info: verbose ? console.log : noop,
             verbose: verbose ? console.info : noop,
             error: console.error,
             warn: console.warn,

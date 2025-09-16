@@ -403,6 +403,11 @@ const onGetChannelsTotalSize = (channels, cb, extra) => {
     StorageCommands.getChannelsTotalSize(Env, channels, cb);
 };
 
+const onGetRegisteredUsers = (args, cb, extra) => {
+    if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
+    StorageCommands.getRegisteredUsers(Env, cb);
+};
+
 const onHttpCommand = (args, cb, extra) => {
     if (!isWsCmd(extra.from)) { return void cb('UNAUTHORIZED'); }
     AuthCommands.handle(Env, args, cb);
@@ -461,20 +466,30 @@ const onNewDecrees = (args, cb, extra) => {
     }).nThen(() => {
         cb();
     });
-
-
 };
 
+const onAccountsLimits = (args, cb, extra) => {
+    if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
+    const { limits } = args;
+
+    Env.limits = limits;
+    Env.accountsLimits = limits;
+    Core.applyLimits(Env);
+
+    if (Env.myId !== 'core:0') { return void cb(); }
+
+    // Core:0 also has to broadcast to all other storages
+    const exclude = ['storage:0'];
+    Env.interface.broadcast('storage', 'ACCOUNTS_LIMITS', {
+        limits
+    }, () => { cb(); }, exclude);
+};
 
 const initIntervals = () => {
-    // XXX get quota every hour
-    // XXX daily ping
-
     // expire old sessions once per minute
     Env.intervals.sessionExpirationInterval = setInterval(() => {
         Core.expireSessions(Env.Sessions);
     }, Core.SESSION_EXPIRATION_TIME);
-
 };
 
 let startServers = function(config) {
@@ -528,11 +543,13 @@ let startServers = function(config) {
         'HISTORY_MESSAGE': onHistoryMessage,
         'HISTORY_CHANNEL_MESSAGE': onHistoryChannelMessage,
         'NEW_DECREES': onNewDecrees,
+        'ACCOUNTS_LIMITS': onAccountsLimits,
 
         'GET_CHANNEL_LIST': onGetChannelList,
         'GET_MULTIPLE_FILE_SIZE': onGetMultipleFileSize,
         'GET_TOTAL_SIZE': onGetTotalSize,
         'GET_CHANNELS_TOTAL_SIZE': onGetChannelsTotalSize,
+        'GET_REGISTERED_USERS': onGetRegisteredUsers,
     };
     queriesToStorage.forEach(function(command) {
         COMMANDS[command] = wsToStorage(command);
@@ -561,6 +578,9 @@ let startServers = function(config) {
     Env.interface.onNewConnection(obj => {
         const id = `${obj.type}:${obj.index}`;
         if (!Env.allDecrees.length) { return; }
+        Env.interface.sendEvent(id, 'ACCOUNTS_LIMITS', {
+            limits: Env.accountsLimits
+        });
         Env.interface.sendEvent(id, 'NEW_DECREES', {
             freshKey: Env.FRESH_KEY,
             decrees: Env.allDecrees
