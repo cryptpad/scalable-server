@@ -147,6 +147,11 @@ const create = (Env, app) => {
             return void res.status(500).send({error: e.message});
         }
     });
+
+    app.use('/api/updatequota', (req, res) => {
+        Env.updateLimits();
+        res.status(200).send();
+    });
 };
 
 module.exports = { create };

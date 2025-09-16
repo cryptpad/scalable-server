@@ -189,10 +189,6 @@ app.get('/api/config', serveConfig);
 app.get('/api/broadcast', serveBroadcast);
 app.get('/api/instance', serveInstance);
 
-app.get('/api/updatequota', (/*req, res*/) => {
-    // XXX
-    throw new Error('NOT_IMPLEMENTED');
-});
 app.get('/api/profiling', (/*req, res*/) => {
     // XXX
     // XXX Env.enableProfiling, Env.profilingWindow

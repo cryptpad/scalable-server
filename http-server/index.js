@@ -76,6 +76,15 @@ const initProxy = (Env, app, server, infra) => {
         },
         logger: Logger(['error'])
     });
+    const quotaProxy = createProxyMiddleware({
+        router: req => {
+            return storageList[0] + req.baseUrl.slice(1);
+        },
+        logger: Logger(['error'])
+    });
+
+
+    app.use('/api/updatequota', quotaProxy);
 
     app.use('/cryptpad_websocket', wsProxy);
     app.use('/api', httpProxy);
