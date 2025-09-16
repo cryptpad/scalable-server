@@ -1,6 +1,7 @@
 const nThen = require('nthen');
 const Util = require("../../common/common-util");
 const Core = require('../../common/core');
+const Pinning = require('../../storage/commands/pin');
 
 const StorageCommands = {};
 
@@ -84,5 +85,7 @@ StorageCommands.getRegisteredUsers = (Env, cb) => {
         cb(void 0, {users});
     }, ['storage:0']);
 };
+
+StorageCommands.getLimit = Pinning.getLimit;
 
 module.exports = StorageCommands;

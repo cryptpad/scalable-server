@@ -413,12 +413,6 @@ Pinning.getDeletedPads = (Env, channels, cb) => {
     Env.worker.getDeletedPads(channels, cb);
 };
 
-Pinning.isPremium = (Env, userKey, cb) => {
-    // XXX LIMITS
-    const limit = Env.limits[userKey];
-    return void cb(void 0, !!limit?.plan);
-};
-
 const computeRegisteredUsers = (Env, cb) => {
     Env.batchRegisteredUsers('', cb, (done) => {
         const dir = Env.paths.pin;

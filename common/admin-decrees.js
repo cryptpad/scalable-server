@@ -2,8 +2,7 @@ const Core = require("./core");
 const Keys = require("./keys");
 const DecreesCore = require("./decrees-core");
 
-//const Quota = require("./commands/quota"); // XXX QUOTA
-const Quota = {};
+const Quota = require("../storage/commands/quota");
 
 const {
     args_isBoolean,

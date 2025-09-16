@@ -48,9 +48,8 @@ const deleteMailboxMessage = () => {
 const getMetadata = () => {
 };
 const isPremium = (Env, userKey, cb) => {
-    const storageId = getStorageId(Env, userKey);
-    throw new Error("NOT_IMPLEMENTED");
-    // XXX LIMITS
+    const limit = Env.limits[userKey];
+    return void cb(void 0, !!limit?.plan);
 };
 const addFirstAdmin = () => {
 };
@@ -111,16 +110,14 @@ const getHash = (Env, safeKey, cb) => {
         { safeKey }, res => { cb(res.error, res.data); });
 };
 const getTotalSize = (Env, safeKey, cb) => {
-    // XXX limits compute batchKey here to send to correct storage
     const limit = Env.limits[unsafeKey];
     const batchKey = (limit && Array.isArray(limit.users)) ?
                         limit.users.join('') : safeKey;
 
     StorageCommands.getTotalSize(Env, batchKey, cb);
 };
-const getLimit = (Env, safeKey, cb) => {
+const getLimit = StorageCommands.getLimit;
 
-};
 const expireSessionAsync = () => { };
 const removePins = (Env, safeKey, cb) => {
     const storageId = getStorageId(Env, safeKey);
