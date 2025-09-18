@@ -14,6 +14,7 @@ const HistoryManager = require("./history-manager.js");
 const ChannelManager = require("./channel-manager.js");
 const HKUtil = require("./hk-util.js");
 const HttpManager = require('./http-manager.js');
+const MFAManager = require('./mfa-manager.js');
 
 const Environment = require('../common/env.js');
 
@@ -30,6 +31,7 @@ const Decrees = require('./commands/decrees.js');
 const Upload = require('./commands/upload.js');
 const Pinning = require('./commands/pin.js');
 const Quota = require('./commands/quota.js');
+const Block = require('./commands/block.js');
 
 const {
     TEMPORARY_CHANNEL_LIFETIME,
@@ -316,6 +318,13 @@ const uploadHandler = (f) => {
 
 /* Start of the node */
 
+const callWithEnv = f => {
+    return function () {
+        [].unshift.call(arguments, Env);
+        return f.apply(null, arguments);
+    };
+};
+
 // List accepted commands
 let COMMANDS = {
     'JOIN_CHANNEL': joinChannelHandler,
@@ -345,12 +354,17 @@ let COMMANDS = {
     'RPC_ARCHIVE_PIN_LOG': archivePinLogHandler,
     'RPC_TRIM_PIN_LOG': trimPinLogHandler,
 
-    'RPC_UPLOAD_COOKIE': uploadHandler(Upload.cookie),
+    'HTTP_UPLOAD_COOKIE': uploadHandler(Upload.cookie),
     'RPC_UPLOAD_STATUS': uploadHandler(Upload.status),
     'RPC_UPLOAD_CANCEL': uploadHandler(Upload.cancel),
     'RPC_UPLOAD_CHUNK': uploadHandler(Upload.upload),
     'RPC_UPLOAD_COMPLETE': uploadHandler(Upload.complete),
     'RPC_UPLOAD_COMPLETE_OWNED': uploadHandler(Upload.completeOwned),
+
+    'HTTP_MFA_CHECK': callWithEnv(MFAManager.checkMFA),
+    'HTTP_UPDATE_SESSION': callWithEnv(MFAManager.updateSession),
+    'HTTP_WRITE_BLOCK': callWithEnv(Block.writeLoginBlock),
+    'HTTP_REMOVE_BLOCK': callWithEnv(Block.removeLoginBlock),
 };
 
 const initWorkerCommands = () => {

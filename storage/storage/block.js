@@ -4,14 +4,14 @@
 
 const Block = module.exports;
 const Util = require("../common-util");
-const Path = require("path");
-const Fs = require("fs");
+const Path = require("node:path");
+const Fs = require("node:fs");
 const Fse = require("fs-extra");
 const nThen = require("nthen");
 
 Block.mkPath = function (Env, publicKey) {
     // prepare publicKey to be used as a file name
-    var safeKey = Util.escapeKeyCharacters(publicKey);
+    const safeKey = Util.escapeKeyCharacters(publicKey);
 
     // validate safeKey
     if (typeof(safeKey) !== 'string') { return; }
@@ -23,7 +23,7 @@ Block.mkPath = function (Env, publicKey) {
 
 Block.mkArchivePath = function (Env, publicKey) {
     // prepare publicKey to be used as a file name
-    var safeKey = Util.escapeKeyCharacters(publicKey);
+    const safeKey = Util.escapeKeyCharacters(publicKey);
 
     // validate safeKey
     if (typeof(safeKey) !== 'string') {
@@ -35,21 +35,21 @@ Block.mkArchivePath = function (Env, publicKey) {
     return Path.join(Env.paths.archive, 'block', safeKey.slice(0, 2), safeKey);
 };
 
-var mkPlaceholderPath = function (Env, publicKey) {
+const mkPlaceholderPath = function (Env, publicKey) {
     return Block.mkPath(Env, publicKey) + '.placeholder';
 };
-var addPlaceholder = function (Env, publicKey, reason, cb) {
+const addPlaceholder = function (Env, publicKey, reason, cb) {
     if (!reason) { return cb(); }
-    var path = mkPlaceholderPath(Env, publicKey);
-    var s_data = typeof(reason) === "string" ? reason : `${reason.code}:${reason.txt}`;
+    const path = mkPlaceholderPath(Env, publicKey);
+    const s_data = typeof(reason) === "string" ? reason : `${reason.code}:${reason.txt}`;
     Fs.writeFile(path, s_data, cb);
 };
-var clearPlaceholder = function (Env, publicKey, cb) {
-    var path = mkPlaceholderPath(Env, publicKey);
+const clearPlaceholder = function (Env, publicKey, cb) {
+    const path = mkPlaceholderPath(Env, publicKey);
     Fs.unlink(path, cb);
 };
 Block.readPlaceholder = function (Env, publicKey, cb) {
-    var path = mkPlaceholderPath(Env, publicKey);
+    const path = mkPlaceholderPath(Env, publicKey);
     Fs.readFile(path, function (err, content) {
         if (err) { return void cb(); }
         cb(content.toString('utf8'));
@@ -57,17 +57,17 @@ Block.readPlaceholder = function (Env, publicKey, cb) {
 };
 
 Block.archive = function (Env, publicKey, reason, _cb) {
-    var cb = Util.once(Util.mkAsync(_cb));
+    const cb = Util.once(Util.mkAsync(_cb));
 
     // derive the filepath
-    var currentPath = Block.mkPath(Env, publicKey);
+    const currentPath = Block.mkPath(Env, publicKey);
 
     // make sure the path is valid
     if (typeof(currentPath) !== 'string') {
         return void cb('E_INVALID_BLOCK_PATH');
     }
 
-    var archivePath = Block.mkArchivePath(Env, publicKey);
+    const archivePath = Block.mkArchivePath(Env, publicKey);
     // make sure the path is valid
     if (typeof(archivePath) !== 'string') {
         return void cb('E_INVALID_BLOCK_ARCHIVAL_PATH');
@@ -83,17 +83,17 @@ Block.archive = function (Env, publicKey, reason, _cb) {
 };
 
 Block.restore = function (Env, publicKey, _cb) {
-    var cb = Util.once(Util.mkAsync(_cb));
+    const cb = Util.once(Util.mkAsync(_cb));
 
     // derive the filepath
-    var livePath = Block.mkPath(Env, publicKey);
+    const livePath = Block.mkPath(Env, publicKey);
 
     // make sure the path is valid
     if (typeof(livePath) !== 'string') {
         return void cb('E_INVALID_BLOCK_PATH');
     }
 
-    var archivePath = Block.mkArchivePath(Env, publicKey);
+    const archivePath = Block.mkArchivePath(Env, publicKey);
     // make sure the path is valid
     if (typeof(archivePath) !== 'string') {
         return void cb('E_INVALID_BLOCK_ARCHIVAL_PATH');
@@ -108,11 +108,11 @@ Block.restore = function (Env, publicKey, _cb) {
     });
 };
 
-var isValidKey = Block.isValidKey = function (publicKey) {
+const isValidKey = Block.isValidKey = function (publicKey) {
     return typeof(publicKey) === 'string' && publicKey.length === 44;
 };
 
-var exists = function (path, cb) {
+const exists = function (path, cb) {
     Fs.stat(path, function (err, stat) {
         if (err) {
             if (err.code === 'ENOENT') {
@@ -125,10 +125,10 @@ var exists = function (path, cb) {
     });
 };
 
-var checkPath = function (Env, publicKey, pathFunction, _cb) {
-    var cb = Util.once(Util.mkAsync(_cb));
+const checkPath = function (Env, publicKey, pathFunction, _cb) {
+    const cb = Util.once(Util.mkAsync(_cb));
     if (!isValidKey(publicKey)) { return void cb("INVALID_ARGS"); }
-    var path = pathFunction(Env, publicKey);
+    const path = pathFunction(Env, publicKey);
     exists(path, cb);
 };
 
@@ -141,18 +141,18 @@ Block.isArchived = function (Env, publicKey, _cb) {
 };
 
 Block.check = function (Env, publicKey, _cb) { // 'check' because 'exists' implies boolean
-    var cb = Util.once(Util.mkAsync(_cb));
-    var path = Block.mkPath(Env, publicKey);
+    const cb = Util.once(Util.mkAsync(_cb));
+    const path = Block.mkPath(Env, publicKey);
     Fs.access(path, Fs.constants.F_OK, cb);
 };
 
 Block.MAX_SIZE = 256;
 
 Block.write = function (Env, publicKey, buffer, _cb) {
-    var cb = Util.once(Util.mkAsync(_cb));
-    var path = Block.mkPath(Env, publicKey);
+    const cb = Util.once(Util.mkAsync(_cb));
+    const path = Block.mkPath(Env, publicKey);
     if (typeof(path) !== 'string') { return void cb('INVALID_PATH'); }
-    var parsed = Path.parse(path);
+    const parsed = Path.parse(path);
 
     nThen(function (w) {
         Fse.mkdirp(parsed.dir, w(function (err) {
@@ -171,7 +171,7 @@ Block.write = function (Env, publicKey, buffer, _cb) {
         }));
     }).nThen(function () {
         Fs.writeFile(path, buffer, { encoding: 'binary' }, cb);
-        Env.incrementBytesWritten(buffer && buffer.length);
+        //Env.incrementBytesWritten(buffer && buffer.length);
     });
 };
 

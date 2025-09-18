@@ -216,7 +216,7 @@ const init = workerConfig => {
                         pid: PID,
                         txid: res.txid,
                         error: err,
-                        response: data
+                        response: data || {}
                     });
                 });
             });

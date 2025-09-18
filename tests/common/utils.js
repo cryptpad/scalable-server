@@ -111,6 +111,16 @@ const getPinPath = publicKey => {
     const file = `${safeKey}.ndjson`;
     return Path.join(p.pinPath, safeKey.slice(0,2), file);
 };
+const getBlockPath = publicKey => {
+    // We need a 8 byte key
+    const nb = infra.storage.length;
+    let safeKey = Util.escapeKeyCharacters(publicKey);
+    let key = Buffer.from(safeKey.slice(0, 8));
+    let index = jumpConsistentHash(key, nb);
+    const p = Core.getPaths({ index });
+    const file = `${safeKey}`;
+    return Path.join(p.blockPath, safeKey.slice(0,2), file);
+};
 
 const hashChannelList = (list) => {
     return Util.encodeBase64(Nacl.hash(Util
@@ -122,5 +132,5 @@ module.exports = {
     createAnonRpc, createUserRpc,
     hashChannelList,
     getRandomKeys, getRandomMsg,
-    getChannelPath, getBlobPath, getPinPath
+    getChannelPath, getBlobPath, getPinPath, getBlockPath
 };

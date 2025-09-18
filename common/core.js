@@ -25,6 +25,10 @@ Core.isValidPublicKey = (owner) => {
     return typeof(owner) === 'string' && owner.length === 44;
 };
 
+Core.isValidBlockId = id => {
+    return typeof(id) === "string" && id.length === 44;
+};
+
 const makeToken = Core.makeToken = () => {
     return Number(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER))
         .toString(16);

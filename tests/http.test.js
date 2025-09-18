@@ -5,7 +5,6 @@ const Nacl = require('tweetnacl/nacl-fast');
 const ServerCommand = require('./common/http-command');
 
 const config = require('../config/config.json');
-
 const origin = config?.public?.main?.origin;
 ServerCommand.setCustomize({
     ApiConfig: {

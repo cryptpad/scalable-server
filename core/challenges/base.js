@@ -4,50 +4,26 @@
 
 const Commands = module.exports;
 const Util = require("../../common/common-util");
+const Core = require("../../common/core");
 
-
-/*
-const Block = require("../commands/block");
-const MFA = require("../storage/mfa");
-const Sessions = require("../storage/sessions");
-
-
-var isValidBlockId = Block.isValidBlockId;
+const isValidBlockId = Core.isValidBlockId;
 
 // Read the MFA settings for the given public key
 const checkMFA = (Env, publicKey, cb) => {
-    // Success if we can't get the MFA settings
-    MFA.read(Env, publicKey, function (err, content) {
-        if (err) {
-            if (err.code !== "ENOENT") {
-                Env.Log.error('TOTP_VALIDATE_MFA_READ', {
-                    error: err,
-                    publicKey: publicKey,
-                });
-            }
-            return void cb();
-        }
-
-        var parsed = Util.tryParse(content);
-        if (!parsed) { return void cb(); }
-
-        cb("NOT_ALLOWED");
+    const safeKey = Util.escapeKeyCharacters(publicKey);
+    const storageId = Env.getStorageId(safeKey);
+    Env.interface.sendQuery(storageId, 'HTTP_MFA_CHECK', {
+        publicKey
+    }, res => {
+        cb(res.error || undefined);
     });
 };
-
-// Make sure the block is not protected by MFA but don't do anything else
-const check = Commands.MFA_CHECK = function (Env, body, cb) {
-    var { publicKey } = body;
-    if (!isValidBlockId(publicKey)) { return void cb("INVALID_KEY"); }
-    checkMFA(Env, publicKey, cb);
-};
-check.complete = function (Env, body, cb) { cb(); };
 
 // Write a login block IFF
 // 1. You can sign for the block's public key
 // 2. the block is not protected by MFA
 // Note: the internal WRITE_LOGIN_BLOCK will check is you're allowed to create this block
-const writeBlock = Commands.WRITE_BLOCK = function (Env, body, cb) {
+const writeBlock = Commands.WRITE_BLOCK = (Env, body, cb) => {
     const { publicKey, content } = body;
 
     // they must provide a valid block public key
@@ -60,21 +36,40 @@ const writeBlock = Commands.WRITE_BLOCK = function (Env, body, cb) {
 
 writeBlock.complete = function (Env, body, cb) {
     const { publicKey, content, session } = body;
-    Block.writeLoginBlock(Env, content, (err) => {
+
+    const safeKey = Util.escapeKeyCharacters(publicKey);
+    const sId = Env.getStorageId(safeKey);
+    Env.interface.sendQuery(sId, 'HTTP_WRITE_BLOCK', content, res => {
+        const err = res?.error;
         if (err) { return void cb(err); }
 
         if (!session) { return void cb(); }
 
         const proof = Util.tryParse(content.registrationProof);
         const oldKey = proof && proof[0];
-        Sessions.update(Env, publicKey, oldKey, session, "", cb);
+
+        Env.interface.sendQuery(sId, 'HTTP_UPDATE_SESSION', {
+            publicKey, oldKey, session
+        }, res => {
+            cb(res.error, res.data);
+        });
     });
+
 };
+
+// Make sure the block is not protected by MFA but don't
+// do anything else
+const check = Commands.MFA_CHECK = (Env, body, cb) => {
+    const { publicKey } = body;
+    if (!isValidBlockId(publicKey)) { return void cb("INVALID_KEY"); }
+    checkMFA(Env, publicKey, cb);
+};
+check.complete = (Env, body, cb) => { cb(); };
 
 // Remove a login block IFF
 // 1. You can sign for the block's public key
 // 2. the block is not protected by MFA
-const removeBlock = Commands.REMOVE_BLOCK = function (Env, body, cb) {
+const removeBlock = Commands.REMOVE_BLOCK = (Env, body, cb) => {
     const { publicKey } = body;
 
     // they must provide a valid block public key
@@ -84,14 +79,21 @@ const removeBlock = Commands.REMOVE_BLOCK = function (Env, body, cb) {
     checkMFA(Env, publicKey, cb);
 };
 
-removeBlock.complete = function (Env, body, cb) {
+removeBlock.complete = (Env, body, cb) => {
     const { publicKey, edPublic, reason } = body;
-    Block.removeLoginBlock(Env, publicKey, reason, edPublic, cb);
+
+    const safeKey = Util.escapeKeyCharacters(publicKey);
+    const sId = Env.getStorageId(safeKey);
+    Env.interface.sendQuery(sId, 'HTTP_REMOVE_BLOCK', {
+        publicKey, reason, edPublic
+    }, res => {
+        cb(res.error, res.data);
+    });
 };
 
-*/
 
 // Test command that does nothing
+// XXX TO REMOVE
 const testCommand = Commands.TEST = function (Env, body, cb) {
     const { publicKey } = body;
 
@@ -131,7 +133,7 @@ uploadCookie.complete = function (Env, body, cb) {
 
     const safeKey = Util.escapeKeyCharacters(publicKey);
     const storageId = Env.getStorageId(id);
-    Env.interface.sendQuery(storageId, 'RPC_UPLOAD_COOKIE', {
+    Env.interface.sendQuery(storageId, 'HTTP_UPLOAD_COOKIE', {
         safeKey, id
     }, res => {
         cb(res.error, {
