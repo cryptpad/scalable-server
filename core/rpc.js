@@ -24,7 +24,7 @@ const getDeletedPads = (Env, channels, _cb) => {
     const channelsByStorage = Core.getChannelsStorage(Env, channels);
 
     nThen(waitFor => {
-        Object.keys(channelByStorage).forEach(storageId => {
+        Object.keys(channelsByStorage).forEach(storageId => {
             const channels = channelsByStorage[storageId];
             Env.interface.sendQuery(storageId,
             'RPC_GET_DELETED_PADS', channels, waitFor(res => {

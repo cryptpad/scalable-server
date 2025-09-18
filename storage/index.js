@@ -520,7 +520,7 @@ let start = function(config) {
     };
 
     const {
-        filePath, archivePath, blobPath, blobStagingPath
+        filePath, pinPath, archivePath, blobPath, blobStagingPath
     } = Core.getPaths(config);
     nThen(waitFor => {
         File.create({
@@ -531,7 +531,8 @@ let start = function(config) {
             Env.store = store;
         }));
         File.create({
-            filePath, archivePath,
+            filePath: pinPath,
+            archivePath,
             volumeId: 'pins',
         }, waitFor((err, s) => {
             if (err) { throw err; }

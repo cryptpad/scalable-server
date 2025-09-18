@@ -19,6 +19,7 @@ Constants.paths = {
     blob: 'blob/',
     blobstage: 'blobstage/',
     block: 'block/',
+    pin: 'pins/',
     archive: 'archive/',
     tasks: 'tasks/',
     decrees: 'decrees/',

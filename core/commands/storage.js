@@ -20,7 +20,7 @@ StorageCommands.getMultipleFileSize = (Env, channels, _cb) => {
     const channelsByStorage = Core.getChannelsStorage(Env, channels);
 
     nThen(waitFor => {
-        Object.keys(channelByStorage).forEach(storageId => {
+        Object.keys(channelsByStorage).forEach(storageId => {
             const channels = channelsByStorage[storageId];
             Env.interface.sendQuery(storageId,
             'GET_MULTIPLE_FILE_SIZE', channels, waitFor(res => {
@@ -59,7 +59,7 @@ StorageCommands.getChannelsTotalSize = (Env, channels, cb) => {
     const channelsByStorage = Core.getChannelsStorage(Env, channels);
 
     nThen(waitFor => {
-        Object.keys(channelByStorage).forEach(storageId => {
+        Object.keys(channelsByStorage).forEach(storageId => {
             const channels = channelsByStorage[storageId];
             Env.interface.sendQuery(storageId,
             'GET_CHANNELS_TOTAL_SIZE', channels, waitFor(res => {

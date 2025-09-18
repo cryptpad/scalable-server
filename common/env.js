@@ -1,10 +1,12 @@
 const Package = require("../package.json");
+const Util = require('./common-util');
 const Keys = require('./keys');
 const Core = require('./core');
 const Constants = require('./constants');
 const Default = require('../http-server/defaults');
 const DecreesCore = require('./decrees-core');
 const AdminDecrees = require('./admin-decrees');
+const { jumpConsistentHash } = require('./consistent-hash');
 
 const isRecentVersion = function () {
     let R = Default.recommendedVersion;

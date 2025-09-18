@@ -42,7 +42,7 @@ const getMultipleFileSize = Pinning.getMultipleFileSize = (Env, channels, cb, no
     const storages = Core.getChannelsStorage(Env, channels);
     const toSend = [];
     let toKeep;
-    storages.forEach(storageId => {
+    Object.keys(storages).forEach(storageId => {
         const _channels = storages[storageId];
         if (storageId !== Env.myId) {
             Array.prototype.push.apply(toSend, _channels);
@@ -130,7 +130,7 @@ Pinning.getChannelsTotalSize = (Env, channels, cb, noRedirect) => {
     const storages = Core.getChannelsStorage(Env, channels);
     const toSend = [];
     let toKeep;
-    storages.forEach(storageId => {
+    Object.keys(storages).forEach(storageId => {
         const _channels = storages[storageId];
         if (storageId !== Env.myId) {
             Array.prototype.push.apply(toSend, _channels);
@@ -213,7 +213,7 @@ Pinning.getTotalSize = (Env, safeKey, cb, noRedirect) => {
                 });
             }
         }).nThen(() => {
-            getChannelsTotalSize(Env, channels, done);
+            Pinning.getChannelsTotalSize(Env, channels, done);
         });
     });
 };

@@ -30,7 +30,8 @@ const {
 const init = (config, cb) => {
     Environment.init(Env, config);
     const {
-        filePath, archivePath, taskPath, blobPath, blobStagingPath
+        filePath, archivePath, pinPath, taskPath,
+        blobPath, blobStagingPath
     } = Core.getPaths(config);
     nThen(waitFor => {
         File.create({
@@ -56,8 +57,8 @@ const init = (config, cb) => {
             Env.blobStore = store;
         }));
         File.create({
-            filePath: config.pinPath,
-            archivePath: config.archivePath,
+            filePath: pinPath,
+            archivePath,
             // important to initialize the pinstore with its own
             // volume id otherwise archived pin logs will get mixed
             // in with channels

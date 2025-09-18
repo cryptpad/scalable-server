@@ -171,6 +171,7 @@ Core.getPaths = (config, isEnv) => {
         blobPath: Path.join(paths.base, idx, paths.blob),
         blobStagingPath: Path.join(paths.base, idx, paths.blobstage),
         blockPath: Path.join(paths.base, idx, paths.block),
+        pinPath: Path.join(paths.base, idx, paths.pin),
         archivePath: Path.join(paths.base, idx, paths.archive),
         taskPath: Path.join(paths.base, idx, paths.tasks),
         decreePath: Path.join(paths.base, "0", paths.decrees),
@@ -197,7 +198,7 @@ Core.getPaths = (config, isEnv) => {
 Core.getChannelsStorage = (Env, channels) => {
     const channelsByStorage = {};
     channels.forEach(channel => {
-        const storageId = getStorageId(Env, channel);
+        const storageId = Env.getStorageId(channel);
         const list = channelsByStorage[storageId] ||= [];
         if (list.includes(channel)) { return; }
         list.push(channel);
