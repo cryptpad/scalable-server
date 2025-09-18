@@ -176,7 +176,7 @@ Pinning.getTotalSize = (Env, safeKey, cb, noRedirect) => {
 
     const storageId = Env.getStorageId(batchKey);
     if (Env.myId !== storageId && !noRedirect) {
-        const coreId = Env.getStorageId(batchKey);
+        const coreId = Env.getCoreId(batchKey);
         return Env.interface.sendQuery(coreId, 'GET_TOTAL_SIZE', {
             safeKey,
             batchKey

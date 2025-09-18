@@ -6,7 +6,7 @@ const Pinning = require('../../storage/commands/pin');
 const StorageCommands = {};
 
 StorageCommands.getFileSize = (Env, channel, cb) => {
-    const storageId = getStorageId(Env, channel);
+    const storageId = Env.getStorageId(channel);
     Env.interface.sendQuery(storageId, 'RPC_GET_FILE_SIZE', channel, res => {
         if (res.error) { return void cb(res.error); }
         cb(void 0, res.data);
@@ -37,7 +37,7 @@ StorageCommands.getMultipleFileSize = (Env, channels, _cb) => {
 };
 
 StorageCommands.getChannelList = (Env, safeKey, cb) => {
-    const storageId = getStorageId(safeKey);
+    const storageId = Env.getStorageId(safeKey);
     Env.interface.sendQuery(storageId, 'GET_CHANNEL_LIST', {
         safeKey
     }, response => {
@@ -46,7 +46,7 @@ StorageCommands.getChannelList = (Env, safeKey, cb) => {
 };
 
 StorageCommands.getTotalSize = (Env, safeKey, cb) => {
-    const storageId = getStorageId(safeKey);
+    const storageId = Env.getStorageId(safeKey);
     Env.interface.sendQuery(storageId, 'GET_TOTAL_SIZE', {
         safeKey
     }, response => {

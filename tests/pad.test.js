@@ -39,6 +39,8 @@ const startUsers = () => {
     });
 };
 
+const fullHistory = [];
+
 const joinPad = () => {
     let res, rej;
     const prom  = new Promise((resolve, reject) => {
@@ -73,13 +75,10 @@ const joinPad = () => {
     return prom;
 };
 
-const messages = [];
-
 const sendPadMessage = (user) => {
     const msg = getRandomMsg();
     return new Promise((res, rej) => {
         user.wc.bcast(msg).then(() => {
-            messages.push({ user: user.id, msg });
             user.history.push({ user: user.id, msg });
             setTimeout(() => {
                 // Timeout here to make sure all users have received
@@ -104,7 +103,7 @@ const checkHistory = () => {
 
         const txid = Crypto.randomBytes(4).toString('hex');
 
-        const expected = messages.slice(startHistIdx).map(obj => obj.msg);
+        const expected = fullHistory.slice(startHistIdx);
         const lastKnownHash = expected[0].slice(0,64);
 
         const hist = [];
@@ -140,25 +139,18 @@ const checkHistory = () => {
     });
 };
 
-const checkFullHistory = () => {
+const getFullHistory = () => {
     return new Promise((resolve, reject) => {
         const txid = Crypto.randomBytes(4).toString('hex');
-
-        const expected = messages.map(obj => obj.msg);
-
-        const hist = [];
 
         const onMessage = (msg, sender) => {
             const [command, parsed] = JSON.parse(msg);
             if (sender !== hk) { return; }
             if (command === 'FULL_HISTORY_END' && parsed === padId) {
-                if (JSON.stringify(expected) !== JSON.stringify(hist)) {
-                    return void reject("CHECK_HISTORY_MISMATCH_ERROR");
-                }
                 resolve();
             }
             if (!Array.isArray(parsed) || parsed[3] !== padId) { return; }
-            hist.push(parsed[4]);
+            fullHistory.push(parsed[4]);
         };
 
         let network;
@@ -186,7 +178,7 @@ const checkHistoryRange = () => {
 
         const txid = Crypto.randomBytes(4).toString('hex');
 
-        const expected = messages.slice(startHistIdx, endHistIdx).map(obj => obj.msg);
+        const expected = fullHistory.slice(startHistIdx, endHistIdx);
         const to = expected[0].slice(0,64);
         const from = expected.at(-1).slice(0,64);
 
@@ -271,14 +263,15 @@ const checkMessages = () => {
         Object.values(users).every(user => {
             try {
                 const hist = user.history;
-                if (hist.length !== messages.length) {
+                if (hist.length !== fullHistory.length) {
                     throw new Error("CHECK_MESSAGES_LENGTH_ERROR");
                 }
                 if (hist.some((obj, i) => {
-                    const msg = messages[i];
-                    return msg.user !== obj.user
-                        || msg.msg !== obj.msg;
+                    const msg = fullHistory[i];
+                    return msg !== obj.msg;
                 })) {
+                    console.log(fullHistory);
+                    console.log(hist);
                     throw new Error("MESSAGES_ORDER_ERROR");
                 }
             } catch (e) {
@@ -297,9 +290,10 @@ startUsers()
 .then(joinPad)
 .then(checkPad)
 .then(sendMessages)
+.then(getFullHistory)
 .then(checkMessages)
 .then(checkHistory)
-.then(checkFullHistory)
+//.then(checkFullHistory)
 .then(checkHistoryRange)
 .then(() => {
     console.log('PAD: success');

@@ -41,8 +41,6 @@ const isValidChannel = str => {
 };
 
 
-const getStorageId = Env.getStorageId;
-
 let getWsId = function(userId) {
     return Env.userCache?.[userId]?.from || 'websocket:0';
 };
@@ -59,7 +57,7 @@ let wsToStorage = function(command, validated, isEvent) {
         }
         let channel = args.channel;
 
-        let storageId = getStorageId(channel);
+        let storageId = Env.getStorageId(channel);
 
         if (isEvent) {
             Env.interface.sendEvent(storageId, command, args);
@@ -157,7 +155,7 @@ const dropUser = (args, _cb, extra) => {
 
     const sent = [];
     channels.forEach(channel => {
-        const storageId = getStorageId(channel);
+        const storageId = Env.getStorageId(channel);
         if (sent.includes(storageId)) { return; }
         sent.push(storageId);
         Env.interface.sendEvent(storageId, 'DROP_USER', args);
@@ -179,7 +177,7 @@ const joinChannel = (args, cb, extra) => {
 
     args.sessions = user.sessions;
 
-    const storageId = getStorageId(channel);
+    const storageId = Env.getStorageId(channel);
     Env.interface.sendQuery(storageId, 'JOIN_CHANNEL', args, res => {
         if (res.error) { return void cb(res.error); }
         const users = res.data;
@@ -198,7 +196,7 @@ const leaveChannel = (args, cb, extra) => {
         return void cb('EINVAL');
     }
 
-    const storageId = getStorageId(channel);
+    const storageId = Env.getStorageId(channel);
     Env.interface.sendQuery(storageId, 'LEAVE_CHANNEL', args, res => {
         if (res.error) { return void cb(res.error); }
         const users = res.data;
@@ -220,7 +218,7 @@ const onChannelMessage = (args, cb, extra) => {
     }
 
     const todo = (validated) => {
-        const storageId = getStorageId(channel);
+        const storageId = Env.getStorageId(channel);
         Env.interface.sendQuery(storageId, 'CHANNEL_MESSAGE', {
             channel, msgStruct, validated
         }, res => {
@@ -417,7 +415,7 @@ const onWsCommand = command => {
     return (args, cb, extra) => {
         if (!isWsCmd(extra.from)) { return void cb('UNAUTHORIZED'); }
         const channel = args.channel;
-        const storageId = getStorageId(channel);
+        const storageId = Env.getStorageId(channel);
 
         const user = Env.userCache[args.userId];
         args.sessions = user?.sessions;

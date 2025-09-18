@@ -95,7 +95,7 @@ const initProxy = (Env, app, server, infra) => {
         router: req => {
             const split = req.url.split('/');
             const dataId = split[2];
-            const id = getStorageId(Env, dataId);
+            const id = getStorageId(Env, dataId).slice(8); // remove "storage:"
             return storageList[id] + req.baseUrl.slice(1);
         },
         logger: Logger(['error'])

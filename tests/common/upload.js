@@ -121,7 +121,7 @@ const init = () => {
         try {
             res.metadata = JSON.parse(Util.encodeUTF8(metaChunk));
         } catch (e) {
-            return window.setTimeout(function () {
+            return setTimeout(function () {
                 done('E_METADATA_DECRYPTION');
             });
         }

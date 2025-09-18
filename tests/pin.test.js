@@ -101,11 +101,11 @@ const initUser = () => {
 
 initUser()
 .then(() => {
-    console.log('BLOB: success');
+    console.log('PIN: success');
     if (require.main === module) { process.exit(0); }
     global?.onTestEnd?.(true);
 }).catch(e => {
-    console.log('BLOB: failure');
+    console.log('PIN: failure');
     console.log(e);
     if (require.main === module) { process.exit(1); }
     global?.onTestEnd?.(false);

@@ -13,6 +13,8 @@ ServerCommand.setCustomize({
     }
 });
 
+console.log('DEPRECATED TEST:', 'http-commands are tested with HTTP upload and with blocks');
+
 const keys = Nacl.sign.keyPair();
 
 const checkCommand = () => {
