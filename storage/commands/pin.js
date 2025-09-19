@@ -51,7 +51,7 @@ const getMultipleFileSize = Pinning.getMultipleFileSize = (Env, channels, cb, no
         toKeep = _channels;
     });
 
-    const result = {};
+    let result = {};
     nThen(w => {
         if (toSend.length && !noRedirect) {
             // FIXME don't always send to core:0
@@ -139,7 +139,7 @@ Pinning.getChannelsTotalSize = (Env, channels, cb, noRedirect) => {
         toKeep = _channels;
     });
 
-    const result = 0;
+    let result = 0;
     nThen(w => {
         if (toSend.length && !noRedirect) {
             // FIXME don't always send to core:0

@@ -462,7 +462,7 @@ const getTotalSize = (data, cb) => {
     let bytes = 0;
     monitoringIncrement('getTotalSize');
     _iterateFiles(data.channels, (channel, next) => {
-        _getFileSize(channel, (err, size) => {
+        getFileSize({ channel }, (err, size) => {
             if (!err) { bytes += size; }
             next();
         });
@@ -475,7 +475,7 @@ const getTotalSize = (data, cb) => {
 const getDeletedPads = (data, cb) => {
     const absentees = [];
     _iterateFiles(data.channels, (channel, next) => {
-        _getFileSize(channel, (err, size) => {
+        getFileSize({ channel }, (err, size) => {
             if (err) { return next(); }
             if (size === 0) { absentees.push(channel); }
             next();

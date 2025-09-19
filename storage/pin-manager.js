@@ -31,7 +31,7 @@ const createLineHandler = Pins.createLineHandler = (ref, errorHandler) => {
     // passing the reference to an object allows us to overwrite accumulated pins
     // make sure to get ref.pins as the result
     // it's a weird API but it's faster than unpinning manually
-    const pins = ref.pins = {};
+    let pins = ref.pins = {};
     ref.index = 0;
     ref.first = 0;
     ref.latest = 0; // the latest message (timestamp in ms)

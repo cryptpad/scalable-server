@@ -39,19 +39,31 @@ const getDeletedPads = (Env, channels, _cb) => {
         cb(void 0, result);
     });
 };
-const isNewChannel = () => {
+const isNewChannel = (Env, channel, cb) => {
+    const storageId = getStorageId(Env, channel);
+    Env.interface.sendQuery(storageId, 'RPC_IS_NEW_CHANNEL',
+        { channel }, res => { cb(res.error, res.data); });
 };
 const writePrivateMessage = () => {
+    console.error("WRITE_PRIV_MSG");
+    throw new Error('NOT_IMPLEMENTED');
 };
 const deleteMailboxMessage = () => {
+    console.error("DELETE_MAILBOX_MSG");
+    throw new Error('NOT_IMPLEMENTED');
 };
-const getMetadata = () => {
+const getMetadata = (Env, channel, cb) => {
+    const storageId = getStorageId(Env, channel);
+    Env.interface.sendQuery(storageId, 'GET_METADATA',
+        { channel }, res => { cb(res.error, res.data); });
 };
 const isPremium = (Env, userKey, cb) => {
     const limit = Env.limits[userKey];
     return void cb(void 0, !!limit?.plan);
 };
 const addFirstAdmin = () => {
+    console.error("ADD_FIRST_ADMIN");
+    throw new Error('NOT_IMPLEMENTED');
 };
 
 // Auth
@@ -70,9 +82,18 @@ const unpinChannel = (Env, safeKey, channels, cb) => {
     Env.interface.sendQuery(storageId, 'RPC_PINNING_UNPIN',
         { channels, safeKey }, res => { cb(res.error, res.data); });
 };
-const clearOwnedChannel = () => { };
-const removeOwnedChannel = () => { };
-const trimHistory = () => { };
+const clearOwnedChannel = () => {
+    console.error("CLEAR_OWNED_CHANNEL");
+    throw new Error('NOT_IMPLEMENTED');
+};
+const removeOwnedChannel = () => {
+    console.error("REMOVE_OWNED_CHANNEL");
+    throw new Error('NOT_IMPLEMENTED');
+};
+const trimHistory = () => {
+    console.error("TRIM_HISTORY");
+    throw new Error('NOT_IMPLEMENTED');
+};
 const uploadStatus = (Env, safeKey, data, cb) => {
     const { size, id } = data;
     const storageId = getStorageId(Env, id);
@@ -102,7 +123,10 @@ const uploadCompleteOwned = (Env, safeKey, id, cb) => {
         { safeKey, id }, res => { cb(res.error, res.data); });
 };
 const adminCommand = Admin.command;
-const setMetadata = () => { };
+const setMetadata = () => {
+    console.error("SET_METADATA_RPC");
+    throw new Error('NOT_IMPLEMENTED');
+};
 
 const getHash = (Env, safeKey, cb) => {
     const storageId = getStorageId(Env, safeKey);
@@ -110,6 +134,7 @@ const getHash = (Env, safeKey, cb) => {
         { safeKey }, res => { cb(res.error, res.data); });
 };
 const getTotalSize = (Env, safeKey, cb) => {
+    const unsafeKey = Util.unescapeKeyCharacters(safeKey);
     const limit = Env.limits[unsafeKey];
     const batchKey = (limit && Array.isArray(limit.users)) ?
                         limit.users.join('') : safeKey;
@@ -132,7 +157,10 @@ const trimPins = (Env, safeKey, cb) => {
 const haveACookie = (Env, key, cb) => {
     cb();
 };
-const destroy = () => { };
+const destroy = () => {
+    console.error("DESTROY_RPC");
+    throw new Error('NOT_IMPLEMENTED');
+};
 
 const UNAUTHENTICATED_CALLS = {
     GET_FILE_SIZE: getFileSize,

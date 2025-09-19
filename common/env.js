@@ -71,6 +71,8 @@ const init = (Env, mainConfig) => {
     if (unsafe.port && unsafe.hostname === safe.hostname) {
         Env.httpSafePort = safe.port;
     }
+    Env.protocol = unsafe.protocol,
+
     Env.websocketPath = config.externalWebsocketURL;
     Env.fileHost = config.fileHost || undefined;
 

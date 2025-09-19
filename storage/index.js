@@ -35,6 +35,7 @@ const Block = require('./commands/block.js');
 
 const {
     TEMPORARY_CHANNEL_LIFETIME,
+    STANDARD_CHANNEL_LENGTH,
     hkId
 } = Constants;
 
@@ -157,6 +158,11 @@ const joinChannelHandler = (args, cb) => {
         }
         return void cb(void 0, _users);
     };
+
+    if (channel.length !== STANDARD_CHANNEL_LENGTH) {
+        // only conventional channels can be restricted
+        return void onSuccess();
+    }
     HistoryManager.getMetadata(Env, channel, (err, metadata) => {
         if (err) {
             Env.Log.error('HK_METADATA_ERR', {
@@ -287,9 +293,16 @@ const getRegisteredUsersHandler = (args, cb) => {
     Pinning.getRegisteredUsers(Env, cb);
 };
 
+const getMetadataHandler = (args, cb) => {
+    HistoryManager.getMetadata(Env, args?.channel, cb);
+};
+const isNewChannelHandler = (args, cb) => {
+    Env.CM.isNewChannel(Env, args?.channel, cb);
+};
+
 const getPinningResetHandler = (data, cb) => {
     const { channels, safeKey } = data;
-    Pinning.resetUserPin(Env, safeKey, channels, cb);
+    Pinning.resetUserPins(Env, safeKey, channels, cb);
 };
 const getPinningPinHandler = (data, cb) => {
     const { channels, safeKey } = data;
@@ -344,6 +357,10 @@ let COMMANDS = {
     'GET_TOTAL_SIZE': getTotalSizeHandler,
     'GET_CHANNELS_TOTAL_SIZE': getChannelsTotalSizeHandler,
     'GET_REGISTERED_USERS': getRegisteredUsersHandler,
+
+    'GET_METADATA': getMetadataHandler,
+
+    'RPC_IS_NEW_CHANNEL': isNewChannelHandler,
 
     'RPC_GET_FILE_SIZE': getFileSizeHandler,
     'RPC_GET_DELETED_PADS': getDeletedPadsHandler,

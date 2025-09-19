@@ -16,7 +16,7 @@ StorageCommands.getFileSize = (Env, channel, cb) => {
 StorageCommands.getMultipleFileSize = (Env, channels, _cb) => {
     const cb = Util.once(_cb);
 
-    const result = {};
+    let result = {};
     const channelsByStorage = Core.getChannelsStorage(Env, channels);
 
     nThen(waitFor => {
@@ -55,7 +55,7 @@ StorageCommands.getTotalSize = (Env, safeKey, cb) => {
 };
 
 StorageCommands.getChannelsTotalSize = (Env, channels, cb) => {
-    const result = 0;
+    let result = 0;
     const channelsByStorage = Core.getChannelsStorage(Env, channels);
 
     nThen(waitFor => {

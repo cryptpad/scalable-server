@@ -3,6 +3,7 @@ const Http = require("node:http");
 const Express = require("express");
 const Environment = require('../common/env');
 const Logger = require('../common/logger');
+const { setHeaders } = require('../http-server/headers.js');
 
 const COMMANDS = {};
 const Env = {
@@ -10,6 +11,13 @@ const Env = {
 };
 
 const app = Express();
+
+app.use(function (req, res, next) {
+    setHeaders(Env, req, res);
+    if (/[\?\&]ver=[^\/]+$/.test(req.url)) { res.setHeader("Cache-Control", "max-age=31536000"); }
+    else { res.setHeader("Cache-Control", "no-cache"); }
+    next();
+});
 
 const response = Util.response((errLabel, info) => {
     Env.Log.error('WORKER__' + errLabel, info);

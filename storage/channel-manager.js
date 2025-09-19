@@ -4,10 +4,12 @@ const Util = require("./common-util.js");
 const nThen = require("nthen");
 const HKUtil = require("./hk-util.js");
 const HistoryManager = require("./history-manager.js");
+const Core = require("../common/core.js");
 
 const {
     CHECKPOINT_PATTERN,
     EPHEMERAL_CHANNEL_LENGTH,
+    STANDARD_CHANNEL_LENGTH,
     ADMIN_CHANNEL_LENGTH
 } = require("../common/constants.js");
 
@@ -247,6 +249,34 @@ const create = (Env) => {
         Env.store.archiveChannel(channel, void 0, () => {});
         delete Env.metadata_cache[channel];
         delete Env.channel_cache[channel];
+    };
+
+    const ARRAY_LINE = /^\[/;
+    CM.isNewChannel = (Env, channel, _cb) => {
+        const cb = Util.once(_cb);
+        if (!Core.isValidId(channel)) { return void cb('INVALID_CHAN'); }
+        if (channel.length !== STANDARD_CHANNEL_LENGTH &&
+            channel.length !== ADMIN_CHANNEL_LENGTH) { return void cb('INVALID_CHAN'); }
+
+        Env.store.readMessagesBin(channel, 0,
+                                    (msgObj, readMore, abort) => {
+            try {
+                let msg = msgObj.buff.toString('utf8');
+                if (typeof(msg) === 'string' && ARRAY_LINE.test(msg)){
+                    abort();
+                    return void cb(void 0, {isNew: false});
+                }
+            } catch (e) {
+                Env.Log.warn('invalid message read from store', e);
+            }
+            readMore();
+        }, (err, reason) => {
+            // no more messages...
+            cb(void 0, {
+                isNew: true,
+                reason: reason
+            });
+        });
     };
 
     return CM;
