@@ -134,7 +134,7 @@ const initPlugins = (/*Env, app*/) => {
 const initStatic = (Env, app) => {
     // serve custom app content from the customize directory
     // useful for testing pages customized with opengraph data
-    const root = '../cryptpad';
+    const root = Env.clientRoot;
     app.use(Express.static(Path.resolve(root, './customize/www')));
     app.use(gzipStatic(Path.resolve(root, './www')));
 

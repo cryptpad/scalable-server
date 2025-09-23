@@ -37,6 +37,8 @@ const init = (Env, mainConfig) => {
                                           AdminDecrees);
     Env.myId = mainConfig.myId;
 
+    Env.clientRoot = config?.clientRoot || '../cryptpad';
+
     Env.version = Package.version;
     Env.launchTime = +new Date();
 
@@ -71,7 +73,12 @@ const init = (Env, mainConfig) => {
     if (unsafe.port && unsafe.hostname === safe.hostname) {
         Env.httpSafePort = safe.port;
     }
-    Env.protocol = unsafe.protocol,
+    Env.protocol = unsafe.protocol;
+
+    // XXX improve config
+    if (config.origin) { Env.httpUnsafeOrigin = config.origin; }
+    if (config.sandboxOrigin) { Env.httpSafeOrigin = config.sandboxOrigin; }
+
 
     Env.websocketPath = config.externalWebsocketURL;
     Env.fileHost = config.fileHost || undefined;

@@ -321,7 +321,7 @@ let connect = function(config, cb) {
 
 /* This function initializes the different ws servers on the Core components */
 let init = function(config, cb) {
-    if (!cb) { cb = () => { }; };
+    cb = Util.once(cb || function () {});
 
     let ctx = {
         others: {
