@@ -344,7 +344,7 @@ const getOlderHistory = function (data, cb) {
 
     let messages = [];
     Env.store.readMessagesBin(channel, 0, (msgObj, readMore, abort) => {
-        const parsed = Util.tryParse(Env, msgObj.buff.toString('utf8'));
+        const parsed = Util.tryParse(msgObj.buff.toString('utf8'));
         if (!parsed) { return void readMore(); }
         if (HKUtil.isMetadataMessage(parsed)) { return void readMore(); }
         const content = parsed[4];
