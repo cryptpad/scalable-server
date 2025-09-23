@@ -18,7 +18,7 @@ Data.getMetadataRaw = (Env, channel, _cb) => {
         return void cb(void 0, {
             channel: channel,
             creation: +new Date(),
-            owners: Env.admins, // XXX Env.admins not implemented
+            owners: Env.admins,
         });
     }
 
@@ -43,6 +43,7 @@ Data.getMetadataRaw = (Env, channel, _cb) => {
 };
 
 Data.getMetadata = (Env, channel, cb, /*Server, netfluxId*/) => {
+    throw new Error("MAYBE_NOT_USED"); // XXX
     Data.getMetadataRaw(Env, channel, function (err, metadata) {
         if (err) { return void cb(err); }
 

@@ -297,6 +297,7 @@ const handleMsg = (Env, args) => {
     };
     const onChannelMessage = () => {
         json.unshift(user.id);
+
         handleChannelMessage(Env, obj, json, err => {
             if (err) { return sendMsg(Env, user, [seq, 'ERROR']); }
             sendMsg(Env, user, [seq, 'ACK']);

@@ -224,13 +224,14 @@ const leaveChannelHandler = (args, cb) => {
     cb(void 0, users);
 };
 
-const dropUserHandler = (args) => {
+const dropUserHandler = (args, cb) => {
     const { channels, userId, sessions } = args;
     Object.keys(sessions).forEach(unsafeKey => {
         const safeKey = Util.escapeKeyCharacters(unsafeKey);
         delete Env.blobstage[unsafeKey];
         delete Env.blobstage[safeKey];
     });
+    const userLists = {};
     channels.forEach(channel => {
         const cache = Env.channel_cache[channel];
         // Check if the channel exists in this storage
@@ -246,8 +247,12 @@ const dropUserHandler = (args) => {
         // Clean the channel if no remaining members
         if (!cache.users.length) {
             onDropChannel(channel);
+            return;
         }
+
+        userLists[channel] = cache.users;
     });
+    cb(void 0, userLists);
 };
 
 const newDecreeHandler = (args, cb) => { // bcast from core:0
@@ -298,6 +303,10 @@ const getMetadataHandler = (args, cb) => {
 };
 const isNewChannelHandler = (args, cb) => {
     Env.CM.isNewChannel(Env, args?.channel, cb);
+};
+
+const writePrivateMessageHandler = (args, cb) => {
+    Env.CM.writePrivateMessage(Env, args, cb);
 };
 
 const getPinningResetHandler = (data, cb) => {
@@ -361,6 +370,7 @@ let COMMANDS = {
     'GET_METADATA': getMetadataHandler,
 
     'RPC_IS_NEW_CHANNEL': isNewChannelHandler,
+    'RPC_WRITE_PRIVATE_MESSAGE': writePrivateMessageHandler,
 
     'RPC_GET_FILE_SIZE': getFileSizeHandler,
     'RPC_GET_DELETED_PADS': getDeletedPadsHandler,

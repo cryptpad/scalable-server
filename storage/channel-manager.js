@@ -5,6 +5,7 @@ const nThen = require("nthen");
 const HKUtil = require("./hk-util.js");
 const HistoryManager = require("./history-manager.js");
 const Core = require("../common/core.js");
+const Meta = require("./commands/metadata.js");
 
 const {
     CHECKPOINT_PATTERN,
@@ -48,7 +49,7 @@ const create = (Env) => {
         });
     };
 
-    CM.storeMessage = function(channel, msg, isCp, optionalMessageHash, time, cb) {
+    const storeMessage = function(channel, msg, isCp, optionalMessageHash, time, cb) {
         // TODO: check why channel.id disappears in the middle
         const Log = Env.log;
         if (typeof (cb) !== "function") { cb = function() { }; }
@@ -233,7 +234,7 @@ const create = (Env) => {
 
             // storeMessage
             //console.log(+new Date(), "Storing message");
-            CM.storeMessage(channel, JSON.stringify(msgStruct), isCp, HKUtil.getHash(msgStruct[4], Env.Log), time, err => {
+            storeMessage(channel, JSON.stringify(msgStruct), isCp, HKUtil.getHash(msgStruct[4], Env.Log), time, err => {
                 if (err) { return void cb(err); }
                 cb(void 0, {
                     users: channelData.users,
@@ -277,6 +278,93 @@ const create = (Env) => {
                 reason: reason
             });
         });
+    };
+
+    /*  writePrivateMessage
+        allows users to anonymously send a message to the channel
+        prevents their netflux-id from being stored in history
+        and from being broadcast to anyone that might currently
+        be in the channel
+
+        Otherwise behaves the same as sending to a channel
+    */
+    CM.writePrivateMessage = (Env, data, _cb) => {
+        const cb = Util.once(Util.mkAsync(_cb));
+
+        const { args, sessions } = data;
+        const channel = args[0];
+        const msg = args[1];
+
+        // don't bother handling empty messages
+        if (!msg) { return void cb("INVALID_MESSAGE"); }
+
+        // don't support anything except regular channels
+        if (!Core.isValidId(channel) ||
+            (channel.length !== STANDARD_CHANNEL_LENGTH
+                && channel.length !== ADMIN_CHANNEL_LENGTH)) {
+            return void cb("INVALID_CHAN");
+        }
+
+        nThen(w => {
+            Meta.getMetadataRaw(Env, channel, w((err, metadata) => {
+                if (err) {
+                    w.abort();
+                    Env.Log.error('HK_WRITE_PRIVATE_MESSAGE', err);
+                    return void cb('METADATA_ERR');
+                }
+
+                // treat the broadcast channel as write-protected
+                if (channel.length === ADMIN_CHANNEL_LENGTH) {
+                    metadata.restricted = true;
+                }
+
+                if (!metadata || !metadata.restricted) {
+                    return;
+                }
+
+                const allowed = HKUtil.listAllowedUsers(metadata);
+
+                if (HKUtil.isUserSessionAllowed(allowed, sessions)) {
+                    return;
+                }
+
+                w.abort();
+                cb('INSUFFICIENT_PERMISSIONS');
+            }));
+        }).nThen(() => {
+            // construct a message to store and broadcast
+            const fullMessage = [
+                0, // idk
+                null, // normally the netflux id, null isn't rejected, and it distinguishes messages written in this way
+                "MSG", // indicate that this is a MSG
+                channel, // channel id
+                msg // the actual message content. Generally a string
+            ];
+
+
+            // historyKeeper already knows how to handle metadata and message validation, so we just pass it off here
+            // if the message isn't valid it won't be stored.
+            CM.onChannelMessage({
+                channel,
+                msgStruct: fullMessage
+            }, (err, res) => {
+                if (err) {
+                    // Message not stored...
+                    return void cb(err);
+                }
+
+                const { /*users,*/ message } = res;
+                const time = message[message.length - 1];
+
+                const coreId = Env.getCoreId(channel);
+                Env.interface.sendEvent(coreId, 'SEND_CHANNEL_MESSAGE', res);
+
+                cb(void 0, time);
+            });
+
+
+        });
+
     };
 
     return CM;

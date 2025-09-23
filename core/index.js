@@ -153,12 +153,27 @@ const dropUser = (args, _cb, extra) => {
     const user = Env.userCache[userId] ||= {};
     args.sessions = user.sessions || {};
 
+    const done = [];
     const sent = [];
     channels.forEach(channel => {
+        // And tell storages to clear their memory
         const storageId = Env.getStorageId(channel);
         if (sent.includes(storageId)) { return; }
         sent.push(storageId);
-        Env.interface.sendEvent(storageId, 'DROP_USER', args);
+        Env.interface.sendQuery(storageId, 'DROP_USER', args, res => {
+            if (res.error) { return; }
+            const lists = res.data;
+
+            Object.keys(lists).forEach(channel => {
+                if (done.includes(channel)) { return; }
+                const users = lists[channel];
+
+                // For each channel, send LEAVE message
+                const message = [ 0, userId, 'LEAVE', channel ];
+                sendChannelMessage(users, message);
+                done.push(channel);
+            });
+        });
     });
 
     delete Env.userCache[userId];
@@ -280,6 +295,12 @@ const onHistoryChannelMessage = (args) => {
             userId, message: msg
         });
     });
+};
+
+// Private message to all members
+const onSendChannelMessage = (args) => {
+    const { users, message } = args;
+    sendChannelMessage(users, message);
 };
 
 // Message from user to user
@@ -542,6 +563,7 @@ let startServers = function(config) {
         'HISTORY_CHANNEL_MESSAGE': onHistoryChannelMessage,
         'NEW_DECREES': onNewDecrees,
         'ACCOUNTS_LIMITS': onAccountsLimits,
+        'SEND_CHANNEL_MESSAGE': onSendChannelMessage,
 
         'GET_CHANNEL_LIST': onGetChannelList,
         'GET_MULTIPLE_FILE_SIZE': onGetMultipleFileSize,

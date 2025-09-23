@@ -44,9 +44,16 @@ const isNewChannel = (Env, channel, cb) => {
     Env.interface.sendQuery(storageId, 'RPC_IS_NEW_CHANNEL',
         { channel }, res => { cb(res.error, res.data); });
 };
-const writePrivateMessage = () => {
-    console.error("WRITE_PRIV_MSG");
-    throw new Error('NOT_IMPLEMENTED');
+const writePrivateMessage = (Env, args, cb, userId) => {
+    if (!Array.isArray(args)) { return void cb('EINVAL'); }
+    const channel = args[0];
+    const storageId = getStorageId(Env, channel);
+
+    const user = Env.userCache[userId] ||= {};
+    const sessions = user.sessions || {};
+
+    Env.interface.sendQuery(storageId, 'RPC_WRITE_PRIVATE_MESSAGE',
+        { sessions, args }, res => { cb(res.error, res.data); });
 };
 const deleteMailboxMessage = () => {
     console.error("DELETE_MAILBOX_MSG");
