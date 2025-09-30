@@ -7,6 +7,7 @@ const Constants = require("../common/constants.js");
 const Logger = require("../common/logger.js");
 const Core = require("../common/core.js");
 
+const Nacl = require('tweetnacl/nacl-fast'); // XXX
 const Express = require('express');
 const nThen = require("nthen");
 
@@ -32,6 +33,7 @@ const Upload = require('./commands/upload.js');
 const Pinning = require('./commands/pin.js');
 const Quota = require('./commands/quota.js');
 const Block = require('./commands/block.js');
+const Metadata = require('./commands/metadata.js');
 
 const {
     TEMPORARY_CHANNEL_LIFETIME,
@@ -50,6 +52,7 @@ const Env = {
     allDecrees: [],
     queueStorage: WriteQueue(),
     queueValidation: WriteQueue(),
+    queueMetadata: WriteQueue(),
     batchIndexReads: BatchRead("HK_GET_INDEX"),
     batchMetadata: BatchRead("GET_METADATA"),
     batchUserPins:  BatchRead('LOAD_USER_PINS'),
@@ -257,6 +260,7 @@ const dropUserHandler = (args, cb) => {
 
 const newDecreeHandler = (args, cb) => { // bcast from core:0
     Env.adminDecrees.loadRemote(Env, args.decrees);
+    if (args.curveKeys) { Env.curveKeys = args.curveKeys; }
     Array.prototype.push.apply(Env.allDecrees, args.decrees);
     Env.workers.broadcast('NEW_DECREES', args.decrees, () => {
         Env.Log.verbose('UPDATE_DECREE_STORAGE_WORKER');
@@ -298,6 +302,9 @@ const getRegisteredUsersHandler = (args, cb) => {
     Pinning.getRegisteredUsers(Env, cb);
 };
 
+const setMetadataHandler = (args, cb) => {
+    Metadata.setMetadata(Env, args, cb);
+};
 const getMetadataHandler = (args, cb) => {
     HistoryManager.getMetadata(Env, args?.channel, cb);
 };
@@ -307,6 +314,9 @@ const isNewChannelHandler = (args, cb) => {
 
 const writePrivateMessageHandler = (args, cb) => {
     Env.CM.writePrivateMessage(Env, args, cb);
+};
+const deleteChannelLineHandler = (args, cb) => {
+    Env.CM.deleteMailboxMessage(Env, args, cb);
 };
 
 const getPinningResetHandler = (data, cb) => {
@@ -371,6 +381,8 @@ let COMMANDS = {
 
     'RPC_IS_NEW_CHANNEL': isNewChannelHandler,
     'RPC_WRITE_PRIVATE_MESSAGE': writePrivateMessageHandler,
+    'RPC_DELETE_CHANNEL_LINE': deleteChannelLineHandler,
+    'RPC_SET_METADATA': setMetadataHandler,
 
     'RPC_GET_FILE_SIZE': getFileSizeHandler,
     'RPC_GET_DELETED_PADS': getDeletedPadsHandler,
@@ -535,6 +547,12 @@ let start = function(config) {
             }, () => {});
         });
     };
+
+    const curve = Nacl.box.keyPair();
+    let curveKeys = Env.curveKeys = {
+        curvePublic: Util.encodeBase64(curve.publicKey),
+        curvePrivate: Util.encodeBase64(curve.secretKey)
+    };
     Env.sendDecrees = (decrees, _cb) => {
         const cb = Util.mkAsync(_cb || function () {});
         const freshKey = String(+new Date());
@@ -542,11 +560,13 @@ let start = function(config) {
         nThen(waitFor => {
             Env.interface.broadcast('core', 'NEW_DECREES', {
                 freshKey,
+                curveKeys,
                 decrees
             }, waitFor());
             Env.workers.broadcast('NEW_DECREES', decrees, waitFor(() => {
                 Env.Log.verbose('UPDATE_DECREE_STORAGE_WORKER');
             }));
+            curveKeys = undefined;
         }).nThen(() => {
             cb();
         });

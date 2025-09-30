@@ -29,7 +29,8 @@ const initFeedback = (Env, app) => {
 
     const logFeedback = (url) => {
         url.replace(/\?(.*?)=/, (all, fb) => {
-            Env.Log.feedback(fb, '');
+            //Env.Log.feedback(fb, '');
+            Env.Log.feedback(['FEEDBACK', fb]);
         });
     };
 

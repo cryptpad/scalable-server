@@ -6,6 +6,7 @@ const HKUtil = require("./hk-util.js");
 const HistoryManager = require("./history-manager.js");
 const Core = require("../common/core.js");
 const Meta = require("./commands/metadata.js");
+const Nacl = require("tweetnacl/nacl-fast");
 
 const {
     CHECKPOINT_PATTERN,
@@ -143,7 +144,7 @@ const create = (Env) => {
         if (channel.length === EPHEMERAL_CHANNEL_LENGTH) {
             // XXX
             return void cb(void 0, {
-                users: channelData.users,
+                users: channelData.users || [],
                 message: msgStruct
             });
         }
@@ -237,7 +238,7 @@ const create = (Env) => {
             storeMessage(channel, JSON.stringify(msgStruct), isCp, HKUtil.getHash(msgStruct[4], Env.Log), time, err => {
                 if (err) { return void cb(err); }
                 cb(void 0, {
-                    users: channelData.users,
+                    users: channelData.users || [],
                     message: msgStruct
                 });
             });
@@ -364,7 +365,44 @@ const create = (Env) => {
 
 
         });
+    };
 
+    // Delete a signed mailbox message. This is used when users want
+    // to delete their form reponses.
+    CM.deleteMailboxMessage = (Env, data, cb) => {
+        const channel = data.channel;
+        const hash = data.hash;
+        const proof = data.proof;
+        let nonce, proofBytes;
+        try {
+            nonce = Util.decodeBase64(proof.split('|')[0]);
+            proofBytes = Util.decodeBase64(proof.split('|')[1]);
+        } catch (e) {
+            return void cb('EINVAL');
+        }
+
+        const mySecret64 = Env?.curveKeys?.curvePrivate;
+        if (!mySecret64) { return void cb('E_NO_KEY'); }
+        const mySecret = Util.decodeBase64(mySecret64);
+
+        Env.store.deleteChannelLine(channel, hash, (msg) => {
+            // Check if you're allowed to delete this hash
+            try {
+                const msgBytes = Util.decodeBase64(msg).subarray(64); // Remove signature
+                const theirPublic = msgBytes.subarray(24,56); // 0-24 = nonce; 24-56=publickey (32 bytes)
+                const hashBytes = Nacl.box.open(proofBytes, nonce, theirPublic, mySecret);
+                return Util.encodeUTF8(hashBytes) === hash;
+            } catch (e) {
+                Env.Log.error('ERROR_DELETE_MAILBOX_MSG', e);
+                return false;
+            }
+        }, err => {
+            if (err) { return void cb(err); }
+            Env.store.closeChannel(channel, function() { });
+            cb();
+            delete Env.channel_cache[channel];
+            delete Env.metadata_cache[channel];
+        });
     };
 
     return CM;

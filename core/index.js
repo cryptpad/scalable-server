@@ -132,7 +132,7 @@ const dropChannelHandler = (args, cb, extra) => {
 
 const sendChannelMessage = (users, message) => {
     const sent = [];
-    users.forEach(id => {
+    (users || []).forEach(id => {
         const wsId = getWsId(id);
         if (!wsId || sent.includes(wsId)) { return; }
         sent.push(wsId);
@@ -167,6 +167,7 @@ const dropUser = (args, _cb, extra) => {
             Object.keys(lists).forEach(channel => {
                 if (done.includes(channel)) { return; }
                 const users = lists[channel];
+                if (!users) { return; }
 
                 // For each channel, send LEAVE message
                 const message = [ 0, userId, 'LEAVE', channel ];
@@ -241,6 +242,8 @@ const onChannelMessage = (args, cb, extra) => {
                 return void cb(res.error);
             }
             const { users, message } = res.data;
+
+            if (!message) { return void cb(); }
 
             sendChannelMessage(users, message);
             cb();
@@ -452,6 +455,7 @@ const onWsCommand = command => {
 const onNewDecrees = (args, cb, extra) => {
     if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
     Env.FRESH_KEY = args.freshKey;
+    Env.curveKeys = args.curveKeys;
     Env.adminDecrees.loadRemote(Env, args.decrees);
     Array.prototype.push.apply(Env.allDecrees, args.decrees);
     // core:0 also has to broadcast to all the websocket and storage
@@ -460,6 +464,7 @@ const onNewDecrees = (args, cb, extra) => {
         if (Env.myId !== 'core:0') { return; }
         Env.interface.broadcast('websocket', 'NEW_DECREES', {
             freshKey: args.freshKey,
+            curveKeys: args.curveKeys,
             decrees: args.decrees
         }, waitFor(values => {
             values.forEach(obj => {
@@ -471,6 +476,7 @@ const onNewDecrees = (args, cb, extra) => {
         const exclude = ['storage:0'];
         Env.interface.broadcast('storage', 'NEW_DECREES', {
             freshKey: args.freshKey,
+            curveKeys: args.curveKeys,
             decrees: args.decrees
         }, waitFor(values => {
             values.forEach(obj => {
@@ -502,6 +508,16 @@ const onAccountsLimits = (args, cb, extra) => {
     Env.interface.broadcast('storage', 'ACCOUNTS_LIMITS', {
         limits
     }, () => { cb(); }, exclude);
+};
+
+const onGetSession = (args, cb, extra) => {
+    if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
+    const { userId } = args;
+
+    const user = Env.userCache[userId] ||= {};
+    const sessions = user.sessions || {};
+
+    cb(void 0, sessions);
 };
 
 const initIntervals = () => {
@@ -564,6 +580,7 @@ let startServers = function(config) {
         'NEW_DECREES': onNewDecrees,
         'ACCOUNTS_LIMITS': onAccountsLimits,
         'SEND_CHANNEL_MESSAGE': onSendChannelMessage,
+        'GET_SESSION': onGetSession,
 
         'GET_CHANNEL_LIST': onGetChannelList,
         'GET_MULTIPLE_FILE_SIZE': onGetMultipleFileSize,
@@ -602,6 +619,7 @@ let startServers = function(config) {
             limits: Env.accountsLimits
         });
         Env.interface.sendEvent(id, 'NEW_DECREES', {
+            curveKeys: Env.curveKeys,
             freshKey: Env.FRESH_KEY,
             decrees: Env.allDecrees
         });

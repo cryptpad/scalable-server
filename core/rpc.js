@@ -55,9 +55,11 @@ const writePrivateMessage = (Env, args, cb, userId) => {
     Env.interface.sendQuery(storageId, 'RPC_WRITE_PRIVATE_MESSAGE',
         { sessions, args }, res => { cb(res.error, res.data); });
 };
-const deleteMailboxMessage = () => {
-    console.error("DELETE_MAILBOX_MSG");
-    throw new Error('NOT_IMPLEMENTED');
+const deleteMailboxMessage = (Env, args, cb) => {
+    const channel = args.channel;
+    const storageId = getStorageId(Env, channel);
+    Env.interface.sendQuery(storageId, 'RPC_DELETE_CHANNEL_LINE',
+        args, res => { cb(res.error, res.data); });
 };
 const getMetadata = (Env, channel, cb) => {
     const storageId = getStorageId(Env, channel);
@@ -130,9 +132,11 @@ const uploadCompleteOwned = (Env, safeKey, id, cb) => {
         { safeKey, id }, res => { cb(res.error, res.data); });
 };
 const adminCommand = Admin.command;
-const setMetadata = () => {
-    console.error("SET_METADATA_RPC");
-    throw new Error('NOT_IMPLEMENTED');
+const setMetadata = (Env, safeKey, args, cb) => {
+    const storageId = getStorageId(Env, args.channel);
+    args.safeKey = safeKey;
+    Env.interface.sendQuery(storageId, 'RPC_SET_METADATA',
+        args, res => { cb(res.error, res.data); });
 };
 
 const getHash = (Env, safeKey, cb) => {

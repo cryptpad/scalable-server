@@ -169,7 +169,7 @@ const serveBroadcast = makeRouteCache(function () {
     return [
         'define(function(){',
         'return ' + JSON.stringify({
-            curvePublic: Env.curvePublic, // XXX move out of broadcast
+            curvePublic: Env?.curveKeys?.curvePublic,
             lastBroadcastHash: Env.lastBroadcastHash,
             surveyURL: Env.surveyURL,
             maintenance: maintenance
@@ -220,8 +220,9 @@ app.post('/api/auth', (req, res) => {
 });
 
 COMMANDS.NEW_DECREES = (data, cb) => {
-    const { decrees, freshKey } = data;
+    const { decrees, curveKeys, freshKey } = data;
     Env.FRESH_KEY = freshKey;
+    Env.curveKeys = curveKeys;
     Env.adminDecrees.loadRemote(Env, decrees);
     [ 'configCache', 'broadcastCache', ].forEach(key => {
         Env[key] = {};
