@@ -90,13 +90,13 @@ let storageToWs = function(command) {
 
 const authenticateUser = (userId, unsafeKey) => {
     const user = Env.userCache[userId] ||= {};
-    const sessions = user.sessions ||= {};
-    sessions[unsafeKey] = +new Date();
+    const authKeys = user.authKeys ||= {};
+    authKeys[unsafeKey] = +new Date();
 };
 const unauthenticateUser = (userId, unsafeKey) => {
     const user = Env.userCache[userId];
-    if (user.sessions) { return; }
-    delete user.sessions[unsafeKey];
+    if (user.authKeys) { return; }
+    delete user.authKeys[unsafeKey];
 };
 
 const validateMessageHandler = (args, cb, extra) => {
@@ -150,9 +150,6 @@ const dropUser = (args, _cb, extra) => {
     const { channels, userId } = args;
     if (!userId || !Array.isArray(channels)) { return; }
 
-    const user = Env.userCache[userId] ||= {};
-    args.sessions = user.sessions || {};
-
     const done = [];
     const sent = [];
     channels.forEach(channel => {
@@ -190,8 +187,6 @@ const joinChannel = (args, cb, extra) => {
 
     const user = Env.userCache[userId] ||= {};
     if (!user.from) { user.from = extra.from; }
-
-    args.sessions = user.sessions;
 
     const storageId = Env.getStorageId(channel);
     Env.interface.sendQuery(storageId, 'JOIN_CHANNEL', args, res => {
@@ -336,6 +331,7 @@ const onAuthRpc = (args, cb, extra) => {
     if (!isWsCmd(extra.from)) { return void cb('UNAUTHORIZED'); }
     const {userId, /*txid, */data} = args;
 
+
     const sig = data.shift();
     const publicKey = data.shift();
     const [cookie, command/*, data*/] = data;
@@ -441,8 +437,6 @@ const onWsCommand = command => {
         const channel = args.channel;
         const storageId = Env.getStorageId(channel);
 
-        const user = Env.userCache[args.userId];
-        args.sessions = user?.sessions;
         Env.interface.sendQuery(storageId, command, args, function(response) {
             cb(response.error, response.data);
         });
@@ -510,14 +504,14 @@ const onAccountsLimits = (args, cb, extra) => {
     }, () => { cb(); }, exclude);
 };
 
-const onGetSession = (args, cb, extra) => {
+const onGetAuthKeys = (args, cb, extra) => {
     if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
     const { userId } = args;
 
     const user = Env.userCache[userId] ||= {};
-    const sessions = user.sessions || {};
+    const authKeys = user.authKeys || {};
 
-    cb(void 0, sessions);
+    cb(void 0, authKeys);
 };
 
 const initIntervals = () => {
@@ -580,7 +574,7 @@ let startServers = function(config) {
         'NEW_DECREES': onNewDecrees,
         'ACCOUNTS_LIMITS': onAccountsLimits,
         'SEND_CHANNEL_MESSAGE': onSendChannelMessage,
-        'GET_SESSION': onGetSession,
+        'GET_AUTH_KEYS': onGetAuthKeys,
 
         'GET_CHANNEL_LIST': onGetChannelList,
         'GET_MULTIPLE_FILE_SIZE': onGetMultipleFileSize,

@@ -147,7 +147,7 @@ const onChannelMessageHandler = (args, cb) => {
 
 // TODO: move to channel-manager
 const joinChannelHandler = (args, cb) => {
-    const { channel, userId, sessions } = args;
+    let { channel, userId } = args;
 
     const channelData = Env.channel_cache[channel] ||= {
         users: []
@@ -194,19 +194,28 @@ const joinChannelHandler = (args, cb) => {
 
         const allowed = HKUtil.listAllowedUsers(metadata);
 
-        if (HKUtil.isUserSessionAllowed(allowed, sessions)) {
-            return void onSuccess();
-        }
 
-        // If the channel is restricted, send the history keeper ID
-        // so that they can try to authenticate
-        allowed.unshift(hkId);
+        const check = (authKeys) => {
+            if (HKUtil.isUserSessionAllowed(allowed, authKeys)) {
+                return void onSuccess();
+            }
+            // If the channel is restricted, send the history keeper ID
+            // so that they can try to authenticate
+            allowed.unshift(hkId);
+            // otherwise they're not allowed.
+            // respond with a special error that includes the list of keys
+            // which would be allowed...
+            // FIXME RESTRICT bonus points if you hash the keys to limit data
+            //       exposure
+            cb("ERESTRICTED", allowed);
+        };
 
-        // otherwise they're not allowed.
-        // respond with a special error that includes the list of keys
-        // which would be allowed...
-        // FIXME RESTRICT bonus points if you hash the keys to limit data exposure
-        cb("ERESTRICTED", allowed);
+        const coreRpc = Env.getCoreId(userId);
+        Env.interface.sendQuery(coreRpc, 'GET_AUTH_KEYS', {
+            userId
+        }, res => {
+            check(res?.data || {});
+        });
     });
 };
 const leaveChannelHandler = (args, cb) => {
@@ -228,12 +237,7 @@ const leaveChannelHandler = (args, cb) => {
 };
 
 const dropUserHandler = (args, cb) => {
-    const { channels, userId, sessions } = args;
-    Object.keys(sessions).forEach(unsafeKey => {
-        const safeKey = Util.escapeKeyCharacters(unsafeKey);
-        delete Env.blobstage[unsafeKey];
-        delete Env.blobstage[safeKey];
-    });
+    let { channels, userId } = args;
     const userLists = {};
     channels.forEach(channel => {
         const cache = Env.channel_cache[channel];
@@ -604,8 +608,7 @@ let start = function(config) {
             blobStagingPath,
             archivePath,
             getSession: safeKey => {
-                Env.blobstage[safeKey] ||= {};
-                return Env.blobstage[safeKey];
+                return Core.getSession(Env.blobstage, safeKey);
             }
         }, waitFor((err, store) => {
             if (err) { throw new Error(err); }
@@ -629,6 +632,9 @@ let start = function(config) {
             Core.expireSessions(Env.pin_cache);
         }, Core.SESSION_EXPIRATION_TIME);
 
+        Env.intervals.blobstageExpirationInterval = setInterval(() => {
+            Core.expireSessions(Env.blobstage);
+        }, Core.SESSION_EXPIRATION_TIME);
     }).nThen((waitFor) => {
         const workerConfig = {
             Log: Env.Log,

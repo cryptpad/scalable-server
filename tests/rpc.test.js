@@ -30,6 +30,7 @@ const initPad = (network) => {
             if (parsed?.state === 1 && parsed?.channel === padId) {
                 sendMsg(Env.wc).then(() => {
                     resolve({network});
+                    Env.wc.leave();
                 }).catch(reject);
             }
         });
@@ -92,6 +93,18 @@ const checkAccess = (args) => {
     });
 };
 
+const checkAllowed = (args) => {
+    const {network} = args;
+    return new Promise((resolve, reject) => {
+        network.join(padId).then(() => {
+            resolve(args);
+        }).catch(e => {
+            console.error("UNEXPECTED ERROR", e);
+            return reject("INVALID_ERROR");
+        });
+    });
+};
+
 const checkHistoryAccess = () => {
     const txid = Crypto.randomBytes(4).toString('hex');
     return new Promise((resolve, reject) => {
@@ -121,6 +134,7 @@ const initUser = () => {
         .then(createUserRpc)
         .then(checkUser)
         .then(checkAccess)
+        .then(checkAllowed)
         .then(checkHistoryAccess)
         .then(() => {
             resolve();

@@ -56,6 +56,12 @@ const dropUserChannels = (Env, userId) => {
             userId
         });
     });
+    const rpcCore = getCoreId(Env, userId);
+    if (sent.includes(rpcCore)) { return; }
+    Env.interface?.sendEvent(rpcCore, 'DROP_USER', {
+        channels: [],
+        userId
+    });
 };
 
 const onSessionOpen = function(Env, userId) {
@@ -186,23 +192,21 @@ const handleRPC = (Env, seq, message, user) => {
         return void onError("INSUFFICIENT_ARGS");
     }
 
-    let target;
     let query;
     if (data.length === 2) {
         // Anon RPC
-        target = userId;
         query = "ANON_RPC";
     } else if (data.length === 5) {
         // Authenticated RPC
-        target = data[1]; // edPublic
         query = "AUTH_RPC";
     }
 
-    if (!target) {
+
+    if (!query) {
         return onError('INVALID_ARG_FORMAT');
     }
 
-    let coreId = getCoreId(Env, target);
+    let coreId = getCoreId(Env, userId);
 
     Env.interface.sendQuery(coreId, query, {
         userId, txid, data

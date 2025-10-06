@@ -49,11 +49,8 @@ const writePrivateMessage = (Env, args, cb, userId) => {
     const channel = args[0];
     const storageId = getStorageId(Env, channel);
 
-    const user = Env.userCache[userId] ||= {};
-    const sessions = user.sessions || {};
-
     Env.interface.sendQuery(storageId, 'RPC_WRITE_PRIVATE_MESSAGE',
-        { sessions, args }, res => { cb(res.error, res.data); });
+        { userId, args }, res => { cb(res.error, res.data); });
 };
 const deleteMailboxMessage = (Env, args, cb) => {
     const channel = args.channel;
@@ -158,7 +155,11 @@ const expireSessionAsync = () => { };
 const removePins = (Env, safeKey, cb) => {
     const storageId = getStorageId(Env, safeKey);
     Env.interface.sendQuery(storageId, 'RPC_ARCHIVE_PIN_LOG',
-        { safeKey }, res => { cb(res.error, res.data); });
+        { safeKey }, res => {
+            cb(res.error, res.data);
+            if (res.error) { return; }
+            Core.expireSession(Env.Sessions, safeKey);
+        });
 };
 const trimPins = (Env, safeKey, cb) => {
     const storageId = getStorageId(Env, safeKey);

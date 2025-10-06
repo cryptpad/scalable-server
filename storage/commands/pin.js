@@ -222,7 +222,6 @@ Pinning.getTotalSize = (Env, safeKey, cb, noRedirect) => {
 */
 Pinning.removePins = (Env, safeKey, cb) => {
     Env.pinStore.archiveChannel(safeKey, undefined, err => {
-        Core.expireSession(Env.Sessions, safeKey);
         Env.Log.info('ARCHIVAL_PIN_BY_OWNER_RPC', {
             safeKey: safeKey,
             status: err? String(err): 'SUCCESS',

@@ -57,19 +57,6 @@ Data.getMetadata = (Env, channel, cb, /*Server, netfluxId*/) => {
             return void cb(void 0, metadata);
         }
 
-        /*
-        const session = HKUtil.getNetfluxSession(Env, netfluxId);
-        const allowed = HKUtil.listAllowedUsers(metadata);
-
-        if (!HKUtil.isUserSessionAllowed(allowed, session)) {
-            return void cb(void 0, {
-                restricted: metadata.restricted,
-                allowed: allowed,
-                rejected: true,
-            });
-        }
-        cb(void 0, metadata);
-        */
         // XXX allow list not implemented yet
         throw new Error("NOT_IMPLEMENTED");
     });
@@ -207,14 +194,15 @@ Data.setMetadata = (Env, data, cb) => {
                 // iterate over the channel's userlist
                 const toRemove = [];
                 (channelData.users || []).forEach(userId => {
-                    Env.interface.sendQuery(coreId, 'GET_SESSION', {
+                    const coreRpc = Env.getCoreId(userId);
+                    Env.interface.sendQuery(coreRpc, 'GET_AUTH_KEYS', {
                         userId
                     }, res => {
-                        const sessions = res?.data || {};
+                        const authKeys = res?.data || {};
 
                         // if the user is allowed to remain,
                         // send them the metadata
-                        if (HKUtil.isUserSessionAllowed(allowed, sessions)) {
+                        if (HKUtil.isUserSessionAllowed(allowed, authKeys)) {
                             fullMessage[4] = s_metadata;
                             return Env.interface.sendEvent(coreId,
                                 'HISTORY_CHANNEL_MESSAGE', {

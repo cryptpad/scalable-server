@@ -69,7 +69,7 @@ Upload.status = (Env, data, _cb) => {
             if (e) { return void cb(e); }
             if (filesize >= free) { return cb('NOT_ENOUGH_SPACE'); }
 
-            let user = Env.blobstage[safeKey] ||= {};
+            let user = Core.getSession(Env.blobstage, safeKey);
             user.pendingUploadSize = filesize;
             user.currentUploadSize = 0;
 

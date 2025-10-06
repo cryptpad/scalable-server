@@ -130,9 +130,9 @@ HK.listAllowedUsers = metadata => {
     return (metadata.owners || []).concat((metadata.allowed || []));
 };
 
-HK.isUserSessionAllowed = (allowed, sessions) => {
-    if (!sessions) { return false; }
-    for (var unsafeKey in sessions) {
+HK.isUserSessionAllowed = (allowed, authKeys) => {
+    if (!authKeys) { return false; }
+    for (var unsafeKey in authKeys) {
         if (allowed.includes(unsafeKey)) {
             return true;
         }

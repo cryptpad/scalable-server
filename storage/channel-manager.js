@@ -292,7 +292,7 @@ const create = (Env) => {
     CM.writePrivateMessage = (Env, data, _cb) => {
         const cb = Util.once(Util.mkAsync(_cb));
 
-        const { args, sessions } = data;
+        const { args, userId } = data;
         const channel = args[0];
         const msg = args[1];
 
@@ -325,12 +325,21 @@ const create = (Env) => {
 
                 const allowed = HKUtil.listAllowedUsers(metadata);
 
-                if (HKUtil.isUserSessionAllowed(allowed, sessions)) {
-                    return;
-                }
+                const check = (authKeys) => {
+                    if (HKUtil.isUserSessionAllowed(allowed, authKeys)) {
+                        return;
+                    }
 
-                w.abort();
-                cb('INSUFFICIENT_PERMISSIONS');
+                    w.abort();
+                    cb('INSUFFICIENT_PERMISSIONS');
+                };
+
+                const coreRpc = Env.getCoreId(userId);
+                Env.interface.sendQuery(coreRpc, 'GET_AUTH_KEYS', {
+                    userId
+                }, w(res => {
+                    check(res?.data || {});
+                }));
             }));
         }).nThen(() => {
             // construct a message to store and broadcast

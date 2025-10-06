@@ -222,7 +222,7 @@ const checkExpired = HistoryManager.checkExpired = (Env, channel) => {
     return true;
 };
 
-const checkHistoryRights = (Env, channel, sessions, _cb) => {
+const checkHistoryRights = (Env, channel, userId, _cb) => {
     const cb = Util.mkAsync(_cb);
     /*  fetch the channel's metadata.
         use it to check if the channel has expired.
@@ -255,21 +255,29 @@ const checkHistoryRights = (Env, channel, sessions, _cb) => {
         // check if the user is in the allow list...
         const allowed = HKUtil.listAllowedUsers(metadata);
 
-        if (HKUtil.isUserSessionAllowed(allowed, sessions)) {
-            return void cb(void 0, metadata);
-        }
-
+        const check = (authKeys) => {
+            if (HKUtil.isUserSessionAllowed(allowed, authKeys)) {
+                return void cb(void 0, metadata);
+            }
 /*  Reject users that aren't in the allow list. No need to send them
 the list because this isn't a JOIN command. The client doesn't
 handle yet re-authentication with a new key for history commands.
 */
-        return void cb('ERESTRICTED');
+            cb('ERESTRICTED');
+        };
+
+        const coreRpc = Env.getCoreId(userId);
+        Env.interface.sendQuery(coreRpc, 'GET_AUTH_KEYS', {
+            userId
+        }, res => {
+            check(res?.data || {});
+        });
     });
 };
 
 HistoryManager.onGetHistory = (Env, args, sendMessage, _cb) => {
     const cb = Util.once(_cb);
-    const { seq, userId, parsed, sessions } = args;
+    const { seq, userId, parsed } = args;
     const metadata_cache = Env.metadata_cache;
     const Log = Env.Log;
 
@@ -315,7 +323,7 @@ HistoryManager.onGetHistory = (Env, args, sendMessage, _cb) => {
             metadata = _metadata;
         };
 
-        checkHistoryRights(Env, channel, sessions, waitFor(todo));
+        checkHistoryRights(Env, channel, userId, waitFor(todo));
     }).nThen(waitFor => {
         // Not expired nor restricted, we can send the ack
         cb(void 0, [seq, 'ACK']);
@@ -483,7 +491,7 @@ const onGetHistoryRange = (Env, args, sendMessage, _cb) => {
     });
 };
 HistoryManager.onGetHistoryRange = (Env, args, sendMessage, cb) => {
-    const { seq, parsed, sessions } = args;
+    const { seq, parsed, userId } = args;
     const channel = parsed[1];
 
     const todo = (err) => {
@@ -494,7 +502,7 @@ HistoryManager.onGetHistoryRange = (Env, args, sendMessage, cb) => {
         onGetHistoryRange(Env, args, sendMessage, cb);
     };
 
-    checkHistoryRights(Env, channel, sessions, todo);
+    checkHistoryRights(Env, channel, userId, todo);
 };
 
 const onGetFullHistory = (Env, args, sendMessage, _cb) => {
@@ -520,7 +528,7 @@ const onGetFullHistory = (Env, args, sendMessage, _cb) => {
     });
 };
 HistoryManager.onGetFullHistory = (Env, args, sendMessage, cb) => {
-    const { seq, parsed, sessions } = args;
+    const { seq, parsed, userId } = args;
     const channel = parsed[1];
 
     const todo = (err) => {
@@ -531,7 +539,7 @@ HistoryManager.onGetFullHistory = (Env, args, sendMessage, cb) => {
         onGetFullHistory(Env, args, sendMessage, cb);
     };
 
-    checkHistoryRights(Env, channel, sessions, todo);
+    checkHistoryRights(Env, channel, userId, todo);
 };
 
 module.exports = HistoryManager;
