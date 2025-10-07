@@ -504,6 +504,55 @@ const hashChannelList = (data, cb) => {
     cb(void 0, hash);
 };
 
+const removeOwnedBlob = (data, cb) => {
+    if (typeof(data.safeKey) !== 'string') { return cb("INVALID_KEY"); }
+    const blobId = data.blobId;
+    const safeKey = Util.escapeKeyCharacters(data.safeKey);
+    const unsafeKey = Util.unescapeKeyCharacters(data.safeKey);
+
+    const reason = data.reason || 'ARCHIVE_OWNED';
+
+    nThen((w) => {
+        // check if you have permissions
+        computeMetadata({channel: blobId}, w((err, meta) => {
+            if (err || !meta) {
+                w.abort();
+                return void cb("INSUFFICIENT_PERMISSIONS");
+            }
+            let owners = meta.owners;
+            // XXX remove proof mogration?
+            if (!owners && !Env.proofsMigrated) {
+                // Check old proofs during migration
+                Env.blobStore.isOwnedBy(safeKey, blobId, w((e, owned) => {
+                    if (e || !owned) {
+                        w.abort();
+                        return void cb("INSUFFICIENT_PERMISSIONS");
+                    }
+                }));
+                return;
+            }
+            if (!owners || !owners.includes(unsafeKey)) {
+                w.abort();
+                return void cb("INSUFFICIENT_PERMISSIONS");
+            }
+            // Owned, continue
+        }));
+    }).nThen((w) => {
+        // remove the blob
+        Env.blobStore.archive.blob(blobId, reason, w((err) => {
+            Env.Log.info('ARCHIVAL_OWNED_FILE_BY_OWNER_RPC', {
+                safeKey: safeKey,
+                blobId: blobId,
+                status: err? String(err): 'SUCCESS',
+            });
+            if (err) {
+                w.abort();
+                return void cb(err);
+            }
+            cb(void 0, 'OK');
+        }));
+    });
+};
 
 const reportStatus = (Env, label, safeKey, err, id, size) => {
     const data = {
@@ -568,6 +617,8 @@ const COMMANDS = {
     GET_PIN_STATE: getPinState,
     GET_DELETED_PADS: getDeletedPads,
     HASH_CHANNEL_LIST: hashChannelList,
+
+    REMOVE_OWNED_BLOB: removeOwnedBlob,
 
     COMPLETE_UPLOAD: completeUpload,
 

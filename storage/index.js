@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2024 XWiki CryptPad Team <contact@cryptpad.org> and contributors
 const Http = require('node:http');
+const Crypto = require('node:crypto');
 
 const Util = require("./common-util.js");
 const Constants = require("../common/constants.js");
@@ -53,6 +54,7 @@ const Env = {
     queueStorage: WriteQueue(),
     queueValidation: WriteQueue(),
     queueMetadata: WriteQueue(),
+    queueDeletes: WriteQueue(),
     batchIndexReads: BatchRead("HK_GET_INDEX"),
     batchMetadata: BatchRead("GET_METADATA"),
     batchUserPins:  BatchRead('LOAD_USER_PINS'),
@@ -159,6 +161,7 @@ const joinChannelHandler = (args, cb) => {
         if (!channelData.users.includes(userId)) {
             channelData.users.push(userId);
         }
+
         return void cb(void 0, _users);
     };
 
@@ -346,6 +349,16 @@ const trimPinLogHandler = (data, cb) => {
     Pinning.trimPins(Env, data.safeKey, cb);
 };
 
+const clearOwnedChannelHandler = (data, cb) => {
+    Env.CM.clearOwnedChannel(Env, data, cb);
+};
+const removeOwnedChannelHandler = (data, cb) => {
+    Env.CM.removeOwnedChannel(Env, data, cb);
+};
+const trimHistoryHandler = (data, cb) => {
+    Env.CM.trimHistory(Env, data, cb);
+};
+
 const uploadHandler = (f) => {
     return (data, cb) => {
         f(Env, data, cb);
@@ -396,6 +409,10 @@ let COMMANDS = {
     'RPC_GET_HASH': getHashHandler,
     'RPC_ARCHIVE_PIN_LOG': archivePinLogHandler,
     'RPC_TRIM_PIN_LOG': trimPinLogHandler,
+
+    'RPC_CLEAR_OWNED_CHANNEL': clearOwnedChannelHandler,
+    'RPC_REMOVE_OWNED_CHANNEL': removeOwnedChannelHandler,
+    'RPC_TRIM_HISTORY': trimHistoryHandler,
 
     'HTTP_UPLOAD_COOKIE': uploadHandler(Upload.cookie),
     'RPC_UPLOAD_STATUS': uploadHandler(Upload.status),
@@ -477,6 +494,12 @@ const initWorkerCommands = () => {
     Env.completeUpload = (safeKey, arg, owned, size, cb) => {
         Env.workers.send('COMPLETE_UPLOAD', {
             safeKey, arg, owned, size
+        }, cb);
+    };
+
+    Env.worker.removeOwnedBlob = (blobId, safeKey, reason, cb) => {
+        Env.workers.send('REMOVE_OWNED_BLOB', {
+            safeKey, blobId, reason
         }, cb);
     };
 
@@ -682,6 +705,33 @@ let start = function(config) {
 
             Env.sendDecrees(toSend);
         }));
+    }).nThen(() => {
+        // INSTALL TOKEN (storage:0 only)
+        if (index !== 0) { return; }
+
+        let admins = Env.admins || [];
+        // If we don't have any admin on this instance
+        // print an onboarding link
+        if (Array.isArray(admins) && admins.length) { return; }
+        let token = Env.installToken;
+        let printLink = () => {
+            let url = `${Env.httpUnsafeOrigin}/install/#${token}`;
+            console.log('=============================');
+            console.log('Create your first admin account and customize your instance by visiting');
+            console.log(url);
+            console.log('=============================');
+
+        };
+        // If we already have a token, print it
+        if (token) { return void printLink(); }
+
+        // Otherwise create a new token
+        token = Crypto.randomBytes(32).toString('hex');
+
+        let decree = ["ADD_INSTALL_TOKEN",[token],"",+new Date()];
+        Decrees.onNewDecree(Env, decree, () => {
+            printLink();
+        });
     }).nThen(() => {
         if (process.send !== undefined) {
             process.send({ type: 'storage', index: interfaceConfig.index, msg: 'READY' });

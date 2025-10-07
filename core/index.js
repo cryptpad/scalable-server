@@ -282,16 +282,21 @@ const onHistoryMessage = (args, cb) => {
     });
 };
 // Message from history keeper to all members
-const onHistoryChannelMessage = (args) => {
+const onHistoryChannelMessage = (args, cb) => {
     const { users, message } = args;
     // For each user, change the "dest" to their user id
-    users.forEach(userId => {
-        const msg = message.slice();
-        msg[3] = userId;
-        const wsId = getWsId(userId);
-        Env.interface.sendEvent(wsId, 'SEND_USER_MESSAGE', {
-            userId, message: msg
+    nThen(w => {
+        users.forEach(userId => {
+            const msg = message.slice();
+            msg[3] = userId;
+            const wsId = getWsId(userId);
+            Env.interface.sendQuery(wsId, 'SEND_USER_MESSAGE', {
+                userId, message: msg
+            }, w());
         });
+    }).nThen(() => {
+        if (typeof(cb) !== "function") { return; }
+        cb();
     });
 };
 
@@ -405,7 +410,7 @@ const onAuthRpc = (args, cb, extra) => {
 const onGetChannelList = (args, cb, extra) => {
     if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
     const { safeKey } = args;
-    StorageCommands.getChannlList(Env, safeKey, cb);
+    StorageCommands.getChannelList(Env, safeKey, cb);
 };
 const onGetMultipleFileSize = (channels, cb, extra) => {
     if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }

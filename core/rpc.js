@@ -67,10 +67,7 @@ const isPremium = (Env, userKey, cb) => {
     const limit = Env.limits[userKey];
     return void cb(void 0, !!limit?.plan);
 };
-const addFirstAdmin = () => {
-    console.error("ADD_FIRST_ADMIN");
-    throw new Error('NOT_IMPLEMENTED');
-};
+const addFirstAdmin = Admin.addFirstAdmin;
 
 // Auth
 const resetUserPins = (Env, safeKey, channels, cb) => {
@@ -88,17 +85,22 @@ const unpinChannel = (Env, safeKey, channels, cb) => {
     Env.interface.sendQuery(storageId, 'RPC_PINNING_UNPIN',
         { channels, safeKey }, res => { cb(res.error, res.data); });
 };
-const clearOwnedChannel = () => {
-    console.error("CLEAR_OWNED_CHANNEL");
-    throw new Error('NOT_IMPLEMENTED');
+const clearOwnedChannel = (Env, safeKey, channel, cb) => {
+    const storageId = getStorageId(Env, channel);
+    Env.interface.sendQuery(storageId, 'RPC_CLEAR_OWNED_CHANNEL',
+        { safeKey, channel }, res => { cb(res.error, res.data); });
 };
-const removeOwnedChannel = () => {
-    console.error("REMOVE_OWNED_CHANNEL");
-    throw new Error('NOT_IMPLEMENTED');
+const removeOwnedChannel = (Env, safeKey, data, cb) => {
+    const storageId = getStorageId(Env, data.channel);
+    data.safeKey = safeKey;
+    Env.interface.sendQuery(storageId, 'RPC_REMOVE_OWNED_CHANNEL',
+        data , res => { cb(res.error, res.data); });
 };
-const trimHistory = () => {
-    console.error("TRIM_HISTORY");
-    throw new Error('NOT_IMPLEMENTED');
+const trimHistory = (Env, safeKey, data, cb) => {
+    const storageId = getStorageId(Env, data.channel);
+    data.safeKey = safeKey;
+    Env.interface.sendQuery(storageId, 'RPC_TRIM_HISTORY',
+        data , res => { cb(res.error, res.data); });
 };
 const uploadStatus = (Env, safeKey, data, cb) => {
     const { size, id } = data;

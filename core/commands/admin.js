@@ -33,6 +33,26 @@ the server adds two pieces of information to the supplied decree:
     });
 };
 
+// addFirstAdmin is an anon_rpc command
+Admin.addFirstAdmin = (Env, data, cb) => {
+    if (!Env.installToken) { return void cb('EINVAL'); }
+    const token = data.token;
+    if (!token || !data.edPublic) { return void cb('MISSING_ARGS'); }
+    if (token.length !== 64 || data.edPublic.length !== 44) { return void cb('INVALID_ARGS'); }
+    if (token !== Env.installToken) { return void cb('FORBIDDEN'); }
+    if (Array.isArray(Env.admins) && Env.admins.length) { return void cb('EEXISTS'); }
+
+    const key = data.edPublic;
+
+    Admin.sendDecree(Env, "", ['ADD_FIRST_ADMIN', [
+        'ADD_ADMIN_KEY',
+        [key]
+    ]], (err) => {
+        if (err) { return void cb(err); }
+        cb();
+    });
+};
+
 const checkTestDecree = (Env, publicKey, data, cb) => {
     cb(void 0, Env.testDecreeValue);
 };

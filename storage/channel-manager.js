@@ -9,6 +9,7 @@ const Meta = require("./commands/metadata.js");
 const Nacl = require("tweetnacl/nacl-fast");
 
 const {
+    hkId,
     CHECKPOINT_PATTERN,
     EPHEMERAL_CHANNEL_LENGTH,
     STANDARD_CHANNEL_LENGTH,
@@ -234,7 +235,6 @@ const create = (Env) => {
             msgStruct.push(time);
 
             // storeMessage
-            //console.log(+new Date(), "Storing message");
             storeMessage(channel, JSON.stringify(msgStruct), isCp, HKUtil.getHash(msgStruct[4], Env.Log), time, err => {
                 if (err) { return void cb(err); }
                 cb(void 0, {
@@ -242,7 +242,6 @@ const create = (Env) => {
                     message: msgStruct
                 });
             });
-            //console.log(+new Date(), "Message stored");
         });
     };
 
@@ -411,6 +410,220 @@ const create = (Env) => {
             cb();
             delete Env.channel_cache[channel];
             delete Env.metadata_cache[channel];
+        });
+    };
+
+    CM.clearOwnedChannel = (Env, data, cb) => {
+        const { channel, safeKey } = data;
+        if (typeof(channel) !== 'string' || channel.length !== STANDARD_CHANNEL_LENGTH) {
+            return cb('INVALID_ARGUMENTS');
+        }
+        const unsafeKey = Util.unescapeKeyCharacters(safeKey);
+
+        HistoryManager.getMetadata(Env, channel, (err, metadata) => {
+            if (err) { return void cb(err); }
+            // Check ownership
+            if (!Core.hasOwners(metadata)) {
+                return void cb('E_NO_OWNERS');
+            }
+            if (!Core.isOwner(metadata, unsafeKey)) {
+                return void cb('INSUFFICIENT_PERMISSIONS');
+            }
+            return void store.clearChannel(channel, (e) => {
+                if (e) { return void cb(e); }
+                cb();
+
+                const channel_cache = Env.channel_cache || {};
+
+                const clear = function () {
+                    // delete the channel cache (invalidated)
+                    if (!channel_cache[channel]?.index) { return; }
+                    delete channel_cache[channel].index;
+                };
+
+                // Warn members about cleared status
+                const channelData = channel_cache[channel] || {};
+                const users = channelData.users || [];
+                const message = [
+                    0,
+                    hkId,
+                    'MSG',
+                    null,
+                    JSON.stringify({
+                        error: 'ECLEARED',
+                        channel
+                    })
+                ];
+
+                nThen(w => {
+                    const coreId = Env.getCoreId(channel);
+                    Env.interface.sendQuery(coreId,
+                        'HISTORY_CHANNEL_MESSAGE', {
+                        users,
+                        message
+                    }, w());
+                }).nThen(() => {
+                    clear();
+                }).orTimeout(() => {
+                    Env.Log.warn("CHANNEL_CLEARED_TIMEOUT", channel);
+                    clear();
+                }, 30000);
+            });
+        });
+    };
+
+    CM.disconnectChannelMembers = (Env, channel, code, reason, cb) => {
+        const done = Util.once(Util.mkAsync(cb));
+        if (!Core.isValidId(channel)) { return done('INVALID_ID'); }
+
+        const channel_cache = Env.channel_cache;
+        const metadata_cache = Env.metadata_cache;
+
+        const coreId = Env.getCoreId(channel);
+        const clear = () => {
+            delete channel_cache[channel];
+            Env.interface.sendEvent(coreId, 'DROP_CHANNEL', { channel });
+            delete metadata_cache[channel];
+        };
+
+
+        // an owner of a channel deleted it
+        nThen(function (w) {
+            // close the channel in the store
+            store.closeChannel(channel, w());
+        }).nThen((w) => {
+            const channelData = channel_cache[channel] || {};
+            const users = channelData.users || [];
+            const message = [
+                0,
+                hkId,
+                'MSG',
+                null,
+                JSON.stringify({
+                    error: code, //'EDELETED',
+                    message: reason,
+                    channel
+                })
+            ];
+            Env.interface.sendQuery(coreId,
+                'HISTORY_CHANNEL_MESSAGE', {
+                users,
+                message
+            }, w());
+        }).nThen(function () {
+            // clear the channel's data from memory
+            // once you've sent everyone a notice that the channel has been deleted
+            clear();
+            done();
+        }).orTimeout(function () {
+            Env.Log.warn('DISCONNECT_CHANNEL_MEMBERS_TIMEOUT', {
+                channel,
+                code,
+                reason
+            });
+            clear();
+            done();
+        }, 30000);
+    };
+
+    const archiveOwnedChannel = (Env, safeKey, channel, reason, __cb) => {
+        const _cb = Util.once(Util.mkAsync(__cb));
+        const unsafeKey = Util.unescapeKeyCharacters(safeKey);
+        reason = reason || 'ARCHIVE_OWNED';
+        nThen((w) => {
+            // confirm that the channel exists before worrying about whether
+            // we have permission to delete it.
+            const cb = _cb;
+            store.getChannelSize(channel, w((err, bytes) => {
+                if (!bytes) {
+                    w.abort();
+                    return cb(err || "ENOENT");
+                }
+            }));
+        }).nThen((w) => {
+            const cb = Util.both(w.abort, _cb);
+            HistoryManager.getMetadata(Env, channel, (err, metadata) => {
+                if (err) { return void cb(err); }
+                if (!Core.hasOwners(metadata)) { return void cb('E_NO_OWNERS'); }
+                if (!Core.isOwner(metadata, unsafeKey)) {
+                    return void cb('INSUFFICIENT_PERMISSIONS');
+                }
+            });
+        }).nThen(function () {
+            const cb = _cb;
+            // temporarily archive the file
+            return void store.archiveChannel(channel, reason, (e) => {
+                Env.Log.info('ARCHIVAL_CHANNEL_BY_OWNER_RPC', {
+                    unsafeKey,
+                    channel,
+                    status: e? String(e): 'SUCCESS'
+                });
+                if (e) { return void cb(e); }
+                cb(void 0, 'OK');
+
+                CM.disconnectChannelMembers(Env, channel, 'EDELETED', reason, () => {});
+            });
+        });
+    };
+
+    CM.removeOwnedChannel = (Env, data, __cb) => {
+        const { channel, safeKey, reason } = data;
+        const _cb = Util.once(Util.mkAsync(__cb));
+
+        if (typeof(channel) !== 'string' || !Core.isValidId(channel)){
+            return _cb('INVALID_ARGUMENTS');
+        }
+
+        // Archiving large channels or files can be expensive,
+        // so do it one at a time
+        // For any given user to ensure that nobody can use too much
+        // of the server's resources
+        Env.queueDeletes(safeKey, (next) => {
+            const cb = Util.both(_cb, next);
+            if (Env.blobStore.isFileId(channel)) {
+                return Env.worker.removeOwnedBlob(channel, safeKey, reason, cb);
+            }
+            // TODO move to worker too?
+            archiveOwnedChannel(Env, safeKey, channel, reason, cb);
+        });
+    };
+
+    CM.trimHistory = (Env, data, cb) => {
+        const { channel, hash, safeKey } = data;
+        if (!(typeof(channel) === 'string' && typeof(hash) === 'string' && hash.length === 64)) {
+            return void cb('INVALID_ARGS');
+        }
+
+        const unsafeKey = Util.unescapeKeyCharacters(safeKey);
+
+        nThen((w) => {
+            HistoryManager.getMetadata(Env, channel, w((err, metadata) => {
+                if (err) {
+                    w.abort();
+                    return void cb(err);
+                }
+                if (!Core.hasOwners(metadata)) {
+                    w.abort();
+                    return void cb('E_NO_OWNERS');
+                }
+                if (!Core.isOwner(metadata, unsafeKey)) {
+                    w.abort();
+                    return void cb("INSUFFICIENT_PERMISSIONS");
+                }
+                // else fall through to the next block
+            }));
+        }).nThen(function () {
+            store.trimChannel(channel, hash, (err) => {
+                Env.Log.info('HK_TRIM_HISTORY', {
+                    unsafeKey: unsafeKey,
+                    channel: channel,
+                    status: err? String(err): 'SUCCESS',
+                });
+                if (err) { return void cb(err); }
+                // clear historyKeeper's cache for this channel
+                cb(void 0, 'OK');
+                delete (Env.channel_cache[channel] || {}).index;
+            });
         });
     };
 

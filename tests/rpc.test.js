@@ -15,7 +15,15 @@ console.log('rpc', getChannelPath(padId));
 const Env = {};
 
 const sendMsg = wc => {
-    return wc.bcast(getRandomMsg());
+    Env.messages ||= [];
+    const msg = getRandomMsg();
+    Env.messages.push(msg);
+    return wc.bcast(msg);
+};
+
+const sendMessages = wc => {
+    const send = () => { return sendMsg(wc); };
+    return send().then(send).then(send).then(send).then(send);
 };
 
 const initPad = (network) => {
@@ -27,8 +35,19 @@ const initPad = (network) => {
             if (!Env.wc) { return; }
             const parsed = JSON.parse(msg);
             if (sender !== hk) { return; }
+            if (parsed?.error === "EDELETED" &&
+                parsed?.message === "TEST_RPC" &&
+                parsed?.channel === padId) {
+                Env.isDeleted = true;
+                return;
+            }
+            if (parsed?.error === "ECLEARED" &&
+                parsed?.channel === padId) {
+                Env.isCleared = true;
+                return;
+            }
             if (parsed?.state === 1 && parsed?.channel === padId) {
-                sendMsg(Env.wc).then(() => {
+                return sendMessages(Env.wc).then(() => {
                     resolve({network});
                     Env.wc.leave();
                 }).catch(reject);
@@ -52,11 +71,12 @@ const initPad = (network) => {
 
 const checkAnon = (args) => {
     const {rpc, network} = args;
+    Env.anonRpc = rpc;
     return new Promise((resolve, reject) => {
         rpc.send("GET_FILE_SIZE", padId, (e, data) => {
             if (e) { return void reject(e); }
             const size = data[0];
-            if (size !== 358) { // metadata + data
+            if (size !== 1150) { // 5 messages, metadata + data
                 console.error(size);
                 reject('INVALID_SIZE');
             }
@@ -69,12 +89,9 @@ const checkAnon = (args) => {
 };
 
 const checkUser = (args) => {
-    //const {rpc, network} = args;
-    return new Promise((resolve) => {
-        // XXX later: check user commands
-        // But COOKIE has already been tested while initializing RPC
-        resolve(args);
-    });
+    const {rpc} = args;
+    Env.ownerRpc = rpc;
+    return Promise.resolve(args);
 };
 
 const checkAccess = (args) => {
@@ -96,8 +113,9 @@ const checkAccess = (args) => {
 const checkAllowed = (args) => {
     const {network} = args;
     return new Promise((resolve, reject) => {
-        network.join(padId).then(() => {
+        network.join(padId).then((wc) => {
             resolve(args);
+            Env.wc = wc;
         }).catch(e => {
             console.error("UNEXPECTED ERROR", e);
             return reject("INVALID_ERROR");
@@ -105,7 +123,7 @@ const checkAllowed = (args) => {
     });
 };
 
-const checkHistoryAccess = () => {
+const checkHistoryAccess = (args) => {
     const txid = Crypto.randomBytes(4).toString('hex');
     return new Promise((resolve, reject) => {
         connectUser(2).then(network => {
@@ -119,9 +137,90 @@ const checkHistoryAccess = () => {
                     console.error("UNEXPECTED ERROR", e);
                     return reject("INVALID_ERROR");
                 }
-                resolve();
+                resolve(args);
             });
         }).catch(reject);
+    });
+};
+
+const trimPad = (args) => {
+    return new Promise((resolve, reject) => {
+        // Remove the first 2 messages
+        const hash = Env.messages[2].slice(0,64);
+        Env.ownerRpc.send('TRIM_HISTORY', {
+            channel: padId,
+            hash
+        }, (e) => {
+            if (e) { return reject(e); }
+            resolve(args);
+        });
+    });
+};
+const checkTrim = (args) => {
+    return new Promise((resolve, reject) => {
+        Env.anonRpc.send("GET_FILE_SIZE", padId, (e, data) => {
+            if (e) { return void reject(e); }
+            const size = data[0];
+            if (size !== 754) { // 3 messages + metadata
+                console.error(size);
+                reject('INVALID_SIZE');
+            }
+            resolve(args);
+        });
+    });
+};
+
+const clearPad = (args) => {
+    return new Promise((resolve, reject) => {
+        Env.ownerRpc.send('CLEAR_OWNED_CHANNEL', padId, (e) => {
+            if (e) { return reject(e); }
+            if (!Env.isCleared) {
+                return reject("MISSING_ECLEARED_MESSAGE");
+            }
+            resolve(args);
+        });
+    });
+};
+const checkClear = (args) => {
+    return new Promise((resolve, reject) => {
+        Env.anonRpc.send("GET_FILE_SIZE", padId, (e, data) => {
+            if (e) { return void reject(e); }
+            const size = data[0];
+            if (size !== 160) { // cleared channel + metadata
+                console.error(size);
+                reject('INVALID_SIZE');
+            }
+            resolve(args);
+        });
+    });
+};
+
+const removePad = (args) => {
+    return new Promise((resolve, reject) => {
+        Env.ownerRpc.send('REMOVE_OWNED_CHANNEL', {
+            channel: padId,
+            reason: 'TEST_RPC'
+        }, (e) => {
+            if (e) { return reject(e); }
+            if (!Env.isDeleted) {
+                return reject("MISSING_EDELETED_MESSAGE");
+            }
+            resolve(args);
+        });
+    });
+};
+const checkRemoved = (args) => {
+    return new Promise((resolve, reject) => {
+        Env.anonRpc.send("IS_NEW_CHANNEL", padId, (e, data) => {
+            if (e) { return void reject(e); }
+            const value = data[0];
+            if (!value.isNew) { return reject('DELETION_ERROR'); }
+            if (value.reason !== "TEST_RPC") {
+                console.error(value);
+                reject('INVALID_REASON');
+            }
+            resolve(args);
+        });
     });
 };
 
@@ -136,6 +235,12 @@ const initUser = () => {
         .then(checkAccess)
         .then(checkAllowed)
         .then(checkHistoryAccess)
+        .then(trimPad)
+        .then(checkTrim)
+        .then(clearPad)
+        .then(checkClear)
+        .then(removePad)
+        .then(checkRemoved)
         .then(() => {
             resolve();
         }).catch(e => {
