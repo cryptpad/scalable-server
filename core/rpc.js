@@ -172,8 +172,7 @@ const haveACookie = (Env, key, cb) => {
     cb();
 };
 const destroy = () => {
-    console.error("DESTROY_RPC");
-    throw new Error('NOT_IMPLEMENTED');
+    // Nothing to do
 };
 
 const UNAUTHENTICATED_CALLS = {
