@@ -14,7 +14,8 @@ const User = module.exports;
 */
 
 const pathFromId = function (Env, id) {
-    if (!id || typeof(id) !== 'string') { return void console.error('KNWONUSER_BAD_ID', id); }
+    if (!id || typeof(id) !== 'string') { return; }
+    id = Util.escapeKeyCharacters(id);
     return Path.join(Env.paths.base, "users", id.slice(0, 2), id);
 };
 

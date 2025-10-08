@@ -31,7 +31,17 @@ const pathFromId = (Env, id, ref) => {
 
 Sessions.randomId = () => Util.encodeBase64(Crypto.randomBytes(24)).replace(/\//g, '-');
 
-Sessions.read = (Env, id, ref, cb) => {
+Sessions.read = (Env, id, ref, cb, noRedirect) => {
+    const storageId = Env.getStorageId(id);
+    if (storageId !== Env.myId && !noRedirect) {
+        const coreId = Env.getStorageId(id);
+        return Env.interface.sendQuery(coreId, 'SESSIONS_CMD', {
+            cmd: 'READ',
+            blockId: id,
+            session: ref
+        }, res => { cb(res.error, res.data); });
+    }
+
     const path = pathFromId(Env, id, ref);
     Basic.read(Env, path, cb);
 };
@@ -41,7 +51,17 @@ Sessions.write = (Env, id, ref, data, cb) => {
     Basic.write(Env, path, data, cb);
 };
 
-Sessions.delete = (Env, id, ref, cb) => {
+Sessions.delete = (Env, id, ref, cb, noRedirect) => {
+    const storageId = Env.getStorageId(id);
+    if (storageId !== Env.myId && !noRedirect) {
+        const coreId = Env.getStorageId(id);
+        return Env.interface.sendQuery(coreId, 'SESSIONS_CMD', {
+            cmd: 'DELETE',
+            blockId: id,
+            session: ref
+        }, res => { cb(res.error, res.data); });
+    }
+
     const path = pathFromId(Env, id, ref);
     Basic.delete(Env, path, cb);
 };

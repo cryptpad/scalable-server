@@ -13,6 +13,7 @@ const getUid = () => {
 };
 
 Invitation.getAll = (Env, cb) => {
+    // XXX multiple storage
     Invite.getAll(Env, (err, data) => {
         if (err) { return void cb(err); }
         cb(null, data);
@@ -42,16 +43,37 @@ Invitation.delete = (Env, id, _cb) => {
     });
 };
 
-Invitation.check = (Env, id, _cb) => {
+Invitation.check = (Env, id, _cb, noRedirect) => {
     const cb = Util.once(Util.mkAsync(_cb));
+
+    const storageId = Env.getStorageId(id);
+    if (storageId !== Env.myId && !noRedirect) {
+        const coreId = Env.getStorageId(id);
+        return Env.interface.sendQuery(coreId, 'INVITATION_CMD', {
+            cmd: 'CHECK',
+            inviteToken: id
+        }, res => { cb(res.error, res.data); });
+    }
+
     Invite.read(Env, id, (err) => {
         if (err) { return void cb(err); }
         cb(void 0, true);
     });
 };
 
-Invitation.use = (Env, id, blockId, userData, _cb) => {
+Invitation.use = (Env, id, blockId, userData, _cb, noRedirect) => {
     const cb = Util.once(Util.mkAsync(_cb));
+
+    const storageId = Env.getStorageId(id);
+    if (storageId !== Env.myId && !noRedirect) {
+        const coreId = Env.getStorageId(id);
+        return Env.interface.sendQuery(coreId, 'INVITATION_CMD', {
+            cmd: 'USE',
+            inviteToken: id,
+            data: { blockId, userData }
+        }, res => { cb(res.error, res.data); });
+    }
+
     Invite.read(Env, id, (err, _data) => {
         if (err) { return void cb(err); }
 

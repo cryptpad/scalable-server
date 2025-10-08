@@ -88,4 +88,43 @@ StorageCommands.getRegisteredUsers = (Env, cb) => {
 
 StorageCommands.getLimit = Pinning.getLimit;
 
+StorageCommands.onBlockCheck = (Env, args, cb) => {
+    const storageId = Env.getStorageId(args.blockId);
+    Env.interface.sendQuery(storageId, 'BLOCK_CHECK', args, res => {
+        if (res.error) { return void cb(res.error); }
+        cb(void 0, res.data);
+    });
+};
+StorageCommands.onGetMFA = (Env, args, cb) => {
+    const storageId = Env.getStorageId(args.blockId);
+    Env.interface.sendQuery(storageId, 'BLOCK_GET_MFA', args, res => {
+        if (res.error) { return void cb(res.error); }
+        cb(void 0, res.data);
+    });
+};
+StorageCommands.onSessionsCommand = (Env, args, cb) => {
+    const storageId = Env.getStorageId(args.blockId);
+    Env.interface.sendQuery(storageId, 'SESSIONS_CMD', args, res => {
+        if (res.error) { return void cb(res.error); }
+        cb(void 0, res.data);
+    });
+};
+StorageCommands.onUserRegistryCommand = (Env, args, cb) => {
+    const storageId = Env.getStorageId(args.edPublic);
+    Env.interface.sendQuery(storageId, 'USER_REGISTRY_CMD', args, res => {
+        if (res.error) { return void cb(res.error); }
+        cb(void 0, res.data);
+    });
+};
+StorageCommands.onInvitationCommand = (Env, args, cb) => {
+    const storageId = Env.getStorageId(args.inviteToken);
+    Env.interface.sendQuery(storageId, 'INVITATION_CMD', args, res => {
+        if (res.error) { return void cb(res.error); }
+        cb(void 0, res.data);
+    });
+};
+
+
+
+
 module.exports = StorageCommands;

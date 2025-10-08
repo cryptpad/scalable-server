@@ -1,10 +1,15 @@
 const Path = require('node:path');
 const Express = require('express');
+const nThen = require("nthen");
 const BlockStore = require("./storage/block");
 const { setHeaders } = require('../http-server/headers.js');
 const CpCrypto = require("../common/crypto.js")('sodiumnative');
 const Util = require('../common/common-util');
+const MFA = require("./storage/mfa");
+const Sessions = require("./storage/sessions");
 
+const plugins = {}; // XXX plugins
+let SSOUtils = plugins.SSO && plugins.SSO.utils;
 
 const create = (Env, app) => {
     app.use('/blob', function (req, res, next) {
@@ -68,7 +73,163 @@ const create = (Env, app) => {
 
     // XXX plugins
 
-    // XXX XXX XXX BLOCK TOTP XXX XXX XXX
+    app.use('/block/', function (req, res, next) {
+        const parsed = Path.parse(req.url);
+        const name = parsed.name;
+        // block access control only applies to files
+        // identified by base64-encoded public keys
+        // skip everything else, ie. /block/placeholder.txt
+        if (/placeholder\.txt(\?.+)?/.test(parsed.base)) {
+            return void next();
+        }
+        if (typeof(name) !== 'string' || name.length !== 44) {
+            return void res.status(404).json({
+                error: "INVALID_ID",
+            });
+        }
+
+        const authorization = req.headers.authorization;
+
+        let mfa_params, sso_params;
+        nThen((w) => {
+            // First, check whether the block id in question has any MFA settings stored
+            MFA.read(Env, name, w((err, content) => {
+                // ENOENT means there are no settings configured
+                // it could be a 404 or an existing block without MFA protection
+                // in either case you can abort and fall through
+                // allowing the static webserver to handle either case
+                if (err && err.code === 'ENOENT') {
+                    return;
+                }
+
+                // we're not expecting other errors. the sensible thing is to fail
+                // closed - meaning assume some protection is in place but that
+                // the settings couldn't be loaded for some reason. block access
+                // to the resource, logging for the admin and responding to the client
+                // with a vague error code
+                if (err) {
+                    Env.Log.error('GET_BLOCK_METADATA', err);
+                    return void res.status(500).json({
+                        code: 500,
+                        error: "UNEXPECTED_ERROR",
+                    });
+                }
+
+                // Otherwise, some settings were loaded correctly.
+                // We're expecting stringified JSON, so try to parse it.
+                // Log and respond with an error again if this fails.
+                // If it parses successfully then fall through to the next block.
+                try {
+                    mfa_params = JSON.parse(content);
+                } catch (err2) {
+                    w.abort();
+                    Env.Log.error("INVALID_BLOCK_METADATA", err2);
+                    return res.status(500).json({
+                        code: 500,
+                        error: "UNEXPECTED_ERROR",
+                    });
+                }
+            }));
+
+            // Same for SSO settings
+            if (!SSOUtils) { return; }
+            SSOUtils.readBlock(Env, name, w((err, content) => {
+                if (err && (err.code === 'ENOENT' || err === 'ENOENT')) {
+                    return;
+                }
+                if (err) {
+                    Env.Log.error('GET_BLOCK_METADATA', err);
+                    return void res.status(500).json({
+                        code: 500,
+                        error: "UNEXPECTED_ERROR",
+                    });
+                }
+                sso_params = content;
+            }));
+        }).nThen((w) => {
+            if (!mfa_params && !sso_params) {
+                w.abort();
+                next();
+            }
+        }).nThen((w) => {
+            // We should only be able to reach this logic
+            // if we successfully loaded and parsed some JSON
+            // representing the user's MFA and/or SSO settings.
+
+            // Failures at this point relate to insufficient or incorrect authorization.
+            // This function standardizes how we reject such requests.
+
+            // So far the only additional factor which is supported is TOTP.
+            // We specify what the method is to allow for future alternatives
+            // and inform the client so they can determine how to respond
+            // "401" means "Unauthorized"
+            const no = () => {
+                w.abort();
+                res.status(401).json({
+                    sso: Boolean(sso_params),
+                    method: mfa_params && mfa_params.method,
+                    code: 401
+                });
+            };
+
+            // if you are here it is because this block is protected by MFA or SSO.
+            // they will need to provide a JSON Web Token, so we can reject them outright
+            // if one is not present in their authorization header
+            if (!authorization) { return void no(); }
+
+            // The authorization header should be of the form
+            // "Authorization: Bearer <SessionId>"
+            // We can reject the request if it is malformed.
+            let token = authorization.replace(/^Bearer\s+/, '').trim();
+            if (!token) { return void no(); }
+
+            Sessions.read(Env, name, token, (err, contentStr) => {
+                if (err) {
+                    Env.Log.error('SESSION_READ_ERROR', err);
+                    return res.status(401).json({
+                        sso: Boolean(sso_params),
+                        method: mfa_params && mfa_params.method,
+                        code: 401,
+                    });
+                }
+
+                let content = Util.tryParse(contentStr);
+
+                if (mfa_params && !content.mfa) { return void no(); }
+                if (sso_params && !content.sso) { return void no(); }
+
+                if (content.mfa && content.mfa.exp && (+new Date()) > content.mfa.exp) {
+                    Env.Log.error("OTP_SESSION_EXPIRED", content.mfa);
+                    Sessions.delete(Env, name, token, (err) => {
+                        if (err) {
+                            Env.Log.error('SESSION_DELETE_EXPIRED_ERROR', err);
+                            return;
+                        }
+                        Env.Log.info('SESSION_DELETE_EXPIRED', err);
+                    });
+                    return void no();
+                }
+
+
+                if (content.sso && content.sso.exp && (+new Date()) > content.sso.exp) {
+                    Env.Log.error("SSO_SESSION_EXPIRED", content.sso);
+                    Sessions.delete(Env, name, token, (err) => {
+                        if (err) {
+                            Env.Log.error('SSO_SESSION_DELETE_EXPIRED_ERROR', err);
+                            return;
+                        }
+                        Env.Log.info('SSO_SESSION_DELETE_EXPIRED', err);
+                    });
+                    return void no();
+                }
+
+                // Interpret the existence of a file in that location as the continued
+                // validity of the session. Fall through and let the built-in webserver
+                // handle the 404 or serving the file.
+                next();
+            });
+        });
+    });
 
     // TODO this would be a good place to update a block's atime
     // in a manner independent of the filesystem. ie. for detecting and archiving

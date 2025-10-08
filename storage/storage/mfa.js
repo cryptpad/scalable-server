@@ -31,7 +31,15 @@ const pathFromId = (Env, id) => {
     return Path.join(Env.paths.base, "mfa", id.slice(0, 2), `${id}.json`);
 };
 
-MFA.read = (Env, id, cb) => {
+MFA.read = (Env, id, cb, noRedirect) => {
+    const storageId = Env.getStorageId(id);
+    if (storageId !== Env.myId && !noRedirect) {
+        const coreId = Env.getStorageId(id);
+        return Env.interface.sendQuery(coreId, 'BLOCK_GET_MFA', {
+            blockId: id
+        }, res => { cb(res.error, res.data); });
+    }
+
     const path = pathFromId(Env, id);
     Basic.read(Env, path, cb);
 };

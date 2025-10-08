@@ -140,8 +140,17 @@ Block.isArchived = function (Env, publicKey, _cb) {
     checkPath(Env, publicKey, Block.mkArchivePath, _cb);
 };
 
-Block.check = function (Env, publicKey, _cb) { // 'check' because 'exists' implies boolean
+Block.check = function (Env, publicKey, _cb, noRedirect) { // 'check' because 'exists' implies boolean
     const cb = Util.once(Util.mkAsync(_cb));
+
+    const storageId = Env.getStorageId(publicKey);
+    if (storageId !== Env.myId && !noRedirect) {
+        const coreId = Env.getStorageId(publicKey);
+        return Env.interface.sendQuery(coreId, 'BLOCK_CHECK', {
+            blockId: publicKey
+        }, res => { cb(res.error, res.data); });
+    }
+
     const path = Block.mkPath(Env, publicKey);
     Fs.access(path, Fs.constants.F_OK, cb);
 };

@@ -151,6 +151,10 @@ const init = (Env, mainConfig) => {
     Env.customLimits = {}; // from decrees
     Env.limits = {}; // accounts & decrees merged
 
+    // TOTP
+    // Number of hours (default 7 days)
+    Env.otpSessionExpiration = config.otpSessionExpiration;
+
     // XXX plugins
     // plugins can includes custom Env values
 

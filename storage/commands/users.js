@@ -14,19 +14,40 @@ Users.getAll = (Env, cb) => {
     });
 };
 
-Users.add = (Env, edPublic, data, adminKey, _cb) => {
+Users.add = (Env, edPublic, data, adminKey, _cb, noRedirect) => {
     const cb = Util.once(Util.mkAsync(_cb));
+
+    const storageId = Env.getStorageId(edPublic);
+    if (storageId !== Env.myId && !noRedirect) {
+        const coreId = Env.getStorageId(edPublic);
+        return Env.interface.sendQuery(coreId, 'USER_REGISTRY_CMD', {
+            cmd: 'ADD',
+            edPublic,
+            data: { adminKey, content: data }
+        }, res => { cb(res.error, res.data); });
+    }
+
+    const safeKey = Util.escapeKeyCharacters(edPublic);
     data.createdBy = adminKey;
     data.time = +new Date();
-    const safeKey = Util.escapeKeyCharacters(edPublic);
     User.write(Env, safeKey, data, (err) => {
         if (err) { return void cb(err); }
         cb();
     });
 };
 
-Users.delete = (Env, id, _cb) => {
+Users.delete = (Env, id, _cb, noRedirect) => {
     const cb = Util.once(Util.mkAsync(_cb));
+
+    const storageId = Env.getStorageId(id);
+    if (storageId !== Env.myId && !noRedirect) {
+        const coreId = Env.getStorageId(id);
+        return Env.interface.sendQuery(coreId, 'USER_REGISTRY_CMD', {
+            cmd: 'DELETE',
+            edPublic: id
+        }, res => { cb(res.error, res.data); });
+    }
+
     User.delete(Env, id, (err) => {
         if (err && err !== 'ENOENT') { return void cb(err); }
         cb(void 0, true);
@@ -65,10 +86,21 @@ Users.update = (Env, edPublic, changes, _cb) => {
 };
 
 // On password change, update the block
-Users.checkUpdate = (Env, userData, newBlock, cb) => {
+Users.checkUpdate = (Env, userData, newBlock, cb, noRedirect) => {
     if (!Array.isArray(userData)) { userData = []; }
     let edPublic = userData[1];
     if (!edPublic) { return void cb('INVALID_PUBLIC_KEY'); }
+
+    const storageId = Env.getStorageId(edPublic);
+    if (storageId !== Env.myId && !noRedirect) {
+        const coreId = Env.getStorageId(edPublic);
+        return Env.interface.sendQuery(coreId, 'USER_REGISTRY_CMD', {
+            cmd: 'CHECK_UPDATE',
+            edPublic,
+            data: { newBlock, content: userData }
+        }, res => { cb(res.error, res.data); });
+    }
+
     Users.read(Env, edPublic, (err, data) => {
         if (err === 'ENOENT') { return void cb(); }
         if (err) { return void cb(err); }

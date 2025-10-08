@@ -28,6 +28,7 @@ const WriteQueue = require("../common/write-queue.js");
 const WorkerModule = require("../common/worker-module.js");
 const File = require("./storage/file.js");
 const Blob = require("./storage/blob.js");
+const BlockStore = require("./storage/block.js");
 
 const Decrees = require('./commands/decrees.js');
 const Upload = require('./commands/upload.js');
@@ -359,10 +360,8 @@ const trimHistoryHandler = (data, cb) => {
     Env.CM.trimHistory(Env, data, cb);
 };
 
-const uploadHandler = (f) => {
-    return (data, cb) => {
-        f(Env, data, cb);
-    };
+const blockCheckHandler = (data, cb) => {
+    BlockStore.check(Env, data.blockId, cb, true);
 };
 
 /* Start of the node */
@@ -414,17 +413,38 @@ let COMMANDS = {
     'RPC_REMOVE_OWNED_CHANNEL': removeOwnedChannelHandler,
     'RPC_TRIM_HISTORY': trimHistoryHandler,
 
-    'HTTP_UPLOAD_COOKIE': uploadHandler(Upload.cookie),
-    'RPC_UPLOAD_STATUS': uploadHandler(Upload.status),
-    'RPC_UPLOAD_CANCEL': uploadHandler(Upload.cancel),
-    'RPC_UPLOAD_CHUNK': uploadHandler(Upload.upload),
-    'RPC_UPLOAD_COMPLETE': uploadHandler(Upload.complete),
-    'RPC_UPLOAD_COMPLETE_OWNED': uploadHandler(Upload.completeOwned),
+    'HTTP_UPLOAD_COOKIE': callWithEnv(Upload.cookie),
+    'RPC_UPLOAD_STATUS': callWithEnv(Upload.status),
+    'RPC_UPLOAD_CANCEL': callWithEnv(Upload.cancel),
+    'RPC_UPLOAD_CHUNK': callWithEnv(Upload.upload),
+    'RPC_UPLOAD_COMPLETE': callWithEnv(Upload.complete),
+    'RPC_UPLOAD_COMPLETE_OWNED': callWithEnv(Upload.completeOwned),
 
+    // Block/registration commands
     'HTTP_MFA_CHECK': callWithEnv(MFAManager.checkMFA),
     'HTTP_UPDATE_SESSION': callWithEnv(MFAManager.updateSession),
     'HTTP_WRITE_BLOCK': callWithEnv(Block.writeLoginBlock),
     'HTTP_REMOVE_BLOCK': callWithEnv(Block.removeLoginBlock),
+
+    'TOTP_SETUP': callWithEnv(MFAManager.setupCheck),
+    'TOTP_SETUP_COMPLETE': callWithEnv(MFAManager.setupComplete),
+    'TOTP_VALIDATE': callWithEnv(MFAManager.validateCheck),
+    'TOTP_VALIDATE_COMPLETE': callWithEnv(MFAManager.validateComplete),
+    'TOTP_MFA_CHECK': callWithEnv(MFAManager.statusCheck),
+    'TOTP_REVOKE': callWithEnv(MFAManager.revokeCheck),
+    'TOTP_REVOKE_COMPLETE': callWithEnv(MFAManager.revokeComplete),
+    'TOTP_WRITE_BLOCK': callWithEnv(MFAManager.writeCheck),
+    'TOTP_WRITE_BLOCK_COMPLETE': callWithEnv(MFAManager.writeComplete),
+    'TOTP_REMOVE_BLOCK': callWithEnv(MFAManager.removeCheck),
+    'TOTP_REMOVE_BLOCK_COMPLETE': callWithEnv(MFAManager.removeComplete),
+
+    // Block commands from other storages
+    'BLOCK_CHECK': blockCheckHandler,
+    'BLOCK_GET_MFA': callWithEnv(MFAManager.getMFA),
+    'SESSIONS_CMD': callWithEnv(MFAManager.sessionsCmd),
+    'USER_REGISTRY_CMD': callWithEnv(MFAManager.userRegistryCmd),
+    'INVITATION_CMD': callWithEnv(MFAManager.invitationCmd),
+
 };
 
 const initWorkerCommands = () => {

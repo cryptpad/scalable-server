@@ -431,6 +431,27 @@ const onGetRegisteredUsers = (args, cb, extra) => {
     StorageCommands.getRegisteredUsers(Env, cb);
 };
 
+const onBlockCheck = (args, cb, extra) => {
+    if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
+    StorageCommands.onBlockCheck(Env, args, cb);
+};
+const onGetMFA = (args, cb, extra) => {
+    if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
+    StorageCommands.onGetMFA(Env, args, cb);
+};
+const onSessionsCommand = (args, cb, extra) => {
+    if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
+    StorageCommands.onSessionsCommand(Env, args, cb);
+};
+const onUserRegistryCommand = (args, cb, extra) => {
+    if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
+    StorageCommands.onUserRegistryCommand(Env, args, cb);
+};
+const onInvitationCommand = (args, cb, extra) => {
+    if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
+    StorageCommands.onInvitationCommand(Env, args, cb);
+};
+
 const onHttpCommand = (args, cb, extra) => {
     if (!isWsCmd(extra.from)) { return void cb('UNAUTHORIZED'); }
     AuthCommands.handle(Env, args, cb);
@@ -586,6 +607,12 @@ let startServers = function(config) {
         'GET_TOTAL_SIZE': onGetTotalSize,
         'GET_CHANNELS_TOTAL_SIZE': onGetChannelsTotalSize,
         'GET_REGISTERED_USERS': onGetRegisteredUsers,
+
+        'BLOCK_CHECK': onBlockCheck,
+        'BLOCK_GET_MFA': onGetMFA,
+        'SESSIONS_CMD': onSessionsCommand,
+        'USER_REGISTRY_CMD': onUserRegistryCommand,
+        'INVITATION_CMD': onInvitationCommand,
     };
     queriesToStorage.forEach(function(command) {
         COMMANDS[command] = wsToStorage(command);
