@@ -145,7 +145,7 @@ Block.check = function (Env, publicKey, _cb, noRedirect) { // 'check' because 'e
 
     const storageId = Env.getStorageId(publicKey);
     if (storageId !== Env.myId && !noRedirect) {
-        const coreId = Env.getStorageId(publicKey);
+        const coreId = Env.getCoreId(publicKey);
         return Env.interface.sendQuery(coreId, 'BLOCK_CHECK', {
             blockId: publicKey
         }, res => { cb(res.error, res.data); });

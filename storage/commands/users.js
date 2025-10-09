@@ -19,7 +19,7 @@ Users.add = (Env, edPublic, data, adminKey, _cb, noRedirect) => {
 
     const storageId = Env.getStorageId(edPublic);
     if (storageId !== Env.myId && !noRedirect) {
-        const coreId = Env.getStorageId(edPublic);
+        const coreId = Env.getCoreId(edPublic);
         return Env.interface.sendQuery(coreId, 'USER_REGISTRY_CMD', {
             cmd: 'ADD',
             edPublic,
@@ -41,7 +41,7 @@ Users.delete = (Env, id, _cb, noRedirect) => {
 
     const storageId = Env.getStorageId(id);
     if (storageId !== Env.myId && !noRedirect) {
-        const coreId = Env.getStorageId(id);
+        const coreId = Env.getCoreId(id);
         return Env.interface.sendQuery(coreId, 'USER_REGISTRY_CMD', {
             cmd: 'DELETE',
             edPublic: id
@@ -93,7 +93,7 @@ Users.checkUpdate = (Env, userData, newBlock, cb, noRedirect) => {
 
     const storageId = Env.getStorageId(edPublic);
     if (storageId !== Env.myId && !noRedirect) {
-        const coreId = Env.getStorageId(edPublic);
+        const coreId = Env.getCoreId(edPublic);
         return Env.interface.sendQuery(coreId, 'USER_REGISTRY_CMD', {
             cmd: 'CHECK_UPDATE',
             edPublic,

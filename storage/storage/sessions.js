@@ -34,7 +34,7 @@ Sessions.randomId = () => Util.encodeBase64(Crypto.randomBytes(24)).replace(/\//
 Sessions.read = (Env, id, ref, cb, noRedirect) => {
     const storageId = Env.getStorageId(id);
     if (storageId !== Env.myId && !noRedirect) {
-        const coreId = Env.getStorageId(id);
+        const coreId = Env.getCoreId(id);
         return Env.interface.sendQuery(coreId, 'SESSIONS_CMD', {
             cmd: 'READ',
             blockId: id,
@@ -54,7 +54,7 @@ Sessions.write = (Env, id, ref, data, cb) => {
 Sessions.delete = (Env, id, ref, cb, noRedirect) => {
     const storageId = Env.getStorageId(id);
     if (storageId !== Env.myId && !noRedirect) {
-        const coreId = Env.getStorageId(id);
+        const coreId = Env.getCoreId(id);
         return Env.interface.sendQuery(coreId, 'SESSIONS_CMD', {
             cmd: 'DELETE',
             blockId: id,

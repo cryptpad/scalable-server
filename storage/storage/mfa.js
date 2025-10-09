@@ -34,7 +34,7 @@ const pathFromId = (Env, id) => {
 MFA.read = (Env, id, cb, noRedirect) => {
     const storageId = Env.getStorageId(id);
     if (storageId !== Env.myId && !noRedirect) {
-        const coreId = Env.getStorageId(id);
+        const coreId = Env.getCoreId(id);
         return Env.interface.sendQuery(coreId, 'BLOCK_GET_MFA', {
             blockId: id
         }, res => { cb(res.error, res.data); });

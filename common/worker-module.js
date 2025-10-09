@@ -140,6 +140,7 @@ const init = workerConfig => {
             if (drained) {
                 drained = false;
                 Log.warn('WORKER_QUEUE_BACKLOG', {
+                    node: Env.myId,
                     workers: workers.length,
                 });
             }

@@ -159,7 +159,7 @@ let communicationManager = function(ctx) {
         let dest = findDestFromId(ctx, destId);
         if (!dest) {
             // XXX: handle this more properly: timeout?
-            console.log("Error: dest", destId, "not found in ctx.");
+            console.log("Error: dest", destId, "not found in ctx.", ctx.myId);
             return false;
         }
 
@@ -178,7 +178,7 @@ let communicationManager = function(ctx) {
         let dest = findDestFromId(ctx, destId);
         if (!dest) {
             // XXX: handle this more properly: timeout?
-            console.log("Error: dest", destId, "not found in ctx.");
+            console.log("Error: dest", destId, "not found in ctx.", ctx.myId);
             return false;
         }
 
