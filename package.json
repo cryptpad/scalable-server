@@ -9,7 +9,6 @@
     "fs-extra": "^7.0.0",
     "http-proxy-middleware": "^3.0.3",
     "minimist": "^1.2.8",
-    "notp": "^2.0.3",
     "nthen": "0.1.8",
     "otpauth": "^9.4.1",
     "pull-stream": "^3.6.1",
