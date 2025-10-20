@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2025 XWiki CryptPad Team <contact@cryptpad.org> and contributors
 const Util = require("./common-util.js");
-const B32 = require("thirty-two");
-const OTP = require("notp");
+const OTP = require("otpauth");
 const nThen = require("nthen");
 const Core = require("../common/core");
 
@@ -42,22 +41,6 @@ const isValidRecoveryKey = otp => {
 // any attempt relying on this should fail when we can't decode
 // the id they provided.
 const isValidBlockId = Core.isValidBlockId;
-
-// the base32 library can throw when decoding under various conditions.
-// we have some basic requirements for the length of base32 as well,
-// so we just do all the validation here. It either returns a buffer
-// of length 20 or undefined, so the caller can just check whether it's
-// falsey and otherwise assume it was well-formed
-// Length === 20 comes from the recommendation of 160 bits of entropy
-// in RFC4226 (https://www.rfc-editor.org/rfc/rfc4226#section-4)
-const decode32 = S => {
-    let decoded;
-    try {
-        decoded = B32.decode(S);
-    } catch (err) { return; }
-    if (!(decoded instanceof Buffer) || decoded.length !== 20) { return; }
-    return decoded;
-};
 
 // Create a session with a token for the given public key
 const makeSession = (Env, publicKey, oldKey, ssoSession, cb) => {
@@ -139,23 +122,16 @@ const readMFA = (Env, publicKey, cb) => {
 const checkCode = (Env, secret, code, publicKey, _cb) => {
     const cb = Util.mkAsync(_cb);
 
-    let decoded = decode32(secret);
-    if (!decoded) {
-        Env.Log.error("TOTP_VALIDATE_INVALID_SECRET", {
-            publicKey, // log the public key so the admin can investigate further
-            // don't log the problematic secret directly as
-            // logs are likely to be pasted in random places
-        });
-        return void cb("E_INVALID_SECRET");
-    }
-
-    // validate the code
-    let validated = OTP.totp.verify(code, decoded, {
-        window: 1,
+    let totp = new OTP.TOTP({
+        secret
     });
 
-    if (!validated) {
-        // I won't worry about logging these OTPs as they shouldn't leak any useful information
+    let validated = totp.validate({
+        token: code,
+        window: 1
+    });
+
+    if (![-1,0,1].includes(validated)) {
         Env.Log.error("TOTP_VALIDATE_BAD_OTP", {
             code,
         });
@@ -223,10 +199,6 @@ MFAManager.setupCheck = (Env, body, cb) => {
         return void cb("INVALID_KEY");
     }
 
-    // decode32 checks whether the secret decodes to a sufficiently long buffer
-    let decoded = decode32(secret);
-    if (!decoded) { return void cb('INVALID_SECRET'); }
-
     // Reject attempts to setup TOTP if a record of their preferences already exists
     MFA.read(Env, publicKey, (err) => {
         // There **should be** an error here, because anything else
@@ -241,11 +213,7 @@ MFAManager.setupCheck = (Env, body, cb) => {
             // allow for 30s of clock drift in either direction
             // returns an object ({ delta: 0 }) indicating the amount of clock drift
             // if successful, otherwise `null`
-            let validated = OTP.totp.verify(code, decoded, {
-                window: 1,
-            });
-            if (!validated) { return void cb("INVALID_OTP"); }
-            cb();
+            return void checkCode(Env, secret, code, publicKey, cb)
         } catch (err2) {
             Env.Log.error('TOTP_SETUP_VERIFICATION_ERROR', {
                 error: err2,

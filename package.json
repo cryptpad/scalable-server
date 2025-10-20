@@ -11,11 +11,11 @@
     "minimist": "^1.2.8",
     "notp": "^2.0.3",
     "nthen": "0.1.8",
+    "otpauth": "^9.4.1",
     "pull-stream": "^3.6.1",
     "saferphore": "0.0.1",
     "sodium-native": "^4.1.1",
     "stream-to-pull-stream": "^1.7.2",
-    "thirty-two": "^1.0.2",
     "tweetnacl": "^1.0.3",
     "tweetnacl-util": "^0.15.1",
     "ws": "^8.17.1"
