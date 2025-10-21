@@ -447,9 +447,9 @@ Pinning.getRegisteredUsers = (Env, cb) => {
         return void computeRegisteredUsers(Env, cb);
     }
 
-    const users = 0;
+    let users = 0;
     const onResult = (err, value) => {
-        if (err || typeof(value) !== "number") {
+        if (err || typeof(value?.users) !== "number") {
             Env.Log.error("GET_REGISTERED_USERS_ERR", err);
             return;
         }

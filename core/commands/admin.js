@@ -1,6 +1,73 @@
 const Util = require('../../common/common-util.js');
+const Keys = require("../../common/keys");
+
+const config = require("../../config/config.json");
 
 const Admin = {};
+
+// CryptPad_AsyncStore.rpc.send('ADMIN', ['GET_WORKER_PROFILES'], console.log)
+const getWorkerProfiles = function (Env, _publicKey, _data, cb) {
+    cb(void 0, Env.commandTimers);
+};
+
+
+const getInvitations = (Env, _publicKey, _data, cb) => {
+    Env.interface.broadcast('storage', 'GET_INVITATIONS', {}, res => {
+        const invitations =
+            res.map(obj => {
+                if (obj.err) { return []; }
+                return obj.data;
+            }).reduce((acc, it) => Object.assign(acc, it), {});
+        cb(void 0, invitations);
+    });
+};
+var createInvitation = (Env, publicKey, data, cb) => {
+    return cb('E_NOT_IMPLEMENTED');
+    // const args = Array.isArray(data) && data[1];
+    // if (!args || typeof(args) !== 'object') { return void cb("EINVAL"); }
+    // Invitation.create(Env, args.alias, args.email, cb, publicKey);
+};
+var deleteInvitation = (Env, _publicKey, data, cb) => {
+    return cb('E_NOT_IMPLEMENTED');
+    // var id = Array.isArray(data) && data[1];
+    // Invitation.delete(Env, id, cb);
+};
+
+
+// CryptPad_AsyncStore.rpc.send('ADMIN', ['GET_ACTIVE_SESSIONS'], console.log)
+var getActiveSessions = function (_Env, _publicKey, _data, cb) {
+    return cb('E_NOT_IMPLEMENTED');
+    // XXX to check later
+
+    // var stats = Server.getSessionStats();
+    // cb(void 0, [
+    //     stats.total,
+    //     stats.unique
+    // ]);
+};
+
+var getActiveChannelCount = (_Env, _publicKey, _data, cb) => {
+    return cb('E_NOT_IMPLEMENTED');
+};
+
+
+const getRegisteredUsers = (Env, _publicKey, _data, cb) => {
+    // XXX: possible to avoid a back and forth
+    Env.interface.sendQuery('storage:0', 'GET_REGISTERED_USERS', null, response => {
+        cb(response.error, response.data);
+    });
+};
+
+const getFileDescriptorCount = (Env, _publicKey, _data , cb) => {
+    let fdCount = 0;
+    Env.interface.broadcast('storage', 'GET_FILE_DESCRIPTOR_COUNT', {}, res => {
+        res.forEach(obj => {
+            if (obj.error) { return; }
+            fdCount += obj.data;
+        });
+        cb(void 0, fdCount);
+    });
+};
 
 // CryptPad_AsyncStore.rpc.send('ADMIN', [ 'ADMIN_DECREE', ['RESTRICT_REGISTRATION', [true]]], console.log)
 Admin.sendDecree = (Env, publicKey, data, cb) => {
@@ -57,9 +124,120 @@ const checkTestDecree = (Env, publicKey, data, cb) => {
     cb(void 0, Env.testDecreeValue);
 };
 
+// CryptPad_AsyncStore.rpc.send('ADMIN', ['INSTANCE_STATUS'], console.log)
+const getAdminsData = (Env) => {
+    return Env.adminsData?.map(str => {
+        // str is either a full public key or just the ed part
+        const edPublic = Keys.canonicalize(str);
+        const hardcoded = Array.isArray(config?.options?.adminKeys) &&
+                config.options.adminKeys.some(key => {
+                    return Keys.canonicalize(key) === edPublic;
+                });
+        if (str.length === 44) {
+            return { edPublic, first: true, hardcoded };
+        }
+        let name;
+        try {
+            const parsed = Keys.parseUser(str);
+            name = parsed.user;
+        } catch (e) {}
+        return {
+            edPublic, hardcoded, name
+        };
+    });
+};
+
+const instanceStatus = (Env, _publicKey, _data, cb) => {
+
+    cb(void 0, {
+
+        appsToDisable: Env.appsToDisable,
+        restrictRegistration: Env.restrictRegistration,
+        restrictSsoRegistration: Env.restrictSsoRegistration,
+        dontStoreSSOUsers: Env.dontStoreSSOUsers,
+        dontStoreInvitedUsers: Env.dontStoreInvitedUsers,
+
+        enableEmbedding: Env.enableEmbedding,
+        launchTime: Env.launchTime,
+        currentTime: +new Date(),
+
+        inactiveTime: Env.inactiveTime,
+        accountRetentionTime: Env.accountRetentionTime,
+        archiveRetentionTime: Env.archiveRetentionTime,
+
+        defaultStorageLimit: Env.defaultStorageLimit,
+
+        lastEviction: Env.lastEviction,
+        evictionReport: Env.evictionReport,
+
+        disableIntegratedEviction: Env.disableIntegratedEviction,
+        disableIntegratedTasks: Env.disableIntegratedTasks,
+
+        enableProfiling: Env.enableProfiling,
+        profilingWindow: Env.profilingWindow,
+
+        maxUploadSize: Env.maxUploadSize,
+        premiumUploadSize: Env.premiumUploadSize,
+
+        consentToContact: Env.consentToContact,
+        listMyInstance: Env.listMyInstance,
+        provideAggregateStatistics: Env.provideAggregateStatistics,
+
+        removeDonateButton: Env.removeDonateButton,
+        blockDailyCheck: Env.blockDailyCheck,
+
+        updateAvailable: Env.updateAvailable,
+        instancePurpose: Env.instancePurpose,
+
+        instanceDescription: Env.instanceDescription,
+        instanceJurisdiction: Env.instanceJurisdiction,
+        instanceName: Env.instanceName,
+        instanceNotice: Env.instanceNotice,
+        enforceMFA: Env.enforceMFA,
+
+        admins: getAdminsData(Env)
+    });
+};
+
+// CryptPad_AsyncStore.rpc.send('ADMIN', ['GET_LIMITS'], console.log)
+const getLimits = (Env, _publicKey, _data, cb) => {
+    cb(void 0, Env.limits);
+};
+
+const getKnownUsers = (Env, _publicKey, _data, cb) => {
+    Env.interface.broadcast('storage', 'GET_USERS', {}, res => {
+        const knownUsers = res.map(obj => {
+            if (obj.error) { return ; }
+            return obj.data;
+        }).reduce((acc, it) => Object.assign(acc, it), {});
+        cb(void 0, knownUsers);
+    });
+};
+
+const getModerators = (Env, _publicKey, _data, cb) => {
+    cb(void 0, Env.moderators);
+};
+
 const commands = {
+    ACTIVE_SESSIONS: getActiveSessions,
+    ACTIVE_PADS: getActiveChannelCount,
+    REGISTERED_USERS: getRegisteredUsers,
+    GET_FILE_DESCRIPTOR_COUNT: getFileDescriptorCount,
+
     CHECK_TEST_DECREE: checkTestDecree,
-    ADMIN_DECREE: Admin.sendDecree
+    ADMIN_DECREE: Admin.sendDecree,
+    INSTANCE_STATUS: instanceStatus,
+    GET_LIMITS: getLimits,
+
+    GET_WORKER_PROFILES: getWorkerProfiles,
+
+    GET_ALL_INVITATIONS: getInvitations,
+    CREATE_INVITATION: createInvitation,
+    DELETE_INVITATION: deleteInvitation,
+
+    GET_ALL_USERS: getKnownUsers,
+
+    GET_MODERATORS: getModerators,
 };
 
 Admin.command = (Env, safeKey, data, _cb) => {
