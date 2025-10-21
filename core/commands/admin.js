@@ -48,6 +48,7 @@ var getActiveSessions = function (_Env, _publicKey, _data, cb) {
 
 var getActiveChannelCount = (_Env, _publicKey, _data, cb) => {
     return cb('E_NOT_IMPLEMENTED');
+    // cb(void 0, Server.getActiveChannelCount());
 };
 
 
