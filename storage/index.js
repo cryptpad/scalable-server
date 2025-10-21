@@ -309,7 +309,7 @@ const getChannelsTotalSizeHandler = (channels, cb) => {
     Pinning.getChannelsTotalSize(Env, channels, cb, true);
 };
 const getRegisteredUsersHandler = (args, cb) => {
-    Pinning.getRegisteredUsers(Env, cb);
+    Pinning.getRegisteredUsers(Env, cb, args.noRedirect);
 };
 
 const setMetadataHandler = (args, cb) => {

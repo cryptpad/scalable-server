@@ -53,9 +53,13 @@ var getActiveChannelCount = (_Env, _publicKey, _data, cb) => {
 
 
 const getRegisteredUsers = (Env, _publicKey, _data, cb) => {
-    // XXX: possible to avoid a back and forth
-    Env.interface.sendQuery('storage:0', 'GET_REGISTERED_USERS', null, response => {
-        cb(response.error, response.data);
+    let users = 0;
+    Env.interface.broadcast('storage', 'GET_REGISTERED_USERS', { noRedirect: true }, res => {
+        res.forEach(obj => {
+            if (obj.error) { return; }
+            users += obj.data?.users;
+        });
+        cb(void 0, { users });
     });
 };
 
