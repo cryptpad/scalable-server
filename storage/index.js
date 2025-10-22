@@ -64,6 +64,7 @@ const Env = {
     batchTotalSize: BatchRead('GET_TOTAL_SIZE'),
     batchRegisteredUsers: BatchRead("GET_REGISTERED_USERS"),
     batchAccountQuery: BatchRead("QUERY_ACCOUNT_SERVER"),
+    batchDiskUsage: BatchRead('GET_DISK_USAGE'),
     selfDestructTo: {},
     blobstage: {} // Store file streams to write blobs
 };
@@ -451,6 +452,7 @@ let COMMANDS = {
     'GET_FILE_DESCRIPTOR_COUNT': callWithEnv(Admin.getFileDescriptorCount),
     'GET_INVITATIONS': callWithEnv(Invitation.getInvitations),
     'GET_USERS': callWithEnv(Admin.getKnownUsers),
+    'GET_DISK_USAGE': callWithEnv(Admin.getDiskUsage),
 };
 
 const initWorkerCommands = () => {

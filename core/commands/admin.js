@@ -51,6 +51,24 @@ var getActiveChannelCount = (_Env, _publicKey, _data, cb) => {
     // cb(void 0, Server.getActiveChannelCount());
 };
 
+const getDiskUsage = (Env, _publicKey, _data, cb) => {
+    const sumDiskUsage = (acc, it) => {
+        for (const key in it) {
+            if (!acc[key]) { acc[key] = 0; }
+            acc[key] += it[key];
+        }
+        return acc;
+    };
+    let totalDiskUsage = {};
+    Env.interface.broadcast('storage', 'GET_DISK_USAGE', {}, res => {
+        totalDiskUsage = res.map(obj => {
+            if (obj.error) { return; }
+            return obj.data;
+        }).reduce(sumDiskUsage, {});
+        cb(void 0, totalDiskUsage);
+    });
+};
+
 
 const getRegisteredUsers = (Env, _publicKey, _data, cb) => {
     let users = 0;
@@ -227,6 +245,7 @@ const commands = {
     ACTIVE_SESSIONS: getActiveSessions,
     ACTIVE_PADS: getActiveChannelCount,
     REGISTERED_USERS: getRegisteredUsers,
+    DISK_USAGE: getDiskUsage,
     GET_FILE_DESCRIPTOR_COUNT: getFileDescriptorCount,
 
     CHECK_TEST_DECREE: checkTestDecree,
