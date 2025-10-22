@@ -25,22 +25,22 @@ Admin.getDiskUsage = (Env, _args, cb) => {
     Env.batchDiskUsage('', cb, function (done) {
         var data = {};
         nThen(function (waitFor) {
-            getFolderSize('./', waitFor(function(err, info) {
+            getFolderSize('./', waitFor(function(_err, info) {
                 data.total = info;
             }));
-            getFolderSize(Env.paths.pin, waitFor(function(err, info) {
+            getFolderSize(Env.paths.pin, waitFor(function(_err, info) {
                 data.pin = info;
             }));
-            getFolderSize(Env.paths.blob, waitFor(function(err, info) {
+            getFolderSize(Env.paths.blob, waitFor(function(_err, info) {
                 data.blob = info;
             }));
-            getFolderSize(Env.paths.staging, waitFor(function(err, info) {
+            getFolderSize(Env.paths.staging, waitFor(function(_err, info) {
                 data.blobstage = info;
             }));
-            getFolderSize(Env.paths.block, waitFor(function(err, info) {
+            getFolderSize(Env.paths.block, waitFor(function(_err, info) {
                 data.block = info;
             }));
-            getFolderSize(Env.paths.data, waitFor(function(err, info) {
+            getFolderSize(Env.paths.data, waitFor(function(_err, info) {
                 data.datastore = info;
             }));
         }).nThen(function () {
