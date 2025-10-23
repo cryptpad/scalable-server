@@ -20,7 +20,6 @@
     "options": {
         "logFeedback": false,
         "adminKeys": [
-        ],
-        "accounts_api": "http://localhost:3002"
+        ]
     }
 }

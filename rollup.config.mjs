@@ -29,6 +29,8 @@ const getPlugins = () => {
         nodeResolve({
         }),
         commonjs({
+            ignoreDynamicRequires: true,
+            dynamicRequireTargets: ['../plugins/*.js'],
             ignore:['config/*.json', 'sodium-native', 'crypto', 'node:http', 'node:https'] // required by tweetnacl for node
         }),
     ];

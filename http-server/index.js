@@ -88,6 +88,7 @@ const initProxy = (Env, app, server, infra) => {
     app.use('/api/updatequota', quotaProxy);
 
     app.use('/cryptpad_websocket', wsProxy);
+    app.use('/extensions.js', httpProxy);
     app.use('/api', httpProxy);
     app.use('/ssoauth', httpProxy); // XXX check
 
@@ -121,15 +122,8 @@ const initHeaders = (Env, app) => {
     });
 };
 
-const initPlugins = (/*Env, app*/) => {
-    // XXX TODO plugins
-    /*
-    Object.keys(plugins || {}).forEach(name => {
-        let plugin = plugins[name];
-        if (!plugin.addHttpEndpoints) { return; }
-        plugin.addHttpEndpoints(Env, app);
-    });
-    */
+const initPlugins = (Env, app) => {
+    Env.plugins.call('addHttpEndpoints')(Env, app);
 };
 
 const initStatic = (Env, app) => {

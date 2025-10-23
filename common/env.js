@@ -7,6 +7,7 @@ const Default = require('../http-server/defaults');
 const DecreesCore = require('./decrees-core');
 const AdminDecrees = require('./admin-decrees');
 const { jumpConsistentHash } = require('./consistent-hash');
+const plugins = require('./plugin-manager');
 
 const isRecentVersion = function () {
     let R = Default.recommendedVersion;
@@ -35,6 +36,8 @@ const init = (Env, mainConfig) => {
 
     Env.adminDecrees = DecreesCore.create(Constants.adminDecree,
                                           AdminDecrees);
+    // XXX enable other decrees here?
+
     Env.myId = mainConfig.myId;
 
     Env.clientRoot = config?.clientRoot || '../cryptpad';
@@ -158,12 +161,6 @@ const init = (Env, mainConfig) => {
     // XXX plugins
     // plugins can includes custom Env values
 
-    // XXX ACCOUNTS
-    Env.accounts_api = config.accounts_api; // XXX move to plugin
-    let acc_domain = new URL(Env.httpUnsafeOrigin);
-    Env.accounts_domain = acc_domain.host;
-
-    // XXX curve keys for form deletion
     // XXX enforceMFA
 
     Env.onlyOffice = false; // XXX TODO OO
@@ -171,6 +168,9 @@ const init = (Env, mainConfig) => {
     Env.shouldUpdateNode = !isRecentVersion();
 
     Env.paths = Core.getPaths(mainConfig, true);
+
+    Env.plugins = plugins;
+    plugins.call('customizeEnv')(Env);
 
     return Env;
 };

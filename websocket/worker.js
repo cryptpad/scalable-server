@@ -197,6 +197,37 @@ app.get('/api/config', serveConfig);
 app.get('/api/broadcast', serveBroadcast);
 app.get('/api/instance', serveInstance);
 
+const servePlugins = Env => {
+    const plugins = Env.plugins;
+    let extensions = plugins._extensions;
+    let styles = plugins._styles;
+    let str = JSON.stringify(extensions);
+    let str2 = JSON.stringify(styles);
+    let js = `let extensions = ${str};
+let styles = ${str2};
+let lang = window.cryptpadLanguage;
+let paths = [];
+extensions.forEach(name => {
+    paths.push(\`optional!/\${name}/extensions.js\`);
+    paths.push(\`optional!json!/\${name}/translations/messages.json\`);
+    const l = lang === "en" ? '' : \`\${lang}.\`;
+    paths.push(\`optional!json!/\${name}/translations/messages.\${l}json\`);
+});
+styles.forEach(name => {
+    paths.push(\`optional!less!/\${name}/style.less\`);
+});
+define(paths, function () {
+    let args = Array.prototype.slice.apply(arguments);
+    return args;
+}, function () {
+    // ignore missing files
+});`;
+    app.get('/extensions.js', (req, res) => {
+        res.setHeader('Content-Type', 'text/javascript');
+        res.send(js);
+    });
+};
+
 app.get('/api/profiling', (/*req, res*/) => {
     // XXX
     // XXX Env.enableProfiling, Env.profilingWindow
@@ -235,6 +266,7 @@ const init = (config, cb) => {
     Env.Log = Logger();
 
     Environment.init(Env, config);
+    servePlugins(Env);
 
     const cfg = config?.infra?.websocket[config.index];
     const server = Http.createServer(app);
