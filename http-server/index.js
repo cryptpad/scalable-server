@@ -193,7 +193,8 @@ const initStatic = (Env, app) => {
 };
 
 const onNewDecrees = (Env, args, cb) => {
-    Env.adminDecrees.loadRemote(Env, args.decrees);
+    const { type, decrees } = args;
+    Env.getDecree(type).loadRemote(Env, decrees);
     cb();
 };
 

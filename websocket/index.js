@@ -432,11 +432,14 @@ const sendChannelMessage = (Env, args) => { // Event
 };
 
 const onNewDecrees = (Env, args, cb) => {
-    Array.prototype.push.apply(Env.allDecrees, args.decrees);
-    Env.FRESH_KEY = args.freshKey;
-    Env.curveKeys = args.curveKeys;
-    Env.adminDecrees.loadRemote(Env, args.decrees);
-    Env.workers.broadcast('NEW_DECREES', args, () => {
+    const { type, decrees, curveKeys, freshKey } = args;
+    Env.cacheDecrees(type, decrees);
+    Env.FRESH_KEY = freshKey;
+    Env.curveKeys = curveKeys;
+    Env.getDecree(type).loadRemote(Env, decrees);
+    Env.workers.broadcast('NEW_DECREES', {
+        type, decrees
+    }, () => {
         Env.Log.verbose('UPDATE_DECREE_WS_WORKER');
     });
     cb();
@@ -561,12 +564,15 @@ const initHttpCluster = (Env, config) => {
 
         Env.workers = WorkerModule(workerConfig);
         Env.workers.onNewWorker(state => {
-            Env.workers.sendTo(state, 'NEW_DECREES', {
-                decrees: Env.allDecrees,
-                curveKeys: Env.curveKeys,
-                freshKey: Env.FRESH_KEY
-            }, () => {
-                Env.Log.verbose('UPDATE_DECREE_WS_WORKER');
+            Object.keys(Env.allDecrees).forEach(type => {
+                const decrees = Env.allDecrees[type];
+                Env.workers.sendTo(state, 'NEW_DECREES', {
+                    curveKeys: Env.curveKeys,
+                    freshKey: Env.FRESH_KEY,
+                    decrees, type
+                }, () => {
+                    Env.Log.verbose('UPDATE_DECREE_WS_WORKER');
+                });
             });
         });
     });
@@ -590,7 +596,6 @@ const start = (config) => {
         Log: Logger(),
         active: true,
         users: {},
-        allDecrees: [],
         config: interfaceConfig,
         public: server?.public?.websocket?.[index],
     };

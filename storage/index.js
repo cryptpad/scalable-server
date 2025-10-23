@@ -51,7 +51,6 @@ const Env = {
     pin_cache: {},
     cache_checks: {},
     intervals: {},
-    allDecrees: [],
     queueStorage: WriteQueue(),
     queueValidation: WriteQueue(),
     queueMetadata: WriteQueue(),
@@ -267,10 +266,13 @@ const dropUserHandler = (args, cb) => {
 };
 
 const newDecreeHandler = (args, cb) => { // bcast from core:0
-    Env.adminDecrees.loadRemote(Env, args.decrees);
-    if (args.curveKeys) { Env.curveKeys = args.curveKeys; }
-    Array.prototype.push.apply(Env.allDecrees, args.decrees);
-    Env.workers.broadcast('NEW_DECREES', args.decrees, () => {
+    const { type, decrees, curveKeys } = args;
+    Env.getDecree(type).loadRemote(Env, decrees);
+    Env.cacheDecrees(type, decrees);
+    if (curveKeys) { Env.curveKeys = curveKeys; }
+    Env.workers.broadcast('NEW_DECREES', {
+        type, decrees
+    }, () => {
         Env.Log.verbose('UPDATE_DECREE_STORAGE_WORKER');
     });
     cb();
@@ -289,7 +291,7 @@ const accountsLimitsHandler = (args, cb) => { // sent from UI
 /* RPC commands */
 
 const adminDecreeHandler = (decree, cb) => { // sent from UI
-    Decrees.onNewDecree(Env, decree, cb);
+    Decrees.onNewDecree(Env, decree, '', cb);
 };
 const getFileSizeHandler = (channel, cb) => {
     Pinning.getFileSize(Env, channel, cb);
@@ -576,6 +578,17 @@ const initHttpServer = (Env, config, _cb) => {
     });
 };
 
+const onInitialized = (Env, _cb) => {
+    const cb = Util.mkAsync(_cb);
+
+    nThen(waitFor => {
+        Env.plugins.call('initStorage')(Env, waitFor);
+    }).nThen(() => {
+        cb();
+    });
+
+};
+
 // Connect to core
 let start = function(config) {
     const { myId, index, infra, server } = config;
@@ -600,17 +613,21 @@ let start = function(config) {
         curvePublic: Util.encodeBase64(curve.publicKey),
         curvePrivate: Util.encodeBase64(curve.secretKey)
     };
-    Env.sendDecrees = (decrees, _cb) => {
+    Env.sendDecrees = (decrees, type, _cb) => {
         const cb = Util.mkAsync(_cb || function () {});
         const freshKey = String(+new Date());
-        Array.prototype.push.apply(Env.allDecrees, decrees);
+        Env.cacheDecrees(type, decrees);
         nThen(waitFor => {
             Env.interface.broadcast('core', 'NEW_DECREES', {
                 freshKey,
                 curveKeys,
-                decrees
+                decrees,
+                type
             }, waitFor());
-            Env.workers.broadcast('NEW_DECREES', decrees, waitFor(() => {
+            Env.workers.broadcast('NEW_DECREES', {
+                decrees,
+                type
+            }, waitFor(() => {
                 Env.Log.verbose('UPDATE_DECREE_STORAGE_WORKER');
             }));
             curveKeys = undefined;
@@ -691,10 +708,13 @@ let start = function(config) {
         };
         Env.workers = WorkerModule(workerConfig);
         Env.workers.onNewWorker(state => {
-            if (!Env.allDecrees.length) { return; }
-            Env.workers.sendTo(state, 'NEW_DECREES', Env.allDecrees,
-                () => {
-                Env.Log.verbose('UPDATE_DECREE_STORAGE_WORKER');
+            Object.keys(Env.allDecrees).forEach(type => {
+                const decrees = Env.allDecrees[type];
+                Env.workers.sendTo(state, 'NEW_DECREES', {
+                    decrees, type
+                }, () => {
+                    Env.Log.verbose('UPDATE_DECREE_STORAGE_WORKER');
+                });
             });
         });
         initWorkerCommands();
@@ -723,10 +743,12 @@ let start = function(config) {
                 return Env.Log.error('DECREES_LOADING_ERROR', err);
             }
 
-            Env.sendDecrees(toSend);
+            Env.sendDecrees(toSend, '');
         }));
+    }).nThen(waitFor => {
+        onInitialized(Env, waitFor());
     }).nThen(() => {
-        // INSTALL TOKEN (storage:0 only)
+        // INSTALL TOKEN admin decree (storage:0 only)
         if (index !== 0) { return; }
 
         let admins = Env.admins || [];
@@ -749,7 +771,7 @@ let start = function(config) {
         token = Crypto.randomBytes(32).toString('hex');
 
         let decree = ["ADD_INSTALL_TOKEN",[token],"",+new Date()];
-        Decrees.onNewDecree(Env, decree, () => {
+        Decrees.onNewDecree(Env, decree, '', () => {
             printLink();
         });
     }).nThen(() => {

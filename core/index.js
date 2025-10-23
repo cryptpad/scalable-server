@@ -27,7 +27,6 @@ let Env = {
     queueValidation: WriteQueue(),
     Sessions: {},
     intervals: {},
-    allDecrees: []
 };
 
 const isWsCmd = id => {
@@ -474,18 +473,20 @@ const onWsCommand = command => {
 // and broadcast to all the other nodes
 const onNewDecrees = (args, cb, extra) => {
     if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
-    Env.FRESH_KEY = args.freshKey;
-    Env.curveKeys = args.curveKeys;
-    Env.adminDecrees.loadRemote(Env, args.decrees);
-    Array.prototype.push.apply(Env.allDecrees, args.decrees);
+    const { type, decrees, freshKey, curveKeys } = args;
+
+    Env.FRESH_KEY = freshKey;
+    Env.curveKeys = curveKeys;
+
+    Env.getDecree(type).loadRemote(Env, decrees);
+    Env.cacheDecrees(type, decrees);
+
     // core:0 also has to broadcast to all the websocket and storage
     // nodes
     nThen(waitFor => {
         if (Env.myId !== 'core:0') { return; }
         Env.interface.broadcast('websocket', 'NEW_DECREES', {
-            freshKey: args.freshKey,
-            curveKeys: args.curveKeys,
-            decrees: args.decrees
+            freshKey, curveKeys, type, decrees
         }, waitFor(values => {
             values.forEach(obj => {
                 if (!obj?.error) { return; }
@@ -495,9 +496,7 @@ const onNewDecrees = (args, cb, extra) => {
         }));
         const exclude = ['storage:0'];
         Env.interface.broadcast('storage', 'NEW_DECREES', {
-            freshKey: args.freshKey,
-            curveKeys: args.curveKeys,
-            decrees: args.decrees
+            freshKey, curveKeys, type, decrees
         }, waitFor(values => {
             values.forEach(obj => {
                 if (!obj?.error) { return; }
@@ -506,7 +505,7 @@ const onNewDecrees = (args, cb, extra) => {
             });
         }), exclude);
         Env.interface.sendQuery('http:0', 'NEW_DECREES', {
-            decrees: args.decrees
+            freshKey, curveKeys, type, decrees
         }, waitFor());
     }).nThen(() => {
         cb();
@@ -640,14 +639,16 @@ let startServers = function(config) {
     if (Env.myId !== 'core:0') { return; }
     Env.interface.onNewConnection(obj => {
         const id = `${obj.type}:${obj.index}`;
-        if (!Env.allDecrees.length) { return; }
         Env.interface.sendEvent(id, 'ACCOUNTS_LIMITS', {
             limits: Env.accountsLimits
         });
-        Env.interface.sendEvent(id, 'NEW_DECREES', {
-            curveKeys: Env.curveKeys,
-            freshKey: Env.FRESH_KEY,
-            decrees: Env.allDecrees
+        Object.keys(Env.allDecrees).forEach(type => {
+            const decrees = Env.allDecrees[type];
+            Env.interface.sendEvent(id, 'NEW_DECREES', {
+                curveKeys: Env.curveKeys,
+                freshKey: Env.FRESH_KEY,
+                type, decrees
+            });
         });
     });
 };

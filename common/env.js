@@ -66,6 +66,20 @@ const init = (Env, mainConfig) => {
         return 'core:' + id;
     };
 
+    Env.getDecree = type => {
+        return Env.plugins[type]?.getDecree(Env) || Env.adminDecrees;
+    };
+
+    Env.allDecrees = {};
+    Env.cacheDecrees = (type, decrees) => {
+        type ||= 'admin';
+        const cache = Env.allDecrees[type] ||= [];
+        Array.prototype.push.apply(cache, decrees);
+    };
+    Env.getCachedDecrees = () => {
+        return Env.allDecrees;
+    };
+
     // Network
     Env.httpUnsafeOrigin = publicConfig?.main?.origin;
     Env.httpSafeOrigin = publicConfig?.main?.sandboxOrigin;
