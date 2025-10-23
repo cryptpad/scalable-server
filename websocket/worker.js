@@ -230,6 +230,11 @@ COMMANDS.NEW_DECREES = (data, cb) => {
     cb();
 };
 
+COMMANDS.FLUSH_CACHE = (args, cb) => {
+    Env.FRESH_KEY = args.freshKey;
+    cb();
+};
+
 const init = (config, cb) => {
     Env.config = config;
     Env.Log = Logger();

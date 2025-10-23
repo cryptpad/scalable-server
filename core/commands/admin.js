@@ -51,6 +51,10 @@ var getActiveChannelCount = (_Env, _publicKey, _data, cb) => {
     // cb(void 0, Server.getActiveChannelCount());
 };
 
+const flushCache = (Env, _publicKey, _data, cb) => {
+    Env.interface.broadcast('websocket', 'FLUSH_CACHE', { freshKey: +new Date() }, () => { cb(void 0, true); });
+};
+
 const getDiskUsage = (Env, _publicKey, _data, cb) => {
     const sumDiskUsage = (acc, it) => {
         for (const key in it) {
@@ -68,7 +72,6 @@ const getDiskUsage = (Env, _publicKey, _data, cb) => {
         cb(void 0, totalDiskUsage);
     });
 };
-
 
 const getRegisteredUsers = (Env, _publicKey, _data, cb) => {
     let users = 0;
@@ -246,6 +249,7 @@ const commands = {
     ACTIVE_PADS: getActiveChannelCount,
     REGISTERED_USERS: getRegisteredUsers,
     DISK_USAGE: getDiskUsage,
+    FLUSH_CACHE: flushCache,
     GET_FILE_DESCRIPTOR_COUNT: getFileDescriptorCount,
 
     CHECK_TEST_DECREE: checkTestDecree,

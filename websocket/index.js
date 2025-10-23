@@ -449,6 +449,11 @@ const shutdown = (Env) => {
     delete Env.wss;
 };
 
+const flushCache = (Env, args, cb) => {
+    Env.FRESH_KEY = args.freshKey;
+    Env.workers.broadcast('FLUSH_CACHE', args, () => {cb();});
+};
+
 // Respond to WORKER commands
 
 const onHttpCommand = (Env, data, cb) => {
@@ -608,6 +613,7 @@ const start = (config) => {
         'SEND_USER_MESSAGE': callWithEnv(sendUserMessage),
         'SEND_CHANNEL_MESSAGE': callWithEnv(sendChannelMessage),
         'NEW_DECREES': callWithEnv(onNewDecrees),
+        'FLUSH_CACHE': callWithEnv(flushCache) ,
         'SHUTDOWN': callWithEnv(shutdown)
     };
 
