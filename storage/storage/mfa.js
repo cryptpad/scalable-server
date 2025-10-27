@@ -7,6 +7,7 @@ const Basic = require("../../common/storage/basic");
 const Util  = require("../../common/common-util");
 const Sessions = require("./sessions");
 const nThen = require("nthen");
+const Core = require("../../common/core");
 
 const MFA = module.exports;
 
@@ -34,10 +35,9 @@ const pathFromId = (Env, id) => {
 MFA.read = (Env, id, cb, noRedirect) => {
     const storageId = Env.getStorageId(id);
     if (storageId !== Env.myId && !noRedirect) {
-        const coreId = Env.getCoreId(id);
-        return Env.interface.sendQuery(coreId, 'BLOCK_GET_MFA', {
+        return Core.storageToStorage(Env, id, 'BLOCK_GET_MFA', {
             blockId: id
-        }, res => { cb(res.error, res.data); });
+        }, cb);
     }
 
     const path = pathFromId(Env, id);
