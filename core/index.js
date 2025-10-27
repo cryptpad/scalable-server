@@ -130,11 +130,11 @@ const dropChannelHandler = (args, cb, extra) => {
 };
 
 const sendChannelMessage = (users, message) => {
-    const sent = [];
+    const sent = new Set();
     (users || []).forEach(id => {
         const wsId = getWsId(id);
-        if (!wsId || sent.includes(wsId)) { return; }
-        sent.push(wsId);
+        if (!wsId || sent.has(wsId)) { return; }
+        sent.add(wsId);
         Env.interface.sendEvent(wsId, 'SEND_CHANNEL_MESSAGE', {
             users,
             message
@@ -149,26 +149,26 @@ const dropUser = (args, _cb, extra) => {
     const { channels, userId } = args;
     if (!userId || !Array.isArray(channels)) { return; }
 
-    const done = [];
-    const sent = [];
+    const done = new Set();
+    const sent = new Set();
     channels.forEach(channel => {
         // And tell storages to clear their memory
         const storageId = Env.getStorageId(channel);
-        if (sent.includes(storageId)) { return; }
-        sent.push(storageId);
+        if (sent.has(storageId)) { return; }
+        sent.add(storageId);
         Env.interface.sendQuery(storageId, 'DROP_USER', args, res => {
             if (res.error) { return; }
             const lists = res.data;
 
             Object.keys(lists).forEach(channel => {
-                if (done.includes(channel)) { return; }
+                if (done.has(channel)) { return; }
                 const users = lists[channel];
                 if (!users) { return; }
 
                 // For each channel, send LEAVE message
                 const message = [ 0, userId, 'LEAVE', channel ];
                 sendChannelMessage(users, message);
-                done.push(channel);
+                done.add(channel);
             });
         });
     });
@@ -430,25 +430,10 @@ const onGetRegisteredUsers = (args, cb, extra) => {
     StorageCommands.getRegisteredUsers(Env, cb);
 };
 
-const onBlockCheck = (args, cb, extra) => {
+const onStorageToStorage = (args, cb, extra) => {
     if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
-    StorageCommands.onBlockCheck(Env, args, cb);
-};
-const onGetMFA = (args, cb, extra) => {
-    if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
-    StorageCommands.onGetMFA(Env, args, cb);
-};
-const onSessionsCommand = (args, cb, extra) => {
-    if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
-    StorageCommands.onSessionsCommand(Env, args, cb);
-};
-const onUserRegistryCommand = (args, cb, extra) => {
-    if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
-    StorageCommands.onUserRegistryCommand(Env, args, cb);
-};
-const onInvitationCommand = (args, cb, extra) => {
-    if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
-    StorageCommands.onInvitationCommand(Env, args, cb);
+    const { id, cmd, data } = args;
+    Core.coreToStorage(Env, id, cmd, data, cb);
 };
 
 const onHttpCommand = (args, cb, extra) => {
@@ -607,11 +592,7 @@ let startServers = function(config) {
         'GET_CHANNELS_TOTAL_SIZE': onGetChannelsTotalSize,
         'GET_REGISTERED_USERS': onGetRegisteredUsers,
 
-        'BLOCK_CHECK': onBlockCheck,
-        'BLOCK_GET_MFA': onGetMFA,
-        'SESSIONS_CMD': onSessionsCommand,
-        'USER_REGISTRY_CMD': onUserRegistryCommand,
-        'INVITATION_CMD': onInvitationCommand,
+        'STORAGE_STORAGE': onStorageToStorage,
     };
     queriesToStorage.forEach(function(command) {
         COMMANDS[command] = wsToStorage(command);

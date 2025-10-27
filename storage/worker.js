@@ -491,11 +491,8 @@ const hashChannelList = (data, cb) => {
     if (!Array.isArray(channels)) {
         return void cb('INVALID_CHANNEL_LIST');
     }
-    const uniques = [];
 
-    channels.forEach(a => {
-        if (!uniques.includes(a)) { uniques.push(a); }
-    });
+    const uniques = Util.deduplicateString(channels);
     uniques.sort();
 
     // XXX Nacl.hash?

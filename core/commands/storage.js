@@ -6,11 +6,7 @@ const Pinning = require('../../storage/commands/pin');
 const StorageCommands = {};
 
 StorageCommands.getFileSize = (Env, channel, cb) => {
-    const storageId = Env.getStorageId(channel);
-    Env.interface.sendQuery(storageId, 'RPC_GET_FILE_SIZE', channel, res => {
-        if (res.error) { return void cb(res.error); }
-        cb(void 0, res.data);
-    });
+    Core.coreToStorage(Env, channel, 'RPC_GET_FILE_SIZE', channel, cb);
 };
 
 StorageCommands.getMultipleFileSize = (Env, channels, _cb) => {
@@ -37,21 +33,11 @@ StorageCommands.getMultipleFileSize = (Env, channels, _cb) => {
 };
 
 StorageCommands.getChannelList = (Env, safeKey, cb) => {
-    const storageId = Env.getStorageId(safeKey);
-    Env.interface.sendQuery(storageId, 'GET_CHANNEL_LIST', {
-        safeKey
-    }, response => {
-        cb(response.error, response.data);
-    });
+    Core.coreToStorage(Env, safeKey, 'GET_CHANNEL_LIST', { safeKey }, cb);
 };
 
 StorageCommands.getTotalSize = (Env, safeKey, cb) => {
-    const storageId = Env.getStorageId(safeKey);
-    Env.interface.sendQuery(storageId, 'GET_TOTAL_SIZE', {
-        safeKey
-    }, response => {
-        cb(response.error, response.data);
-    });
+    Core.coreToStorage(Env, safeKey, 'GET_TOTAL_SIZE', { safeKey }, cb);
 };
 
 StorageCommands.getChannelsTotalSize = (Env, channels, cb) => {
@@ -87,44 +73,6 @@ StorageCommands.getRegisteredUsers = (Env, cb) => {
 };
 
 StorageCommands.getLimit = Pinning.getLimit;
-
-StorageCommands.onBlockCheck = (Env, args, cb) => {
-    const storageId = Env.getStorageId(args.blockId);
-    Env.interface.sendQuery(storageId, 'BLOCK_CHECK', args, res => {
-        if (res.error) { return void cb(res.error); }
-        cb(void 0, res.data);
-    });
-};
-StorageCommands.onGetMFA = (Env, args, cb) => {
-    const storageId = Env.getStorageId(args.blockId);
-    Env.interface.sendQuery(storageId, 'BLOCK_GET_MFA', args, res => {
-        if (res.error) { return void cb(res.error); }
-        cb(void 0, res.data);
-    });
-};
-StorageCommands.onSessionsCommand = (Env, args, cb) => {
-    const storageId = Env.getStorageId(args.blockId);
-    Env.interface.sendQuery(storageId, 'SESSIONS_CMD', args, res => {
-        if (res.error) { return void cb(res.error); }
-        cb(void 0, res.data);
-    });
-};
-StorageCommands.onUserRegistryCommand = (Env, args, cb) => {
-    const storageId = Env.getStorageId(args.edPublic);
-    Env.interface.sendQuery(storageId, 'USER_REGISTRY_CMD', args, res => {
-        if (res.error) { return void cb(res.error); }
-        cb(void 0, res.data);
-    });
-};
-StorageCommands.onInvitationCommand = (Env, args, cb) => {
-    const storageId = Env.getStorageId(args.inviteToken);
-    Env.interface.sendQuery(storageId, 'INVITATION_CMD', args, res => {
-        if (res.error) { return void cb(res.error); }
-        cb(void 0, res.data);
-    });
-};
-
-
 
 
 module.exports = StorageCommands;

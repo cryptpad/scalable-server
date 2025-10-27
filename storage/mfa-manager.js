@@ -213,7 +213,7 @@ MFAManager.setupCheck = (Env, body, cb) => {
             // allow for 30s of clock drift in either direction
             // returns an object ({ delta: 0 }) indicating the amount of clock drift
             // if successful, otherwise `null`
-            return void checkCode(Env, secret, code, publicKey, cb)
+            return void checkCode(Env, secret, code, publicKey, cb);
         } catch (err2) {
             Env.Log.error('TOTP_SETUP_VERIFICATION_ERROR', {
                 error: err2,

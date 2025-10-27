@@ -7,6 +7,7 @@ const Invitation = module.exports;
 const Invite = require('../storage/invite');
 const Util = require("../common-util");
 const Users = require("./users");
+const Core = require("../../common/core");
 
 const getUid = () => {
     return Util.uid() + Util.uid() + Util.uid();
@@ -48,11 +49,10 @@ Invitation.check = (Env, id, _cb, noRedirect) => {
 
     const storageId = Env.getStorageId(id);
     if (storageId !== Env.myId && !noRedirect) {
-        const coreId = Env.getCoreId(id);
-        return Env.interface.sendQuery(coreId, 'INVITATION_CMD', {
+        return Core.storageToStorage(Env, id, 'INVITATION_CMD', {
             cmd: 'CHECK',
             inviteToken: id
-        }, res => { cb(res.error, res.data); });
+        }, cb);
     }
 
     Invite.read(Env, id, (err) => {
@@ -66,12 +66,11 @@ Invitation.use = (Env, id, blockId, userData, _cb, noRedirect) => {
 
     const storageId = Env.getStorageId(id);
     if (storageId !== Env.myId && !noRedirect) {
-        const coreId = Env.getCoreId(id);
-        return Env.interface.sendQuery(coreId, 'INVITATION_CMD', {
+        return Core.storageToStorage(Env, id, 'INVITATION_CMD', {
             cmd: 'USE',
             inviteToken: id,
             data: { blockId, userData }
-        }, res => { cb(res.error, res.data); });
+        }, cb);
     }
 
     Invite.read(Env, id, (err, _data) => {
