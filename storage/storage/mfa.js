@@ -7,6 +7,7 @@ const Basic = require("../../common/storage/basic");
 const Util  = require("../../common/common-util");
 const Sessions = require("./sessions");
 const nThen = require("nthen");
+const Core = require("../../common/core");
 
 const MFA = module.exports;
 

@@ -6,6 +6,7 @@ const Users = module.exports;
 
 const User = require('../storage/user');
 const Util = require("../common-util");
+const Core = require("../../common/core");
 
 Users.getAll = (Env, cb) => {
     User.getAll(Env, (err, data) => {

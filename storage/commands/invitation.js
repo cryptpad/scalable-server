@@ -7,6 +7,7 @@ const Invitation = module.exports;
 const Invite = require('../storage/invite');
 const Util = require("../common-util");
 const Users = require("./users");
+const Core = require("../../common/core");
 
 const getUid = () => {
     return Util.uid() + Util.uid() + Util.uid();

@@ -6,6 +6,7 @@ const Path = require("node:path");
 const Crypto = require('node:crypto');
 const Basic = require("../../common/storage/basic");
 const Util = require("../../common/common-util");
+const Core = require("../../common/core");
 
 const Sessions = module.exports;
 /*  This module manages storage for per-acccount session tokens - currently assumed to be

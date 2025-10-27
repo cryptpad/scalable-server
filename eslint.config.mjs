@@ -19,7 +19,7 @@ export default defineConfig([
         "no-empty": ["off"],
         "no-useless-escape": ["off"],
         "no-extra-boolean-cast": ["off"],
-        "no-prototype-builtins": ["off"],
+        "no-prototype-builtins": ["error"],
         "no-use-before-define": ["error"],
         "no-unused-vars": [
             "error",
