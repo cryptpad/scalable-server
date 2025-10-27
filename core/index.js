@@ -131,11 +131,11 @@ const dropChannelHandler = (args, cb, extra) => {
 };
 
 const sendChannelMessage = (users, message) => {
-    const sent = [];
+    const sent = new Set();
     (users || []).forEach(id => {
         const wsId = getWsId(id);
-        if (!wsId || sent.includes(wsId)) { return; }
-        sent.push(wsId);
+        if (!wsId || sent.has(wsId)) { return; }
+        sent.add(wsId);
         Env.interface.sendEvent(wsId, 'SEND_CHANNEL_MESSAGE', {
             users,
             message
@@ -150,26 +150,26 @@ const dropUser = (args, _cb, extra) => {
     const { channels, userId } = args;
     if (!userId || !Array.isArray(channels)) { return; }
 
-    const done = [];
-    const sent = [];
+    const done = new Set();
+    const sent = new Set();
     channels.forEach(channel => {
         // And tell storages to clear their memory
         const storageId = Env.getStorageId(channel);
-        if (sent.includes(storageId)) { return; }
-        sent.push(storageId);
+        if (sent.has(storageId)) { return; }
+        sent.add(storageId);
         Env.interface.sendQuery(storageId, 'DROP_USER', args, res => {
             if (res.error) { return; }
             const lists = res.data;
 
             Object.keys(lists).forEach(channel => {
-                if (done.includes(channel)) { return; }
+                if (done.has(channel)) { return; }
                 const users = lists[channel];
                 if (!users) { return; }
 
                 // For each channel, send LEAVE message
                 const message = [ 0, userId, 'LEAVE', channel ];
                 sendChannelMessage(users, message);
-                done.push(channel);
+                done.add(channel);
             });
         });
     });
