@@ -63,10 +63,9 @@ StorageCommands.getChannelsTotalSize = (Env, channels, cb) => {
 
 StorageCommands.getRegisteredUsers = (Env, cb) => {
     let users = 0;
-    Env.interface.broadcast('storage', 'GET_REGISTERED_USERS', {}, res => {
+    Env.interface.broadcast('storage', 'GET_REGISTERED_USERS', {}, (err, res) => {
         res.forEach(obj => {
-            if (obj.error) { return; }
-            users += obj.data?.users;
+            users += obj?.users;
         });
         cb(void 0, {users});
     }, ['storage:0']);
