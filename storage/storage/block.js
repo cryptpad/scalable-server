@@ -4,6 +4,7 @@
 
 const Block = module.exports;
 const Util = require("../common-util");
+const Core = require("../../common/core");
 const Path = require("node:path");
 const Fs = require("node:fs");
 const Fse = require("fs-extra");
@@ -145,10 +146,9 @@ Block.check = function (Env, publicKey, _cb, noRedirect) { // 'check' because 'e
 
     const storageId = Env.getStorageId(publicKey);
     if (storageId !== Env.myId && !noRedirect) {
-        const coreId = Env.getCoreId(publicKey);
-        return Env.interface.sendQuery(coreId, 'BLOCK_CHECK', {
+        return Core.storageToStorage(Env, publicKey, 'BLOCK_CHECK', {
             blockId: publicKey
-        }, res => { cb(res.error, res.data); });
+        }, cb);
     }
 
     const path = Block.mkPath(Env, publicKey);

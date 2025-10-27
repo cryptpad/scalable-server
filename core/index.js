@@ -431,25 +431,10 @@ const onGetRegisteredUsers = (args, cb, extra) => {
     StorageCommands.getRegisteredUsers(Env, cb);
 };
 
-const onBlockCheck = (args, cb, extra) => {
+const onStorageToStorage = (args, cb, extra) => {
     if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
-    StorageCommands.onBlockCheck(Env, args, cb);
-};
-const onGetMFA = (args, cb, extra) => {
-    if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
-    StorageCommands.onGetMFA(Env, args, cb);
-};
-const onSessionsCommand = (args, cb, extra) => {
-    if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
-    StorageCommands.onSessionsCommand(Env, args, cb);
-};
-const onUserRegistryCommand = (args, cb, extra) => {
-    if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
-    StorageCommands.onUserRegistryCommand(Env, args, cb);
-};
-const onInvitationCommand = (args, cb, extra) => {
-    if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
-    StorageCommands.onInvitationCommand(Env, args, cb);
+    const { id, cmd, data } = args;
+    Core.coreToStorage(Env, id, cmd, data, cb);
 };
 
 const onHttpCommand = (args, cb, extra) => {
@@ -608,11 +593,7 @@ let startServers = function(config) {
         'GET_CHANNELS_TOTAL_SIZE': onGetChannelsTotalSize,
         'GET_REGISTERED_USERS': onGetRegisteredUsers,
 
-        'BLOCK_CHECK': onBlockCheck,
-        'BLOCK_GET_MFA': onGetMFA,
-        'SESSIONS_CMD': onSessionsCommand,
-        'USER_REGISTRY_CMD': onUserRegistryCommand,
-        'INVITATION_CMD': onInvitationCommand,
+        'STORAGE_STORAGE': onStorageToStorage,
     };
     queriesToStorage.forEach(function(command) {
         COMMANDS[command] = wsToStorage(command);

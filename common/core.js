@@ -230,3 +230,21 @@ Core.applyLimits = (Env) => {
         Env.limits[k] = customLimits[k];
     });
 };
+
+Core.coreToStorage = (Env, id, cmd, data, cb) => {
+    const storageId = Env.getStorageId(id);
+    Env.interface.sendQuery(storageId, cmd, data, res => {
+        if (res.error) { return void cb(res.error); }
+        cb(void 0, res.data);
+    });
+};
+
+Core.storageToStorage = (Env, id, cmd, data, cb) => {
+    const coreId = Env.getCoreId(id);
+    Env.interface.sendQuery(coreId, 'STORAGE_STORAGE', {
+        id, cmd, data
+    }, res => {
+        if (res.error) { return void cb(res.error); }
+        cb(void 0, res.data);
+    });
+};
