@@ -232,7 +232,15 @@ let communicationManager = function(ctx) {
             promises.push(p);
         });
         Promise.all(promises).then(values => {
-            cb(values);
+            const data = (values || []).map(obj => obj.data).filter(Boolean);
+            const error = (values || []).map(obj => {
+                if (!obj.error) { return; }
+                return {
+                    id: obj.id,
+                    error: obj.error
+                };
+            }).filter(Boolean);
+            cb(error, data);
         });
     };
 
