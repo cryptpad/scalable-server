@@ -14,12 +14,11 @@ const getWorkerProfiles = function (Env, _publicKey, _data, cb) {
 
 
 const getInvitations = (Env, _publicKey, _data, cb) => {
-    Env.interface.broadcast('storage', 'GET_INVITATIONS', {}, res => {
-        const invitations =
-            res.map(obj => {
-                if (obj.err) { return []; }
-                return obj.data;
-            }).reduce((acc, it) => Object.assign(acc, it), {});
+    Env.interface.broadcast('storage', 'GET_INVITATIONS', {}, (_err, data) => {
+        // It’s necessary to add the arguments for Object.assign as reduce
+        // provides extra arguments to its callback function that interfers with
+        // extra arguments of Object.assign
+        const invitations = data.reduce((acc, it) => Object.assign(acc, it), {});
         cb(void 0, invitations);
     });
 };
@@ -65,34 +64,23 @@ const getDiskUsage = (Env, _publicKey, _data, cb) => {
         }
         return acc;
     };
-    let totalDiskUsage = {};
-    Env.interface.broadcast('storage', 'GET_DISK_USAGE', {}, res => {
-        totalDiskUsage = res.map(obj => {
-            if (obj.error) { return; }
-            return obj.data;
-        }).reduce(sumDiskUsage, {});
+    Env.interface.broadcast('storage', 'GET_DISK_USAGE', {}, (_err, data) => {
+        console.log('XXX', _err);
+        const totalDiskUsage = data.reduce(sumDiskUsage, {});
         cb(void 0, totalDiskUsage);
     });
 };
 
 const getRegisteredUsers = (Env, _publicKey, _data, cb) => {
-    let users = 0;
-    Env.interface.broadcast('storage', 'GET_REGISTERED_USERS', { noRedirect: true }, res => {
-        res.forEach(obj => {
-            if (obj.error) { return; }
-            users += obj.data?.users;
-        });
+    Env.interface.broadcast('storage', 'GET_REGISTERED_USERS', { noRedirect: true }, (_err, data) => {
+        let users = data.reduce((acc, it) => acc + it?.users, 0);
         cb(void 0, { users });
     });
 };
 
 const getFileDescriptorCount = (Env, _publicKey, _data , cb) => {
-    let fdCount = 0;
-    Env.interface.broadcast('storage', 'GET_FILE_DESCRIPTOR_COUNT', {}, res => {
-        res.forEach(obj => {
-            if (obj.error) { return; }
-            fdCount += obj.data;
-        });
+    Env.interface.broadcast('storage', 'GET_FILE_DESCRIPTOR_COUNT', {}, (_err, data) => {
+        const fdCount = data.reduce((a, b) => a + b);
         cb(void 0, fdCount);
     });
 };
@@ -262,11 +250,8 @@ const isUserOnline = (Env, _publicKey, data, cb) => {
 };
 
 const getKnownUsers = (Env, _publicKey, _data, cb) => {
-    Env.interface.broadcast('storage', 'GET_USERS', {}, res => {
-        const knownUsers = res.map(obj => {
-            if (obj.error) { return ; }
-            return obj.data;
-        }).reduce((acc, it) => Object.assign(acc, it), {});
+    Env.interface.broadcast('storage', 'GET_USERS', {}, (_err, data) => {
+        const knownUsers = data.reduce((acc, it) => Object.assign(acc, it), {});
         cb(void 0, knownUsers);
     });
 };
