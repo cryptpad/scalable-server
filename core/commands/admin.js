@@ -65,7 +65,6 @@ const getDiskUsage = (Env, _publicKey, _data, cb) => {
         return acc;
     };
     Env.interface.broadcast('storage', 'GET_DISK_USAGE', {}, (_err, data) => {
-        console.log('XXX', _err);
         const totalDiskUsage = data.reduce(sumDiskUsage, {});
         cb(void 0, totalDiskUsage);
     });
