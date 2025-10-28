@@ -4,6 +4,7 @@
 
 const Admin = module.exports;
 const User = require('../storage/user');
+const Users = require('./users');
 const Fs = require('node:fs');
 const getFolderSize = require("get-folder-size");
 const nThen = require('nthen');
@@ -19,6 +20,20 @@ Admin.getFileDescriptorCount = (Env, _args, cb) => {
 
 Admin.getKnownUsers = (Env, _args, cb) => {
     User.getAll(Env, cb);
+};
+
+Admin.addKnownUser = (Env, data, cb) => {
+    const obj = Array.isArray(data) && data[1];
+    const { edPublic, block, alias, unsafeKey, email, name } = obj;
+    const userData = {
+        edPublic,
+        block,
+        alias,
+        email,
+        name,
+        type: 'manual'
+    };
+    Users.add(Env, edPublic, userData, unsafeKey, cb);
 };
 
 Admin.getDiskUsage = (Env, _args, cb) => {
