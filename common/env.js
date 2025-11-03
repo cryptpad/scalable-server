@@ -29,14 +29,18 @@ const isRecentVersion = function () {
     return false;
 };
 
-const init = (Env, mainConfig) => {
+const init = (Env, mainConfig, pluginModules) => {
     const { server , infra } = mainConfig;
     const config = server?.options || {};
     const publicConfig = server?.public || {};
 
     Env.adminDecrees = DecreesCore.create(Constants.adminDecree,
                                           AdminDecrees);
-    // XXX enable other decrees here?
+
+    Env.modules = {
+        Core, Util, Constants, DecreesCore
+    };
+    Object.assign(Env.modules, pluginModules || {});
 
     Env.myId = mainConfig.myId;
 
@@ -49,6 +53,8 @@ const init = (Env, mainConfig) => {
     Env.numberCores = infra.core.length;
 
     // TODO: implement storage migration later (in /storage/)
+    Env.Util = Util;
+    Env.Core = Core;
     Env.getStorageId = data => {
         // We need a 8 byte key
         // For public keys, make sure we always use the safe one

@@ -47,5 +47,37 @@ plugins.call = command => {
         });
     };
 };
+plugins.get = attr => {
+    const result = [];
+    Object.values(plugins).forEach(plugin => {
+        const v = plugin?.[attr];
+        if (typeof(v) !== "undefined") {
+            result.push(v);
+        }
+    });
+    return result;
+};
+plugins.addHttpEndpoints = (Env, app, type) => {
+    Object.values(plugins).forEach(plugin => {
+        const ep = plugin.httpEndpoints;
+        if (!Array.isArray(ep)) { return; }
+        ep.forEach(obj => {
+            if (obj.type !== type && obj.target !== type) { return; }
+            obj.f(Env, app);
+        });
+    });
+};
+plugins.getHttpProxy = () => {
+    const list = [];
+    Object.values(plugins).forEach(plugin => {
+        const ep = plugin.httpEndpoints;
+        if (!Array.isArray(ep)) { return; }
+        ep.forEach(obj => {
+            if (obj.type !== 'proxy') { return; }
+            list.push(obj);
+        });
+    });
+    return list;
+};
 
 module.exports = plugins;

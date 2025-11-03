@@ -8,9 +8,6 @@ const Util = require('../common/common-util');
 const MFA = require("./storage/mfa");
 const Sessions = require("./storage/sessions");
 
-const plugins = {}; // XXX plugins
-let SSOUtils = plugins.SSO && plugins.SSO.utils;
-
 const create = (Env, app) => {
     app.use('/blob', function (req, res, next) {
         // Head requests are used to check the size of a blob.
@@ -71,7 +68,7 @@ const create = (Env, app) => {
         }
     ));
 
-    // XXX plugins
+    Env.plugins.addHttpEndpoints(Env, app, 'storage');
 
     app.use('/block/', function (req, res, next) {
         const parsed = Path.parse(req.url);
@@ -132,6 +129,7 @@ const create = (Env, app) => {
             }));
 
             // Same for SSO settings
+            const SSOUtils = plugins.SSO && Env?.plugins?.SSO?.utils;
             if (!SSOUtils) { return; }
             SSOUtils.readBlock(Env, name, w((err, content) => {
                 if (err && (err.code === 'ENOENT' || err === 'ENOENT')) {

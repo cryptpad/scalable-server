@@ -248,3 +248,12 @@ Core.storageToStorage = (Env, id, cmd, data, cb) => {
         cb(void 0, res.data);
     });
 };
+
+Core.checkStorage = (Env, id, cmd, data, cb) => {
+    const storageId = Env.getStorageId(id);
+    if (storageId !== Env.myId) {
+        Core.storageToStorage(Env, id, cmd, data, cb);
+        return false;
+    }
+    return true;
+};

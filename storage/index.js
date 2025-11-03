@@ -29,6 +29,8 @@ const WorkerModule = require("../common/worker-module.js");
 const File = require("./storage/file.js");
 const Blob = require("./storage/blob.js");
 const BlockStore = require("./storage/block.js");
+const Sessions = require("./storage/sessions.js");
+const Basic = require("./storage/basic.js");
 
 const Decrees = require('./commands/decrees.js');
 const Upload = require('./commands/upload.js');
@@ -593,7 +595,12 @@ const onInitialized = (Env, _cb) => {
 let start = function(config) {
     const { myId, index, infra, server } = config;
 
-    Environment.init(Env, config);
+    Environment.init(Env, config, {
+        Block, Pinning, Decrees,
+        BlockStore, Blob, File, Sessions, Basic,
+        HKUtil
+    });
+
 
     Env.config = config;
 
@@ -730,7 +737,9 @@ let start = function(config) {
             }
 
         }));
+
         // List accepted commands
+        Env.plugins.call('addStorageCommands')(Env, COMMANDS);
         Env.interface.handleCommands(COMMANDS);
     }).nThen(waitFor => {
         // Only storage:0 can manage decrees and accounts
@@ -747,6 +756,19 @@ let start = function(config) {
         }));
     }).nThen(waitFor => {
         onInitialized(Env, waitFor());
+    }).nThen(waitFor => {
+        // BEARER_SECRET decree (storage:0 only)
+        if (index !== 0) { return; }
+        if (Env.bearerSecret) { return; }
+
+        const bearerSecret = Util.encodeBase64(Crypto.randomBytes(32));
+        const decree = [
+            'SET_BEARER_SECRET',
+            [bearerSecret],
+            'INTERNAL',
+            +new Date()
+        ];
+        Decrees.onNewDecree(Env, decree, '', waitFor());
     }).nThen(() => {
         // INSTALL TOKEN admin decree (storage:0 only)
         if (index !== 0) { return; }

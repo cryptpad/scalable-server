@@ -90,7 +90,6 @@ const initProxy = (Env, app, server, infra) => {
     app.use('/cryptpad_websocket', wsProxy);
     app.use('/extensions.js', httpProxy);
     app.use('/api', httpProxy);
-    app.use('/ssoauth', httpProxy); // XXX check
 
 
     const storeProxy = createProxyMiddleware({
@@ -106,6 +105,25 @@ const initProxy = (Env, app, server, infra) => {
     app.use('/datastore', storeProxy);
     app.use('/block', storeProxy);
     app.use('/upload-blob', storeProxy);
+
+    const pluginProxies = Env.plugins.getHttpProxy();
+    pluginProxies.forEach(proxyCfg => {
+        const proxy = createProxyMiddleware({
+            router: req => {
+                if (proxyCfg.target === "storage") {
+                    const dataId = proxyCfg.getIdFromReq(req);
+                    const id = getStorageId(Env, dataId).slice(8);
+                    return storageList[id] + req.baseUrl.slice(1);
+                }
+                if (proxyCfg.target === "http") {
+                    return httpList[j++%httpList.length]
+                            + req.baseUrl.slice(1);
+                }
+            },
+            logger: Logger(['error'])
+        });
+        app.use(proxyCfg.url, proxy);
+    });
 
     return wsProxy;
 };
@@ -123,7 +141,7 @@ const initHeaders = (Env, app) => {
 };
 
 const initPlugins = (Env, app) => {
-    Env.plugins.call('addHttpEndpoints')(Env, app);
+    Env.plugins.addHttpEndpoints(Env, app, 'http');
 };
 
 const initStatic = (Env, app) => {

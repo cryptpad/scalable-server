@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 const Util = require("../../common/common-util");
-const  Commands = module.exports;
+const Commands = module.exports;
 
 // Send all commands to storage directly
 [
