@@ -7,8 +7,13 @@ const CpCrypto = require("../common/crypto.js")('sodiumnative');
 const Util = require('../common/common-util');
 const MFA = require("./storage/mfa");
 const Sessions = require("./storage/sessions");
+const bodyParser = require('body-parser');
 
 const create = (Env, app) => {
+    app.use(bodyParser.urlencoded({
+        extended: true
+    }));
+
     app.use('/blob', function (req, res, next) {
         // Head requests are used to check the size of a blob.
         const url = req.url;
