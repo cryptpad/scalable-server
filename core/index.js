@@ -307,11 +307,9 @@ const onSendChannelMessage = (args) => {
 
 // Message from user to user
 const onUserMessage = (args, cb) => {
-    Env.interface.broadcast('websocket', 'SEND_USER_MESSAGE', args, values => {
+    Env.interface.broadcast('websocket', 'SEND_USER_MESSAGE', args, (err, values) => {
         // If all responses return an error, message has failed
-        if (values.every(obj => {
-            return obj?.error;
-        })) {
+        if (!values.length) {
             return void cb('ERROR');
         }
         // Otherwise, success
@@ -472,9 +470,8 @@ const onNewDecrees = (args, cb, extra) => {
         if (Env.myId !== 'core:0') { return; }
         Env.interface.broadcast('websocket', 'NEW_DECREES', {
             freshKey, curveKeys, type, decrees
-        }, waitFor(values => {
-            values.forEach(obj => {
-                if (!obj?.error) { return; }
+        }, waitFor((errors) => {
+            errors.forEach(obj => {
                 const { id, error } = obj;
                 Env.Log.error("BCAST_DECREES_ERROR", { id, error });
             });
@@ -482,9 +479,8 @@ const onNewDecrees = (args, cb, extra) => {
         const exclude = ['storage:0'];
         Env.interface.broadcast('storage', 'NEW_DECREES', {
             freshKey, curveKeys, type, decrees
-        }, waitFor(values => {
-            values.forEach(obj => {
-                if (!obj?.error) { return; }
+        }, waitFor((errors) => {
+            errors.forEach(obj => {
                 const { id, error } = obj;
                 Env.Log.error("BCAST_DECREES_ERROR", { id, error });
             });
