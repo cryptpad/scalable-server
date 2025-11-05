@@ -129,7 +129,7 @@ const create = (Env, app) => {
             }));
 
             // Same for SSO settings
-            const SSOUtils = plugins.SSO && Env?.plugins?.SSO?.utils;
+            const SSOUtils = Env?.plugins?.SSO?.utils;
             if (!SSOUtils) { return; }
             SSOUtils.readBlock(Env, name, w((err, content) => {
                 if (err && (err.code === 'ENOENT' || err === 'ENOENT')) {
