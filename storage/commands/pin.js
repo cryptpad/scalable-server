@@ -442,14 +442,14 @@ const computeRegisteredUsers = (Env, cb) => {
         });
     });
 };
-Pinning.getRegisteredUsers = (Env, cb) => {
-    if (Env.myId !== "storage:0") {
+Pinning.getRegisteredUsers = (Env, cb, noRedirect) => {
+    if (noRedirect || Env.myId !== "storage:0") {
         return void computeRegisteredUsers(Env, cb);
     }
 
-    const users = 0;
+    let users = 0;
     const onResult = (err, value) => {
-        if (err || typeof(value) !== "number") {
+        if (err || typeof(value?.users) !== "number") {
             Env.Log.error("GET_REGISTERED_USERS_ERR", err);
             return;
         }

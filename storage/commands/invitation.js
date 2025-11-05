@@ -21,6 +21,14 @@ Invitation.getAll = (Env, cb) => {
     });
 };
 
+Invitation.getInvitations = (Env, _args, cb) => {
+    // Get Invitations on a given server
+    Invite.getAll(Env, (err, data) => {
+        if (err) { return void cb(err); }
+        cb(null, data);
+    });
+};
+
 Invitation.create = (Env, alias, email, _cb, unsafeKey) => {
     const cb = Util.once(Util.mkAsync(_cb));
     const id = getUid();

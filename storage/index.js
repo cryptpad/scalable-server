@@ -38,6 +38,8 @@ const Pinning = require('./commands/pin.js');
 const Quota = require('./commands/quota.js');
 const Block = require('./commands/block.js');
 const Metadata = require('./commands/metadata.js');
+const Invitation = require('./commands/invitation.js');
+const Admin = require('./commands/admin.js');
 
 const {
     TEMPORARY_CHANNEL_LIFETIME,
@@ -63,6 +65,7 @@ const Env = {
     batchTotalSize: BatchRead('GET_TOTAL_SIZE'),
     batchRegisteredUsers: BatchRead("GET_REGISTERED_USERS"),
     batchAccountQuery: BatchRead("QUERY_ACCOUNT_SERVER"),
+    batchDiskUsage: BatchRead('GET_DISK_USAGE'),
     selfDestructTo: {},
     blobstage: {} // Store file streams to write blobs
 };
@@ -311,7 +314,7 @@ const getChannelsTotalSizeHandler = (channels, cb) => {
     Pinning.getChannelsTotalSize(Env, channels, cb, true);
 };
 const getRegisteredUsersHandler = (args, cb) => {
-    Pinning.getRegisteredUsers(Env, cb);
+    Pinning.getRegisteredUsers(Env, cb, args.noRedirect);
 };
 
 const setMetadataHandler = (args, cb) => {
@@ -449,6 +452,12 @@ let COMMANDS = {
     'USER_REGISTRY_CMD': callWithEnv(MFAManager.userRegistryCmd),
     'INVITATION_CMD': callWithEnv(MFAManager.invitationCmd),
 
+    // Admin commands
+    'GET_FILE_DESCRIPTOR_COUNT': callWithEnv(Admin.getFileDescriptorCount),
+    'GET_INVITATIONS': callWithEnv(Invitation.getInvitations),
+    'GET_USERS': callWithEnv(Admin.getKnownUsers),
+    'ADD_KNOWN_USER': callWithEnv(Admin.addKnowUser),
+    'GET_DISK_USAGE': callWithEnv(Admin.getDiskUsage),
 };
 
 const initWorkerCommands = () => {

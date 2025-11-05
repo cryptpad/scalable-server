@@ -9,6 +9,7 @@
     "cookie-parser": "^1.4.7",
     "express": "~4.21.2",
     "fs-extra": "^7.0.0",
+    "get-folder-size": "^2.0.1",
     "http-proxy-middleware": "^3.0.3",
     "minimist": "^1.2.8",
     "nthen": "0.1.8",
