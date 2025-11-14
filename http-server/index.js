@@ -112,7 +112,11 @@ const initProxy = (Env, app, server, infra) => {
             router: req => {
                 if (proxyCfg.target === "storage") {
                     const dataId = proxyCfg.getIdFromReq(req);
-                    const id = getStorageId(Env, dataId).slice(8);
+                    if (typeof (dataId) === "number") {
+
+                    }
+                    const id = typeof(dataId) === "number" ? dataId
+                                    : getStorageId(Env, dataId).slice(8);
                     return storageList[id] + req.baseUrl.slice(1);
                 }
                 if (proxyCfg.target === "http") {

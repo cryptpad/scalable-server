@@ -60,13 +60,13 @@ const init = (Env, mainConfig, pluginModules) => {
         // For public keys, make sure we always use the safe one
         // to avoid leading some commands to different nodes for
         // the same user
-        data = Util.escapeKeyCharacters(data || '');
+        data = Util.escapeKeyCharacters(data || '') + '00000000';
         const key = Buffer.from(data.slice(0, 8));
         const id = jumpConsistentHash(key, Env.numberStorages);
         return 'storage:' + id;
     };
     Env.getCoreId = data => {
-        data = Util.escapeKeyCharacters(data);
+        data = Util.escapeKeyCharacters(data) + '00000000';
         const key = Buffer.from(data.slice(0, 8));
         const id = jumpConsistentHash(key, Env.numberCores);
         return 'core:' + id;

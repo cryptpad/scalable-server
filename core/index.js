@@ -114,7 +114,9 @@ const validateMessageHandler = (args, cb, extra) => {
     Env.channelKeyCache[channel] = validateKey;
 
     Env.queueValidation(channel, next => {
+        let avg = Env.plugins?.MONITORING?.average(`inlineValidation`);
         Env.workers.send('VALIDATE_MESSAGE', args, e => {
+            avg?.time();
             next();
             cb(e);
         });
@@ -248,11 +250,13 @@ const onChannelMessage = (args, cb, extra) => {
         const msg = msgStruct[4].replace(CHECKPOINT_PATTERN, '');
         const vKey = Env.channelKeyCache[channel];
         Env.queueValidation(channel, next => {
+            let avg = Env.plugins?.MONITORING?.average(`inlineValidation`);
             Env.workers.send('VALIDATE_MESSAGE', {
                 channel,
                 signedMsg: msg,
                 validateKey: vKey
             }, (e) => {
+                avg?.time();
                 next();
                 if (e === 'FAILED') {
                     Env.Log.error("HK_SIGNED_MESSAGE_REJECTED", {
@@ -325,7 +329,10 @@ const onAnonRpc = (args, cb, extra) => {
         return void cb('INVALID_ANON_RPC_COMMAND');
     }
 
+    let avg = Env.plugins?.MONITORING?.average(`rpc_${data[0]}`);
+
     Rpc.handleUnauthenticated(Env, data, userId, (err, msg) => {
+        avg?.time();
         cb(err, msg);
     });
 };
@@ -361,7 +368,7 @@ const onAuthRpc = (args, cb, extra) => {
         return void cb('INVALID_MESSAGE_OR_PUBLIC_KEY');
     }
 
-    //Env.plugins?.MONITORING?.increment(`rpc_${command}`); // XXX MONITORING
+    let avg = Env.plugins?.MONITORING?.average(`rpc_${command}`);
 
     if (command === 'UPLOAD') {
         // UPLOAD is a special case that skips signature validation
@@ -376,11 +383,13 @@ const onAuthRpc = (args, cb, extra) => {
 
     // check the signature on the message
     // refuse the command if it doesn't validate
+    let avgVal = Env.plugins?.MONITORING?.average(`detachedValidation`);
     Env.workers.send('VALIDATE_RPC', {
         msg: serialized,
         key: publicKey,
         sig
     }, err => {
+        avgVal?.time();
         if (err) {
             return void cb("INVALID_SIGNATURE_OR_PUBLIC_KEY");
         }
@@ -400,7 +409,7 @@ const onAuthRpc = (args, cb, extra) => {
         // this AUTH command before retrying to join a pad.
         authenticateUser(userId, publicKey);
 
-        return Rpc.handleAuthenticated(Env, publicKey, data, cb);
+        return Rpc.handleAuthenticated(Env, publicKey, data, Util.both(cb, avg?.time));
     });
 };
 
@@ -431,7 +440,22 @@ const onGetRegisteredUsers = (args, cb, extra) => {
 const onStorageToStorage = (args, cb, extra) => {
     if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
     const { id, cmd, data } = args;
+    if (id === 'all') {
+        Env.interface.broadcast('storage', cmd, data, (errors, data) => {
+            if (errors && errors.length) { return void cb(errors, data); }
+            cb(void 0, data);
+        }, [extra.from]);
+        return;
+    }
     Core.coreToStorage(Env, id, cmd, data, cb);
+};
+const onStorageToWs = (args, cb, extra) => {
+    if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
+    const { cmd, data } = args;
+    Env.interface.broadcast('websocket', cmd, data, (errors, data) => {
+        if (errors && errors.length) { return void cb(errors, data); }
+        cb(void 0, data);
+    });
 };
 
 const onHttpCommand = (args, cb, extra) => {
@@ -589,6 +613,7 @@ let startServers = function(config) {
         'GET_REGISTERED_USERS': onGetRegisteredUsers,
 
         'STORAGE_STORAGE': onStorageToStorage,
+        'STORAGE_WS': onStorageToWs,
     };
     queriesToStorage.forEach(function(command) {
         COMMANDS[command] = wsToStorage(command);
@@ -612,6 +637,7 @@ let startServers = function(config) {
             process.send({ type: 'core', index: config.index, msg: 'READY' });
         }
     });
+    Env.plugins.call('addCoreCommands')(Env, COMMANDS);
     Env.interface.handleCommands(COMMANDS);
     if (Env.myId !== 'core:0') { return; }
     Env.interface.onNewConnection(obj => {

@@ -227,8 +227,6 @@ Rpc.handleUnauthenticated = (Env, data, userId, cb) => {
 
     Env.Log.verbose('LOG_RPC', command);
 
-    //Env.plugins?.MONITORING?.increment(`rpc_${command}`); // XXX MONITORING
-
     const method = UNAUTHENTICATED_CALLS[command];
     method(Env, content, (err, value) => {
         if (err) {

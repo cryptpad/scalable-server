@@ -146,6 +146,8 @@ const sendMsgPromise = (Env, user, msg) => {
             user.sendMsgCallbacks.push(resolve);
             user.socket.send(strMsg, () => {
                 user.inQueue -= strMsg.length;
+                Env.plugins?.MONITORING?.increment(`sent`);
+                Env.plugins?.MONITORING?.increment(`sentSize`, strMsg.length);
                 if (user.inQueue > QUEUE_CHR) { return; }
                 const smcb = user.sendMsgCallbacks;
                 user.sendMsgCallbacks = [];
@@ -378,6 +380,7 @@ const handleLeave = (Env, args) => {
     });
 };
 const handlePing = (Env, args) => {
+    Env.plugins?.MONITORING?.increment(`pingReceived`);
     sendMsg(Env, args.user, [args.seq, 'ACK']);
 };
 const commands = {
@@ -477,8 +480,35 @@ const onHttpCommand = (Env, data, cb) => {
 
 // Initialisation
 
+const LAG_MAX_BEFORE_DISCONNECT = 60000;
+const LAG_MAX_BEFORE_PING = 15000;
+const checkUserActivity = (Env) => {
+    const time = now();
+    Object.keys(Env.users).forEach((userId) => {
+        const u = Env.users[userId];
+        try {
+            if (time - u.timeOfLastMessage > LAG_MAX_BEFORE_DISCONNECT) {
+                dropUser(Env, u, 'BAD_MESSAGE');
+            }
+            if (!u.pingOutstanding && time - u.timeOfLastMessage > LAG_MAX_BEFORE_PING) {
+                sendMsg(Env, u, [0, '', 'PING', now()]);
+                u.pingOutstanding = true;
+                Env.plugins?.MONITORING?.increment(`pingSent`);
+            }
+        } catch (err) {
+            Env.Log.error(err, 'USER_ACTIVITY_CHECK');
+        }
+    });
+};
+
 const initServerHandlers = (Env) => {
     if (!Env.wss) { throw new Error('No WebSocket Server'); }
+
+    setInterval(() => {
+        checkUserActivity(Env);
+    }, 5000);
+
+
     Env.wss.on('connection', (socket, req) => {
         // refuse new connections if the server is shutting down
         if (!Env.active) { return; }
@@ -506,6 +536,8 @@ const initServerHandlers = (Env) => {
             Env.Log.verbose('Receiving', JSON.parse(message), 'from', user.id);
             try {
                 handleMessage(Env, user, message);
+                Env.plugins?.MONITORING?.increment(`received`);
+                Env.plugins?.MONITORING?.increment(`receivedSize`, message.length);
             } catch (e) {
                 Env.Log.error(e, 'NETFLUX_BAD_MESSAGE', {
                     user: user.id,
@@ -652,6 +684,7 @@ const start = (config) => {
                 Env.Log.info('websocket:' + Env.config.index + ' started');
             }
         });
+        Env.plugins.call('addWebsocketCommands')(Env, CORE_COMMANDS);
         Env.interface.handleCommands(CORE_COMMANDS);
     }).catch((e) => { return Env.Log.error('Error:', e); });
 };

@@ -191,6 +191,7 @@ const factory = (NaclUtil) => {
             try {
                 fn.apply(null, Array.isArray(args)? args : [args]);
             } catch (err) {
+                console.trace(err);
                 errorHandler('HANDLER_ERROR', {
                     error: err,
                     id: id,

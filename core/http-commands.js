@@ -337,6 +337,7 @@ module.exports.handle = function (Env, body, cb /*, next */) {
     // we only expect initial requests to have a 'command' attribute
     // further validation is performed in handleCommand
     if (body.command) {
+        Env.plugins?.MONITORING?.increment(`httpcmd_${body.command}`);
         return void handleCommand(Env, body, cb);
     }
 
