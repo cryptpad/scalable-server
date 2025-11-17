@@ -463,28 +463,36 @@ let COMMANDS = {
 const initWorkerCommands = () => {
     Env.worker ||= {};
     Env.worker.computeMetadata = (channel, cb) => {
-        Env.store.getWeakLock(channel, next => {
+        Env.store.getWeakLock(channel, _next => {
+            let avg = Env.plugins?.MONITORING?.average(`computeMetadata`);
+            const next = () => { _next(); avg?.time(); };
             Env.workers.send('COMPUTE_METADATA', {
                 channel
             }, Util.both(next, cb));
         });
     };
     Env.worker.computeIndex = (channel, cb) => {
-        Env.store.getWeakLock(channel, next => {
+        Env.store.getWeakLock(channel, _next => {
+            let avg = Env.plugins?.MONITORING?.average(`computeIndex`);
+            const next = () => { _next(); avg?.time(); };
             Env.workers.send('COMPUTE_INDEX', {
                 channel
             }, Util.both(next, cb));
         });
     };
     Env.worker.getHashOffset = (channel, hash, cb) => {
-        Env.store.getWeakLock(channel, next => {
+        Env.store.getWeakLock(channel, _next => {
+            let avg = Env.plugins?.MONITORING?.average(`getHashOffset`);
+            const next = () => { _next(); avg?.time(); };
             Env.workers.send('GET_HASH_OFFSET', {
                 channel, hash
             }, Util.both(next, cb));
         });
     };
     Env.worker.getOlderHistory = (channel, oldestKnownHash, untilHash, desiredMessages, desiredCheckpoint, cb) => {
-        Env.store.getWeakLock(channel, (next) => {
+        Env.store.getWeakLock(channel, (_next) => {
+            let avg = Env.plugins?.MONITORING?.average(`getOlderHistory`);
+            const next = () => { _next(); avg?.time(); };
             Env.workers.send('GET_OLDER_HISTORY', {
                 channel, oldestKnownHash, untilHash, desiredMessages, desiredCheckpoint
             }, Util.both(next, cb));
@@ -497,7 +505,6 @@ const initWorkerCommands = () => {
             channels: channels,
         }, cb, true);
     };
-    // XXX Env.worker.?
     Env.worker.getTotalSize = (channels, cb) => {
         // we could take out locks for all of these channels,
         // but it's OK if the size is slightly off
@@ -506,7 +513,9 @@ const initWorkerCommands = () => {
         }, cb);
     };
     Env.getPinState = (safeKey, cb) => {
-        Env.pinStore.getWeakLock(safeKey, (next) => {
+        Env.pinStore.getWeakLock(safeKey, (_next) => {
+            let avg = Env.plugins?.MONITORING?.average(`getPinState`);
+            const next = () => { _next(); avg?.time(); };
             Env.workers.send('GET_PIN_STATE', {
                 key: safeKey
             }, Util.both(next, cb));
@@ -514,9 +523,11 @@ const initWorkerCommands = () => {
     };
 
     Env.worker.getDeletedPads = (channels, cb) => {
+        let avg = Env.plugins?.MONITORING?.average(`getDeletedPads`);
+        const next = Util.both(cb, avg?.time);
         Env.workers.send("GET_DELETED_PADS", {
             channels: channels,
-        }, cb);
+        }, next);
     };
     Env.hashChannelList = (channels, cb) => {
         Env.workers.send('HASH_CHANNEL_LIST', {
