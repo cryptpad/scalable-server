@@ -727,7 +727,7 @@ let start = function(config) {
             Log: Env.Log,
             workerPath: './build/storage.worker.js',
             maxWorkers: 1,
-            maxJobs: 4,
+            maxJobs: 15,
             commandTimers: {}, // time spent on each command
             config: config,
             Env: { // Serialized Env (Environment.serialize)

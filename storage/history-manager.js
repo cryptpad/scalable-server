@@ -466,7 +466,7 @@ const onGetHistoryRange = (Env, args, sendMessage, _cb) => {
             }
             return void readMore();
         }, function (err, reason) {
-            if (err) {
+            if (err && err?.code !== 'ENOENT') {
                 Log.error("HK_GET_OLDER_HISTORY", channel, err, reason);
                 return sendMessage([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(['HISTORY_RANGE_ERROR', txid, err]) ]);
             }
