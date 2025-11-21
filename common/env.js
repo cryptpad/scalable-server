@@ -1,3 +1,5 @@
+const { existsSync, readdirSync } = require('node:fs');
+const Path = require('node:path');
 const Package = require("../package.json");
 const Util = require('./common-util');
 const Keys = require('./keys');
@@ -27,6 +29,15 @@ const isRecentVersion = function () {
     if (parts[2] >= R[2]) { return true; }
 
     return false;
+};
+
+const getInstalledOOVersions = (Env) => {
+    const path = Path.join(Env.clientRoot, 'www/common/onlyoffice/dist');
+    if (!existsSync(path)) {
+        return [];
+    }
+
+    return readdirSync(path);
 };
 
 const init = (Env, mainConfig, pluginModules) => {
@@ -183,7 +194,10 @@ const init = (Env, mainConfig, pluginModules) => {
 
     // XXX enforceMFA
 
-    Env.onlyOffice = false; // XXX TODO OO
+    let ooVersions = getInstalledOOVersions(Env);
+    Env.onlyOffice = ooVersions.length ? {
+          availableVersions: ooVersions,
+    } : false;
 
     Env.shouldUpdateNode = !isRecentVersion();
 
