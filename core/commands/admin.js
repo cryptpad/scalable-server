@@ -3,6 +3,8 @@ const Keys = require("../../common/keys");
 
 const StorageCommands = require('./storage');
 
+const Core = require("../../common/core");
+
 const Admin = {};
 
 // CryptPad_AsyncStore.rpc.send('ADMIN', ['GET_WORKER_PROFILES'], console.log)
@@ -217,15 +219,17 @@ const getLimits = (Env, _publicKey, _data, cb) => {
     cb(void 0, Env.limits);
 };
 
-const isValidKey = key => {
-    return typeof(key) === 'string' && key.length === 44;
-};
-
-const getPinActivity = (Env, _publicKey, data, cb) => {
+const getUserTotalSize = (Env, _publicKey, data, cb) => {
     const signingKey = Array.isArray(data) && data[1];
-    if (!isValidKey(signingKey)) { return void cb('EINVAL'); }
+    if (!Core.isValidPublicKey(signingKey)) { return void cb('EINVAL'); }
     const safeKey = Util.escapeKeyCharacters(signingKey);
     StorageCommands.getTotalSize(Env, safeKey, cb);
+};
+
+const getPinActivity = (_Env, _publicKey, _data, cb) => {
+    cb('E_NOT_IMPLEMENTED');
+    // XXX: todo
+
 };
 
 const isUserOnlineHandle = (Env, safeKey, cb) => {
@@ -238,7 +242,7 @@ const isUserOnlineHandle = (Env, safeKey, cb) => {
 const isUserOnline = (Env, _publicKey, data, cb) => {
     console.log('Call IS_USER_ONLINE', data);
     let key = Array.isArray(data) && data[1];
-    if (!isValidKey(key)) { return void cb("EINVAL"); }
+    if (!Core.isValidPublicKey(key)) { return void cb("EINVAL"); }
     key = Util.unescapeKeyCharacters(key);
     const userCore = getCoreId(key);
     if (Env.myId === userCore) {
