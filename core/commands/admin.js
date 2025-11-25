@@ -288,6 +288,8 @@ const commands = {
 
     GET_WORKER_PROFILES: getWorkerProfiles,
 
+    GET_USER_TOTAL_SIZE: getUserTotalSize,
+
     GET_ALL_INVITATIONS: getInvitations,
     CREATE_INVITATION: createInvitation,
     DELETE_INVITATION: deleteInvitation,
