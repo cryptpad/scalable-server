@@ -33,6 +33,7 @@ const init = (Env, mainConfig) => {
     const config = server?.options || {};
     const publicConfig = server?.public || {};
 
+    Env.config = config;
     Env.adminDecrees = DecreesCore.create(Constants.adminDecree,
                                           AdminDecrees);
     Env.myId = mainConfig.myId;

@@ -1,8 +1,6 @@
 const Util = require('../../common/common-util.js');
 const Keys = require("../../common/keys");
 
-const config = require("../../config/config.json");
-
 const StorageCommands = require('./storage');
 
 const Admin = {};
@@ -144,8 +142,8 @@ const getAdminsData = (Env) => {
     return Env.adminsData?.map(str => {
         // str is either a full public key or just the ed part
         const edPublic = Keys.canonicalize(str);
-        const hardcoded = Array.isArray(config?.options?.adminKeys) &&
-                config.options.adminKeys.some(key => {
+        const hardcoded = Array.isArray(Env.config.adminKeys) &&
+                Env.config.adminKeys.some(key => {
                     return Keys.canonicalize(key) === edPublic;
                 });
         if (str.length === 44) {
