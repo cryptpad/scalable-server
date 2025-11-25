@@ -53,7 +53,12 @@ var getActiveChannelCount = (_Env, _publicKey, _data, cb) => {
 };
 
 const flushCache = (Env, _publicKey, _data, cb) => {
-    Env.interface.broadcast('websocket', 'FLUSH_CACHE', { freshKey: +new Date() }, () => { cb(void 0, true); });
+    Env.interface.broadcast('websocket', 'FLUSH_CACHE', {
+        freshKey: +new Date()
+    }, () => { cb(void 0, true); });
+
+    // To sync with core:0 as well
+    // Send to websocket:0 (or storage:0, TBD) to be sent to core:0 to broadcast to every websocket
 };
 
 const getDiskUsage = (Env, _publicKey, _data, cb) => {

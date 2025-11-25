@@ -449,7 +449,7 @@ const shutdown = (Env) => {
     delete Env.wss;
 };
 
-const flushCache = (Env, args, cb) => {
+const onFlushCache = (Env, args, cb) => {
     Env.FRESH_KEY = args.freshKey;
     Env.workers.broadcast('FLUSH_CACHE', args, () => {cb();});
 };
@@ -613,7 +613,7 @@ const start = (config) => {
         'SEND_USER_MESSAGE': callWithEnv(sendUserMessage),
         'SEND_CHANNEL_MESSAGE': callWithEnv(sendChannelMessage),
         'NEW_DECREES': callWithEnv(onNewDecrees),
-        'FLUSH_CACHE': callWithEnv(flushCache) ,
+        'FLUSH_CACHE': callWithEnv(onFlushCache) ,
         'SHUTDOWN': callWithEnv(shutdown)
     };
 
