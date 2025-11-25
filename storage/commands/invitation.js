@@ -14,15 +14,8 @@ const getUid = () => {
 };
 
 Invitation.getAll = (Env, cb) => {
-    // XXX multiple storage
-    Invite.getAll(Env, (err, data) => {
-        if (err) { return void cb(err); }
-        cb(null, data);
-    });
-};
-
-Invitation.getInvitations = (Env, _args, cb) => {
-    // Get Invitations on a given server
+    // Only the invitation of this storage are returned. Core will aggregate the
+    // data later.
     Invite.getAll(Env, (err, data) => {
         if (err) { return void cb(err); }
         cb(null, data);

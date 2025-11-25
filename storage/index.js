@@ -450,7 +450,7 @@ let COMMANDS = {
 
     // Admin commands
     'GET_FILE_DESCRIPTOR_COUNT': callWithEnv(Admin.getFileDescriptorCount),
-    'GET_INVITATIONS': callWithEnv(Invitation.getInvitations),
+    'GET_INVITATIONS': callWithEnv(Invitation.getAll),
     'GET_USERS': callWithEnv(Admin.getKnownUsers),
     'ADD_KNOWN_USER': callWithEnv(Admin.addKnowUser),
     'GET_DISK_USAGE': callWithEnv(Admin.getDiskUsage),
