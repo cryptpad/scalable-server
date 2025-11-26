@@ -452,7 +452,7 @@ let COMMANDS = {
     'GET_FILE_DESCRIPTOR_COUNT': callWithEnv(Admin.getFileDescriptorCount),
     'GET_INVITATIONS': callWithEnv(Invitation.getAll),
     'GET_USERS': callWithEnv(Admin.getKnownUsers),
-    'ADD_KNOWN_USER': callWithEnv(Admin.addKnowUser),
+    'ADD_KNOWN_USER': callWithEnv(Admin.addKnownUser),
     'GET_DISK_USAGE': callWithEnv(Admin.getDiskUsage),
 };
 

@@ -23,12 +23,14 @@ const getInvitations = (Env, _publicKey, _data, cb) => {
         cb(void 0, invitations);
     });
 };
-var createInvitation = (_Env, publicKey, _data, cb) => {
+
+var createInvitation = (_Env, _publicKey, _data, cb) => {
     return cb('E_NOT_IMPLEMENTED');
     // const args = Array.isArray(data) && data[1];
     // if (!args || typeof(args) !== 'object') { return void cb("EINVAL"); }
     // Invitation.create(Env, args.alias, args.email, cb, publicKey);
 };
+
 var deleteInvitation = (_Env, _publicKey, _data, cb) => {
     return cb('E_NOT_IMPLEMENTED');
     // var id = Array.isArray(data) && data[1];
