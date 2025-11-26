@@ -8,6 +8,7 @@ const Core = require("../../common/core");
 const Admin = {};
 
 // CryptPad_AsyncStore.rpc.send('ADMIN', ['GET_WORKER_PROFILES'], console.log)
+// To remove?
 const getWorkerProfiles = function (Env, _publicKey, _data, cb) {
     cb(void 0, Env.commandTimers);
 };
@@ -22,13 +23,13 @@ const getInvitations = (Env, _publicKey, _data, cb) => {
         cb(void 0, invitations);
     });
 };
-var createInvitation = (Env, publicKey, data, cb) => {
+var createInvitation = (_Env, publicKey, _data, cb) => {
     return cb('E_NOT_IMPLEMENTED');
     // const args = Array.isArray(data) && data[1];
     // if (!args || typeof(args) !== 'object') { return void cb("EINVAL"); }
     // Invitation.create(Env, args.alias, args.email, cb, publicKey);
 };
-var deleteInvitation = (Env, _publicKey, data, cb) => {
+var deleteInvitation = (_Env, _publicKey, _data, cb) => {
     return cb('E_NOT_IMPLEMENTED');
     // var id = Array.isArray(data) && data[1];
     // Invitation.delete(Env, id, cb);
@@ -38,6 +39,7 @@ var deleteInvitation = (Env, _publicKey, data, cb) => {
 // CryptPad_AsyncStore.rpc.send('ADMIN', ['GET_ACTIVE_SESSIONS'], console.log)
 var getActiveSessions = function (_Env, _publicKey, _data, cb) {
     return cb('E_NOT_IMPLEMENTED');
+    // TODO: do the total (unique TBD)
     // XXX to check later
 
     // var stats = Server.getSessionStats();
@@ -50,6 +52,7 @@ var getActiveSessions = function (_Env, _publicKey, _data, cb) {
 var getActiveChannelCount = (_Env, _publicKey, _data, cb) => {
     return cb('E_NOT_IMPLEMENTED');
     // cb(void 0, Server.getActiveChannelCount());
+    // Env.channel_cache from storage
 };
 
 const flushCache = (Env, _publicKey, _data, cb) => {
@@ -61,6 +64,7 @@ const flushCache = (Env, _publicKey, _data, cb) => {
     // Send to websocket:0 (or storage:0, TBD) to be sent to core:0 to broadcast to every websocket
 };
 
+// To be removed (too costly)
 const getDiskUsage = (Env, _publicKey, _data, cb) => {
     const sumDiskUsage = (acc, it) => {
         for (const key in it) {
@@ -82,6 +86,8 @@ const getRegisteredUsers = (Env, _publicKey, _data, cb) => {
     });
 };
 
+// To remove (not meaningful with multiple servers)
+// To change format (not urgent)
 const getFileDescriptorCount = (Env, _publicKey, _data , cb) => {
     Env.interface.broadcast('storage', 'GET_FILE_DESCRIPTOR_COUNT', {}, (_err, data) => {
         const fdCount = data.reduce((a, b) => a + b);
