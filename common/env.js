@@ -195,9 +195,9 @@ const init = (Env, mainConfig, pluginModules) => {
     // XXX enforceMFA
 
     let ooVersions = getInstalledOOVersions(Env);
-    Env.onlyOffice = ooVersions.length ? {
+    Env.onlyOffice = config.onlyOffice || (ooVersions.length ? {
           availableVersions: ooVersions,
-    } : false;
+    } : false);
 
     Env.shouldUpdateNode = !isRecentVersion();
 
