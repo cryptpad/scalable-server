@@ -441,6 +441,8 @@ const onNewDecrees = (Env, args, cb) => {
     Env.curveKeys = curveKeys;
     Env.getDecree(type).loadRemote(Env, decrees);
     Env.workers.broadcast('NEW_DECREES', {
+        curveKeys: Env.curveKeys,
+        freshKey: Env.FRESH_KEY,
         type, decrees
     }, () => {
         Env.Log.verbose('UPDATE_DECREE_WS_WORKER');

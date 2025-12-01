@@ -115,6 +115,16 @@ if (!type || type === "http") {
         }],
         plugins: getPlugins()
     });
+    list.push({
+        input: "./http-server/worker.js",
+        output: [{
+            name: 'cryptpad-http-server-worker',
+            file: "./build/http.worker.js",
+            format: "cjs",
+            plugins: [ getTerser() ]
+        }],
+        plugins: getPlugins()
+    });
 }
 
 export default list;
