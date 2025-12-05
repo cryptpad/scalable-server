@@ -6,6 +6,8 @@ const Crypto = require('../common/crypto.js')('sodiumnative');
 const Util = require('../common/common-util.js');
 //const plugins = require("./plugin-manager"); // XXX
 
+const StorageCommands = require("./challenges/storage.js");
+
 const Challenge = require("./storage/challenge.js");
     // C.read(Env, id, cb)
     // C.write(Env,id, data, cb)
@@ -73,13 +75,16 @@ COMMANDS.MFA_CHECK = NOAUTH.MFA_CHECK;
 COMMANDS.WRITE_BLOCK = NOAUTH.WRITE_BLOCK; // Account creation + password change
 COMMANDS.REMOVE_BLOCK = NOAUTH.REMOVE_BLOCK;
 
-const TOTP = require("./challenges/totp.js");
-COMMANDS.TOTP_SETUP = TOTP.TOTP_SETUP;
-COMMANDS.TOTP_VALIDATE = TOTP.TOTP_VALIDATE;
-COMMANDS.TOTP_MFA_CHECK = TOTP.TOTP_MFA_CHECK;
-COMMANDS.TOTP_REVOKE = TOTP.TOTP_REVOKE;
-COMMANDS.TOTP_WRITE_BLOCK = TOTP.TOTP_WRITE_BLOCK; // Password change only for now (v5.5.0)
-COMMANDS.TOTP_REMOVE_BLOCK = TOTP.TOTP_REMOVE_BLOCK;
+const TOTP = [
+    'TOTP_SETUP',
+    'TOTP_VALIDATE',
+    'TOTP_MFA_CHECK',
+    'TOTP_REVOKE',
+    'TOTP_WRITE_BLOCK', // Password change only for now (v5.5.0)
+    'TOTP_REMOVE_BLOCK'
+];
+const TotpCommands = StorageCommands.add(TOTP, ['TOTP_MFA_CHECK']);
+TOTP.forEach(id => { COMMANDS[id] = TotpCommands[id]; });
 
 /*
 // XXX plugins
@@ -96,6 +101,24 @@ Object.keys(plugins || {}).forEach(id => {
     } catch (e) {}
 });
 */
+
+let initialized = false;
+const initPlugins = Env => {
+    if (initialized) { return; }
+    initialized = true;
+
+    // Load challenges added by plugins
+    const pluginChallenges = Env.plugins.get('challenges');
+    pluginChallenges.forEach(challenges => {
+        try {
+            if (!Array.isArray(challenges)) { return; }
+            const commands = StorageCommands.add(challenges);
+            Object.keys(commands).forEach(id => {
+                COMMANDS[id] = commands[id];
+            });
+        } catch (e) {}
+    });
+};
 
 /*
 const SSO = plugins.SSO && plugins.SSO.challenge;
@@ -148,6 +171,7 @@ const handleCommand = (Env, body, cb) => {
             let copy = Util.clone(body);
             copy.txid = txid;
             copy.date = date;
+            delete copy._cookies;
 
             // Write the command and challenge to disk, because the challenge protocol
             // is interactive and the subsequent response might be handled by a different http worker
@@ -177,7 +201,7 @@ const handleCommand = (Env, body, cb) => {
 // (the client's response to the server's challenge)
 const handleResponse = (Env, body, cb) => {
 
-    if (Object.keys(body).some(k => !/(sig|txid)/.test(k))) {
+    if (Object.keys(body).some(k => !/(sig|txid|_cookies)/.test(k))) {
         Env.Log.error("CHALLENGE_RESPONSE_DEBUGGING", body);
         // we expect the response to only have two keys
         // if any more are present then the response is malformed
@@ -243,6 +267,8 @@ const handleResponse = (Env, body, cb) => {
             return void cb("Invalid public key");
         }
 
+        if (body._cookies) { json._cookies = body._cookies; }
+
         let action;
         try {
             action = COMMANDS[json.command].complete;
@@ -295,6 +321,8 @@ const handleResponse = (Env, body, cb) => {
 
 
 module.exports.handle = function (Env, body, cb /*, next */) {
+    initPlugins(Env);
+
     // we expect that the client has posted some JSON data
     if (!body) {
         return void cb('invalid request');
@@ -309,6 +337,7 @@ module.exports.handle = function (Env, body, cb /*, next */) {
     // we only expect initial requests to have a 'command' attribute
     // further validation is performed in handleCommand
     if (body.command) {
+        Env.plugins?.MONITORING?.increment(`httpcmd_${body.command}`);
         return void handleCommand(Env, body, cb);
     }
 

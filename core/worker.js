@@ -9,7 +9,6 @@ const init = (config, cb) => {
 };
 
 let onValidateMessage = (msg, vk, cb) => {
-    //monitoringIncrement('inlineValidation'); // XXX MONITORING
     let signedMsg;
     try {
         signedMsg = Crypto.decodeBase64(msg);
@@ -34,7 +33,6 @@ const onValidateRpc = (signedMsg, signature, publicKey) => {
     if (!(signedMsg && publicKey)) {
         throw new Error("INVALID_ARGS");
     }
-    //monitoringIncrement('detachedValidation'); // XXX MONITORING
 
     let signedBuffer;
     let pubBuffer;

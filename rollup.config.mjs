@@ -29,6 +29,8 @@ const getPlugins = () => {
         nodeResolve({
         }),
         commonjs({
+            ignoreDynamicRequires: true,
+            dynamicRequireTargets: ['../plugins/*.js'],
             ignore:['config/*.json', 'sodium-native', 'crypto', 'node:http', 'node:https'] // required by tweetnacl for node
         }),
     ];
@@ -108,6 +110,16 @@ if (!type || type === "http") {
         output: [{
             name: 'cryptpad-http-server',
             file: "./build/http.js",
+            format: "cjs",
+            plugins: [ getTerser() ]
+        }],
+        plugins: getPlugins()
+    });
+    list.push({
+        input: "./http-server/worker.js",
+        output: [{
+            name: 'cryptpad-http-server-worker',
+            file: "./build/http.worker.js",
             format: "cjs",
             plugins: [ getTerser() ]
         }],

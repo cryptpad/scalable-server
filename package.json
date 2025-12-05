@@ -4,7 +4,9 @@
   "version": "0.0.1",
   "license": "AGPL-3.0+",
   "dependencies": {
+    "body-parser": "^2.2.0",
     "connect-gzip-static": "^4.2.1",
+    "cookie-parser": "^1.4.7",
     "express": "~4.21.2",
     "fs-extra": "^7.0.0",
     "get-folder-size": "^2.0.1",

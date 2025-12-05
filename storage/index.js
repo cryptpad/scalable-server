@@ -29,6 +29,8 @@ const WorkerModule = require("../common/worker-module.js");
 const File = require("./storage/file.js");
 const Blob = require("./storage/blob.js");
 const BlockStore = require("./storage/block.js");
+const Sessions = require("./storage/sessions.js");
+const Basic = require("./storage/basic.js");
 
 const Decrees = require('./commands/decrees.js');
 const Upload = require('./commands/upload.js');
@@ -53,7 +55,6 @@ const Env = {
     pin_cache: {},
     cache_checks: {},
     intervals: {},
-    allDecrees: [],
     queueStorage: WriteQueue(),
     queueValidation: WriteQueue(),
     queueMetadata: WriteQueue(),
@@ -270,10 +271,13 @@ const dropUserHandler = (args, cb) => {
 };
 
 const newDecreeHandler = (args, cb) => { // bcast from core:0
-    Env.adminDecrees.loadRemote(Env, args.decrees);
-    if (args.curveKeys) { Env.curveKeys = args.curveKeys; }
-    Array.prototype.push.apply(Env.allDecrees, args.decrees);
-    Env.workers.broadcast('NEW_DECREES', args.decrees, () => {
+    const { type, decrees, curveKeys } = args;
+    Env.getDecree(type).loadRemote(Env, decrees);
+    Env.cacheDecrees(type, decrees);
+    if (curveKeys) { Env.curveKeys = curveKeys; }
+    Env.workers.broadcast('NEW_DECREES', {
+        type, decrees
+    }, () => {
         Env.Log.verbose('UPDATE_DECREE_STORAGE_WORKER');
     });
     cb();
@@ -292,7 +296,7 @@ const accountsLimitsHandler = (args, cb) => { // sent from UI
 /* RPC commands */
 
 const adminDecreeHandler = (decree, cb) => { // sent from UI
-    Decrees.onNewDecree(Env, decree, cb);
+    Decrees.onNewDecree(Env, decree, '', cb);
 };
 const getFileSizeHandler = (channel, cb) => {
     Pinning.getFileSize(Env, channel, cb);
@@ -459,28 +463,36 @@ let COMMANDS = {
 const initWorkerCommands = () => {
     Env.worker ||= {};
     Env.worker.computeMetadata = (channel, cb) => {
-        Env.store.getWeakLock(channel, next => {
+        Env.store.getWeakLock(channel, _next => {
+            let avg = Env.plugins?.MONITORING?.average(`computeMetadata`);
+            const next = () => { _next(); avg?.time(); };
             Env.workers.send('COMPUTE_METADATA', {
                 channel
             }, Util.both(next, cb));
         });
     };
     Env.worker.computeIndex = (channel, cb) => {
-        Env.store.getWeakLock(channel, next => {
+        Env.store.getWeakLock(channel, _next => {
+            let avg = Env.plugins?.MONITORING?.average(`computeIndex`);
+            const next = () => { _next(); avg?.time(); };
             Env.workers.send('COMPUTE_INDEX', {
                 channel
             }, Util.both(next, cb));
         });
     };
     Env.worker.getHashOffset = (channel, hash, cb) => {
-        Env.store.getWeakLock(channel, next => {
+        Env.store.getWeakLock(channel, _next => {
+            let avg = Env.plugins?.MONITORING?.average(`getHashOffset`);
+            const next = () => { _next(); avg?.time(); };
             Env.workers.send('GET_HASH_OFFSET', {
                 channel, hash
             }, Util.both(next, cb));
         });
     };
     Env.worker.getOlderHistory = (channel, oldestKnownHash, untilHash, desiredMessages, desiredCheckpoint, cb) => {
-        Env.store.getWeakLock(channel, (next) => {
+        Env.store.getWeakLock(channel, (_next) => {
+            let avg = Env.plugins?.MONITORING?.average(`getOlderHistory`);
+            const next = () => { _next(); avg?.time(); };
             Env.workers.send('GET_OLDER_HISTORY', {
                 channel, oldestKnownHash, untilHash, desiredMessages, desiredCheckpoint
             }, Util.both(next, cb));
@@ -493,7 +505,6 @@ const initWorkerCommands = () => {
             channels: channels,
         }, cb, true);
     };
-    // XXX Env.worker.?
     Env.worker.getTotalSize = (channels, cb) => {
         // we could take out locks for all of these channels,
         // but it's OK if the size is slightly off
@@ -502,7 +513,9 @@ const initWorkerCommands = () => {
         }, cb);
     };
     Env.getPinState = (safeKey, cb) => {
-        Env.pinStore.getWeakLock(safeKey, (next) => {
+        Env.pinStore.getWeakLock(safeKey, (_next) => {
+            let avg = Env.plugins?.MONITORING?.average(`getPinState`);
+            const next = () => { _next(); avg?.time(); };
             Env.workers.send('GET_PIN_STATE', {
                 key: safeKey
             }, Util.both(next, cb));
@@ -510,9 +523,11 @@ const initWorkerCommands = () => {
     };
 
     Env.worker.getDeletedPads = (channels, cb) => {
+        let avg = Env.plugins?.MONITORING?.average(`getDeletedPads`);
+        const next = Util.both(cb, avg?.time);
         Env.workers.send("GET_DELETED_PADS", {
             channels: channels,
-        }, cb);
+        }, next);
     };
     Env.hashChannelList = (channels, cb) => {
         Env.workers.send('HASH_CHANNEL_LIST', {
@@ -585,11 +600,27 @@ const initHttpServer = (Env, config, _cb) => {
     });
 };
 
+const onInitialized = (Env, _cb) => {
+    const cb = Util.mkAsync(_cb);
+
+    nThen(waitFor => {
+        Env.plugins.call('initStorage')(Env, waitFor);
+    }).nThen(() => {
+        cb();
+    });
+
+};
+
 // Connect to core
 let start = function(config) {
     const { myId, index, infra, server } = config;
 
-    Environment.init(Env, config);
+    Environment.init(Env, config, {
+        Block, Pinning, Decrees,
+        BlockStore, Blob, File, Sessions, Basic,
+        HKUtil
+    });
+
 
     Env.config = config;
 
@@ -609,17 +640,21 @@ let start = function(config) {
         curvePublic: Util.encodeBase64(curve.publicKey),
         curvePrivate: Util.encodeBase64(curve.secretKey)
     };
-    Env.sendDecrees = (decrees, _cb) => {
+    Env.sendDecrees = (decrees, type, _cb) => {
         const cb = Util.mkAsync(_cb || function () {});
         const freshKey = String(+new Date());
-        Array.prototype.push.apply(Env.allDecrees, decrees);
+        Env.cacheDecrees(type, decrees);
         nThen(waitFor => {
             Env.interface.broadcast('core', 'NEW_DECREES', {
                 freshKey,
                 curveKeys,
-                decrees
+                decrees,
+                type
             }, waitFor());
-            Env.workers.broadcast('NEW_DECREES', decrees, waitFor(() => {
+            Env.workers.broadcast('NEW_DECREES', {
+                decrees,
+                type
+            }, waitFor(() => {
                 Env.Log.verbose('UPDATE_DECREE_STORAGE_WORKER');
             }));
             curveKeys = undefined;
@@ -692,7 +727,7 @@ let start = function(config) {
             Log: Env.Log,
             workerPath: './build/storage.worker.js',
             maxWorkers: 1,
-            maxJobs: 4,
+            maxJobs: 15,
             commandTimers: {}, // time spent on each command
             config: config,
             Env: { // Serialized Env (Environment.serialize)
@@ -700,10 +735,13 @@ let start = function(config) {
         };
         Env.workers = WorkerModule(workerConfig);
         Env.workers.onNewWorker(state => {
-            if (!Env.allDecrees.length) { return; }
-            Env.workers.sendTo(state, 'NEW_DECREES', Env.allDecrees,
-                () => {
-                Env.Log.verbose('UPDATE_DECREE_STORAGE_WORKER');
+            Object.keys(Env.allDecrees).forEach(type => {
+                const decrees = Env.allDecrees[type];
+                Env.workers.sendTo(state, 'NEW_DECREES', {
+                    decrees, type
+                }, () => {
+                    Env.Log.verbose('UPDATE_DECREE_STORAGE_WORKER');
+                });
             });
         });
         initWorkerCommands();
@@ -719,7 +757,9 @@ let start = function(config) {
             }
 
         }));
+
         // List accepted commands
+        Env.plugins.call('addStorageCommands')(Env, COMMANDS);
         Env.interface.handleCommands(COMMANDS);
     }).nThen(waitFor => {
         // Only storage:0 can manage decrees and accounts
@@ -732,10 +772,25 @@ let start = function(config) {
                 return Env.Log.error('DECREES_LOADING_ERROR', err);
             }
 
-            Env.sendDecrees(toSend);
+            Env.sendDecrees(toSend, '');
         }));
+    }).nThen(waitFor => {
+        onInitialized(Env, waitFor());
+    }).nThen(waitFor => {
+        // BEARER_SECRET decree (storage:0 only)
+        if (index !== 0) { return; }
+        if (Env.bearerSecret) { return; }
+
+        const bearerSecret = Util.encodeBase64(Crypto.randomBytes(32));
+        const decree = [
+            'SET_BEARER_SECRET',
+            [bearerSecret],
+            'INTERNAL',
+            +new Date()
+        ];
+        Decrees.onNewDecree(Env, decree, '', waitFor());
     }).nThen(() => {
-        // INSTALL TOKEN (storage:0 only)
+        // INSTALL TOKEN admin decree (storage:0 only)
         if (index !== 0) { return; }
 
         let admins = Env.admins || [];
@@ -758,7 +813,7 @@ let start = function(config) {
         token = Crypto.randomBytes(32).toString('hex');
 
         let decree = ["ADD_INSTALL_TOKEN",[token],"",+new Date()];
-        Decrees.onNewDecree(Env, decree, () => {
+        Decrees.onNewDecree(Env, decree, '', () => {
             printLink();
         });
     }).nThen(() => {

@@ -7,11 +7,13 @@ const CpCrypto = require("../common/crypto.js")('sodiumnative');
 const Util = require('../common/common-util');
 const MFA = require("./storage/mfa");
 const Sessions = require("./storage/sessions");
-
-const plugins = {}; // XXX plugins
-let SSOUtils = plugins.SSO && plugins.SSO.utils;
+const bodyParser = require('body-parser');
 
 const create = (Env, app) => {
+    app.use(bodyParser.urlencoded({
+        extended: true
+    }));
+
     app.use('/blob', function (req, res, next) {
         // Head requests are used to check the size of a blob.
         const url = req.url;
@@ -71,7 +73,7 @@ const create = (Env, app) => {
         }
     ));
 
-    // XXX plugins
+    Env.plugins.addHttpEndpoints(Env, app, 'storage');
 
     app.use('/block/', function (req, res, next) {
         const parsed = Path.parse(req.url);
@@ -132,6 +134,7 @@ const create = (Env, app) => {
             }));
 
             // Same for SSO settings
+            const SSOUtils = Env?.plugins?.SSO?.utils;
             if (!SSOUtils) { return; }
             SSOUtils.readBlock(Env, name, w((err, content) => {
                 if (err && (err.code === 'ENOENT' || err === 'ENOENT')) {

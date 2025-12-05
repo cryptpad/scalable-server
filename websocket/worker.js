@@ -5,6 +5,9 @@ const Environment = require('../common/env');
 const Logger = require('../common/logger');
 const { setHeaders } = require('../http-server/headers.js');
 
+const cookieParser = require("cookie-parser");
+const bodyParser = require('body-parser');
+
 const COMMANDS = {};
 const Env = {
     isWorker: true
@@ -30,7 +33,6 @@ const sendCommand = (cmd, data, cb) => {
     const txid = guid();
     response.expect(txid, (err, response) => {
         cb(err, response);
-        // XXX
     }, 2*60000); // 2min timeout
     process.send({
         txid, cmd, data,
@@ -38,44 +40,10 @@ const sendCommand = (cmd, data, cb) => {
     });
 };
 
-
-// XXX plugins
-let plugins = {};
-let SSOUtils = plugins.SSO && plugins.SSO.utils;
-
-/*
-// XXX SSO
 app.use(bodyParser.urlencoded({
-  extended: true
+    extended: true
 }));
 app.use(cookieParser());
-
-// NOTE/ move to SSO plugin?
-app.use('/ssoauth', (req, res, next) => {
-    if (SSOUtils && req && req.body && req.body.SAMLResponse) {
-        req.method = 'GET';
-
-        let token = Util.uid();
-        let smres = req.body.SAMLResponse;
-        return SSOUtils.writeRequest(Env, {
-            id: token,
-            type: 'saml',
-            content: smres
-        }, (err) => {
-            if (err) {
-                Log.error('E_SSO_WRITE_REQ', err);
-                return res.sendStatus(500);
-            }
-            let value = `samltoken="${token}"; SameSite=Strict; HttpOnly`;
-            res.setHeader('Set-Cookie', value);
-            next();
-        });
-
-    }
-    next();
-});
-
-*/
 
 // if dev mode: never cache
 const cacheString = () => {
@@ -120,6 +88,7 @@ const serveConfig = makeRouteCache(function () {
     // NOTE: we may extract JSON from this config using slice(27, -5)
     const ssoList = Env.sso && Env.sso.enabled && Array.isArray(Env.sso.list) &&
                     Env.sso.list.map(function (obj) { return obj.name; }) || [];
+    const SSOUtils = Env?.plugins?.SSO?.utils;
     const ssoCfg = (SSOUtils && ssoList.length) ? {
         force: (Env.sso && Env.sso.enforced && 1) || 0,
         password: (Env.sso && Env.sso.cpPassword && (Env.sso.forceCpPassword ? 2 : 1)) || 0,
@@ -197,6 +166,37 @@ app.get('/api/config', serveConfig);
 app.get('/api/broadcast', serveBroadcast);
 app.get('/api/instance', serveInstance);
 
+const servePlugins = Env => {
+    const plugins = Env.plugins;
+    let extensions = plugins._extensions;
+    let styles = plugins._styles;
+    let str = JSON.stringify(extensions);
+    let str2 = JSON.stringify(styles);
+    let js = `let extensions = ${str};
+let styles = ${str2};
+let lang = window.cryptpadLanguage;
+let paths = [];
+extensions.forEach(name => {
+    paths.push(\`optional!/\${name}/extensions.js\`);
+    paths.push(\`optional!json!/\${name}/translations/messages.json\`);
+    const l = lang === "en" ? '' : \`\${lang}.\`;
+    paths.push(\`optional!json!/\${name}/translations/messages.\${l}json\`);
+});
+styles.forEach(name => {
+    paths.push(\`optional!less!/\${name}/style.less\`);
+});
+define(paths, function () {
+    let args = Array.prototype.slice.apply(arguments);
+    return args;
+}, function () {
+    // ignore missing files
+});`;
+    app.get('/extensions.js', (req, res) => {
+        res.setHeader('Content-Type', 'text/javascript');
+        res.send(js);
+    });
+};
+
 app.get('/api/profiling', (/*req, res*/) => {
     // XXX
     // XXX Env.enableProfiling, Env.profilingWindow
@@ -209,21 +209,26 @@ app.get('/api/profiling', (/*req, res*/) => {
 app.use(Express.json());
 app.post('/api/auth', (req, res) => {
     const body = Util.clone(req.body);
+    const cookies = req.cookies;
+    body._cookies = cookies;
     sendCommand('HTTP_COMMAND', body, (err, response) => {
         if (err) {
             return res.status(500).json({
                 error: err
             });
         }
+        if (response._cookie) {
+            res.setHeader('Set-Cookie', response._cookie);
+        }
         res.status(200).json(response);
     });
 });
 
 COMMANDS.NEW_DECREES = (data, cb) => {
-    const { decrees, curveKeys, freshKey } = data;
+    const { decrees, type, curveKeys, freshKey } = data;
     Env.FRESH_KEY = freshKey;
     Env.curveKeys = curveKeys;
-    Env.adminDecrees.loadRemote(Env, decrees);
+    Env.getDecree(type).loadRemote(Env, decrees);
     [ 'configCache', 'broadcastCache', ].forEach(key => {
         Env[key] = {};
     });
@@ -240,6 +245,7 @@ const init = (config, cb) => {
     Env.Log = Logger();
 
     Environment.init(Env, config);
+    servePlugins(Env);
 
     const cfg = config?.infra?.websocket[config.index];
     const server = Http.createServer(app);

@@ -596,7 +596,8 @@ const writeTask = (data, cb) => {
 };
 
 const onNewDecrees = (data, cb) => {
-    Env.adminDecrees.loadRemote(Env, data);
+    const { decrees, type } = data;
+    Env.getDecree(type).loadRemote(Env, decrees);
     cb();
 };
 

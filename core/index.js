@@ -27,7 +27,6 @@ let Env = {
     queueValidation: WriteQueue(),
     Sessions: {},
     intervals: {},
-    allDecrees: []
 };
 
 const isWsCmd = id => {
@@ -115,7 +114,9 @@ const validateMessageHandler = (args, cb, extra) => {
     Env.channelKeyCache[channel] = validateKey;
 
     Env.queueValidation(channel, next => {
+        let avg = Env.plugins?.MONITORING?.average(`inlineValidation`);
         Env.workers.send('VALIDATE_MESSAGE', args, e => {
+            avg?.time();
             next();
             cb(e);
         });
@@ -249,11 +250,13 @@ const onChannelMessage = (args, cb, extra) => {
         const msg = msgStruct[4].replace(CHECKPOINT_PATTERN, '');
         const vKey = Env.channelKeyCache[channel];
         Env.queueValidation(channel, next => {
+            let avg = Env.plugins?.MONITORING?.average(`inlineValidation`);
             Env.workers.send('VALIDATE_MESSAGE', {
                 channel,
                 signedMsg: msg,
                 validateKey: vKey
             }, (e) => {
+                avg?.time();
                 next();
                 if (e === 'FAILED') {
                     Env.Log.error("HK_SIGNED_MESSAGE_REJECTED", {
@@ -326,7 +329,10 @@ const onAnonRpc = (args, cb, extra) => {
         return void cb('INVALID_ANON_RPC_COMMAND');
     }
 
+    let avg = Env.plugins?.MONITORING?.average(`rpc_${data[0]}`);
+
     Rpc.handleUnauthenticated(Env, data, userId, (err, msg) => {
+        avg?.time();
         cb(err, msg);
     });
 };
@@ -362,7 +368,7 @@ const onAuthRpc = (args, cb, extra) => {
         return void cb('INVALID_MESSAGE_OR_PUBLIC_KEY');
     }
 
-    //Env.plugins?.MONITORING?.increment(`rpc_${command}`); // XXX MONITORING
+    let avg = Env.plugins?.MONITORING?.average(`rpc_${command}`);
 
     if (command === 'UPLOAD') {
         // UPLOAD is a special case that skips signature validation
@@ -377,11 +383,13 @@ const onAuthRpc = (args, cb, extra) => {
 
     // check the signature on the message
     // refuse the command if it doesn't validate
+    let avgVal = Env.plugins?.MONITORING?.average(`detachedValidation`);
     Env.workers.send('VALIDATE_RPC', {
         msg: serialized,
         key: publicKey,
         sig
     }, err => {
+        avgVal?.time();
         if (err) {
             return void cb("INVALID_SIGNATURE_OR_PUBLIC_KEY");
         }
@@ -401,7 +409,7 @@ const onAuthRpc = (args, cb, extra) => {
         // this AUTH command before retrying to join a pad.
         authenticateUser(userId, publicKey);
 
-        return Rpc.handleAuthenticated(Env, publicKey, data, cb);
+        return Rpc.handleAuthenticated(Env, publicKey, data, Util.both(cb, avg?.time));
     });
 };
 
@@ -432,7 +440,22 @@ const onGetRegisteredUsers = (args, cb, extra) => {
 const onStorageToStorage = (args, cb, extra) => {
     if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
     const { id, cmd, data } = args;
+    if (id === 'all') {
+        Env.interface.broadcast('storage', cmd, data, (errors, data) => {
+            if (errors && errors.length) { return void cb(errors, data); }
+            cb(void 0, data);
+        }, [extra.from]);
+        return;
+    }
     Core.coreToStorage(Env, id, cmd, data, cb);
+};
+const onStorageToWs = (args, cb, extra) => {
+    if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
+    const { cmd, data } = args;
+    Env.interface.broadcast('websocket', cmd, data, (errors, data) => {
+        if (errors && errors.length) { return void cb(errors, data); }
+        cb(void 0, data);
+    });
 };
 
 const onHttpCommand = (args, cb, extra) => {
@@ -457,18 +480,20 @@ const onWsCommand = command => {
 // and broadcast to all the other nodes
 const onNewDecrees = (args, cb, extra) => {
     if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
-    Env.FRESH_KEY = args.freshKey;
-    Env.curveKeys = args.curveKeys;
-    Env.adminDecrees.loadRemote(Env, args.decrees);
-    Array.prototype.push.apply(Env.allDecrees, args.decrees);
+    const { type, decrees, freshKey, curveKeys } = args;
+
+    Env.FRESH_KEY = freshKey;
+    Env.curveKeys = curveKeys;
+
+    Env.getDecree(type).loadRemote(Env, decrees);
+    Env.cacheDecrees(type, decrees);
+
     // core:0 also has to broadcast to all the websocket and storage
     // nodes
     nThen(waitFor => {
         if (Env.myId !== 'core:0') { return; }
         Env.interface.broadcast('websocket', 'NEW_DECREES', {
-            freshKey: args.freshKey,
-            curveKeys: args.curveKeys,
-            decrees: args.decrees
+            freshKey, curveKeys, type, decrees
         }, waitFor((errors) => {
             errors.forEach(obj => {
                 const { id, error } = obj;
@@ -477,9 +502,7 @@ const onNewDecrees = (args, cb, extra) => {
         }));
         const exclude = ['storage:0'];
         Env.interface.broadcast('storage', 'NEW_DECREES', {
-            freshKey: args.freshKey,
-            curveKeys: args.curveKeys,
-            decrees: args.decrees
+            freshKey, curveKeys, type, decrees
         }, waitFor((errors) => {
             errors.forEach(obj => {
                 const { id, error } = obj;
@@ -487,7 +510,7 @@ const onNewDecrees = (args, cb, extra) => {
             });
         }), exclude);
         Env.interface.sendQuery('http:0', 'NEW_DECREES', {
-            decrees: args.decrees
+            freshKey, curveKeys, type, decrees
         }, waitFor());
     }).nThen(() => {
         cb();
@@ -545,7 +568,7 @@ let startServers = function(config) {
         Log: Env.Log,
         workerPath: './build/core.worker.js',
         maxWorkers: 1,
-        maxJobs: 4,
+        maxJobs: 15,
         commandTimers: {}, // time spent on each command
         config: {
         },
@@ -590,6 +613,7 @@ let startServers = function(config) {
         'GET_REGISTERED_USERS': onGetRegisteredUsers,
 
         'STORAGE_STORAGE': onStorageToStorage,
+        'STORAGE_WS': onStorageToWs,
     };
     queriesToStorage.forEach(function(command) {
         COMMANDS[command] = wsToStorage(command);
@@ -613,18 +637,21 @@ let startServers = function(config) {
             process.send({ type: 'core', index: config.index, msg: 'READY' });
         }
     });
+    Env.plugins.call('addCoreCommands')(Env, COMMANDS);
     Env.interface.handleCommands(COMMANDS);
     if (Env.myId !== 'core:0') { return; }
     Env.interface.onNewConnection(obj => {
         const id = `${obj.type}:${obj.index}`;
-        if (!Env.allDecrees.length) { return; }
         Env.interface.sendEvent(id, 'ACCOUNTS_LIMITS', {
             limits: Env.accountsLimits
         });
-        Env.interface.sendEvent(id, 'NEW_DECREES', {
-            curveKeys: Env.curveKeys,
-            freshKey: Env.FRESH_KEY,
-            decrees: Env.allDecrees
+        Object.keys(Env.allDecrees).forEach(type => {
+            const decrees = Env.allDecrees[type];
+            Env.interface.sendEvent(id, 'NEW_DECREES', {
+                curveKeys: Env.curveKeys,
+                freshKey: Env.FRESH_KEY,
+                type, decrees
+            });
         });
     });
 };

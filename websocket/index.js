@@ -146,6 +146,8 @@ const sendMsgPromise = (Env, user, msg) => {
             user.sendMsgCallbacks.push(resolve);
             user.socket.send(strMsg, () => {
                 user.inQueue -= strMsg.length;
+                Env.plugins?.MONITORING?.increment(`sent`);
+                Env.plugins?.MONITORING?.increment(`sentSize`, strMsg.length);
                 if (user.inQueue > QUEUE_CHR) { return; }
                 const smcb = user.sendMsgCallbacks;
                 user.sendMsgCallbacks = [];
@@ -378,6 +380,7 @@ const handleLeave = (Env, args) => {
     });
 };
 const handlePing = (Env, args) => {
+    Env.plugins?.MONITORING?.increment(`pingReceived`);
     sendMsg(Env, args.user, [args.seq, 'ACK']);
 };
 const commands = {
@@ -432,11 +435,16 @@ const sendChannelMessage = (Env, args) => { // Event
 };
 
 const onNewDecrees = (Env, args, cb) => {
-    Array.prototype.push.apply(Env.allDecrees, args.decrees);
-    Env.FRESH_KEY = args.freshKey;
-    Env.curveKeys = args.curveKeys;
-    Env.adminDecrees.loadRemote(Env, args.decrees);
-    Env.workers.broadcast('NEW_DECREES', args, () => {
+    const { type, decrees, curveKeys, freshKey } = args;
+    Env.cacheDecrees(type, decrees);
+    Env.FRESH_KEY = freshKey;
+    Env.curveKeys = curveKeys;
+    Env.getDecree(type).loadRemote(Env, decrees);
+    Env.workers.broadcast('NEW_DECREES', {
+        curveKeys: Env.curveKeys,
+        freshKey: Env.FRESH_KEY,
+        type, decrees
+    }, () => {
         Env.Log.verbose('UPDATE_DECREE_WS_WORKER');
     });
     cb();
@@ -474,8 +482,35 @@ const onHttpCommand = (Env, data, cb) => {
 
 // Initialisation
 
+const LAG_MAX_BEFORE_DISCONNECT = 60000;
+const LAG_MAX_BEFORE_PING = 15000;
+const checkUserActivity = (Env) => {
+    const time = now();
+    Object.keys(Env.users).forEach((userId) => {
+        const u = Env.users[userId];
+        try {
+            if (time - u.timeOfLastMessage > LAG_MAX_BEFORE_DISCONNECT) {
+                dropUser(Env, u, 'BAD_MESSAGE');
+            }
+            if (!u.pingOutstanding && time - u.timeOfLastMessage > LAG_MAX_BEFORE_PING) {
+                sendMsg(Env, u, [0, '', 'PING', now()]);
+                u.pingOutstanding = true;
+                Env.plugins?.MONITORING?.increment(`pingSent`);
+            }
+        } catch (err) {
+            Env.Log.error(err, 'USER_ACTIVITY_CHECK');
+        }
+    });
+};
+
 const initServerHandlers = (Env) => {
     if (!Env.wss) { throw new Error('No WebSocket Server'); }
+
+    setInterval(() => {
+        checkUserActivity(Env);
+    }, 5000);
+
+
     Env.wss.on('connection', (socket, req) => {
         // refuse new connections if the server is shutting down
         if (!Env.active) { return; }
@@ -503,6 +538,8 @@ const initServerHandlers = (Env) => {
             Env.Log.verbose('Receiving', JSON.parse(message), 'from', user.id);
             try {
                 handleMessage(Env, user, message);
+                Env.plugins?.MONITORING?.increment(`received`);
+                Env.plugins?.MONITORING?.increment(`receivedSize`, message.length);
             } catch (e) {
                 Env.Log.error(e, 'NETFLUX_BAD_MESSAGE', {
                     user: user.id,
@@ -566,12 +603,15 @@ const initHttpCluster = (Env, config) => {
 
         Env.workers = WorkerModule(workerConfig);
         Env.workers.onNewWorker(state => {
-            Env.workers.sendTo(state, 'NEW_DECREES', {
-                decrees: Env.allDecrees,
-                curveKeys: Env.curveKeys,
-                freshKey: Env.FRESH_KEY
-            }, () => {
-                Env.Log.verbose('UPDATE_DECREE_WS_WORKER');
+            Object.keys(Env.allDecrees).forEach(type => {
+                const decrees = Env.allDecrees[type];
+                Env.workers.sendTo(state, 'NEW_DECREES', {
+                    curveKeys: Env.curveKeys,
+                    freshKey: Env.FRESH_KEY,
+                    decrees, type
+                }, () => {
+                    Env.Log.verbose('UPDATE_DECREE_WS_WORKER');
+                });
             });
         });
     });
@@ -595,7 +635,6 @@ const start = (config) => {
         Log: Logger(),
         active: true,
         users: {},
-        allDecrees: [],
         config: interfaceConfig,
         public: server?.public?.websocket?.[index],
     };
@@ -647,6 +686,7 @@ const start = (config) => {
                 Env.Log.info('websocket:' + Env.config.index + ' started');
             }
         });
+        Env.plugins.call('addWebsocketCommands')(Env, CORE_COMMANDS);
         Env.interface.handleCommands(CORE_COMMANDS);
     }).catch((e) => { return Env.Log.error('Error:', e); });
 };

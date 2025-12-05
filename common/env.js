@@ -1,3 +1,5 @@
+const { existsSync, readdirSync } = require('node:fs');
+const Path = require('node:path');
 const Package = require("../package.json");
 const Util = require('./common-util');
 const Keys = require('./keys');
@@ -7,6 +9,7 @@ const Default = require('../http-server/defaults');
 const DecreesCore = require('./decrees-core');
 const AdminDecrees = require('./admin-decrees');
 const { jumpConsistentHash } = require('./consistent-hash');
+const plugins = require('./plugin-manager');
 
 const isRecentVersion = function () {
     let R = Default.recommendedVersion;
@@ -28,7 +31,16 @@ const isRecentVersion = function () {
     return false;
 };
 
-const init = (Env, mainConfig) => {
+const getInstalledOOVersions = (Env) => {
+    const path = Path.join(Env.clientRoot, 'www/common/onlyoffice/dist');
+    if (!existsSync(path)) {
+        return [];
+    }
+
+    return readdirSync(path);
+};
+
+const init = (Env, mainConfig, pluginModules) => {
     const { server , infra } = mainConfig;
     const config = server?.options || {};
     const publicConfig = server?.public || {};
@@ -36,6 +48,12 @@ const init = (Env, mainConfig) => {
     Env.config = config;
     Env.adminDecrees = DecreesCore.create(Constants.adminDecree,
                                           AdminDecrees);
+
+    Env.modules = {
+        Core, Util, Constants, DecreesCore
+    };
+    Object.assign(Env.modules, pluginModules || {});
+
     Env.myId = mainConfig.myId;
 
     Env.clientRoot = config?.clientRoot || '../cryptpad';
@@ -47,21 +65,37 @@ const init = (Env, mainConfig) => {
     Env.numberCores = infra.core.length;
 
     // TODO: implement storage migration later (in /storage/)
+    Env.Util = Util;
+    Env.Core = Core;
     Env.getStorageId = data => {
         // We need a 8 byte key
         // For public keys, make sure we always use the safe one
         // to avoid leading some commands to different nodes for
         // the same user
-        data = Util.escapeKeyCharacters(data || '');
+        data = Util.escapeKeyCharacters(data || '') + '00000000';
         const key = Buffer.from(data.slice(0, 8));
         const id = jumpConsistentHash(key, Env.numberStorages);
         return 'storage:' + id;
     };
     Env.getCoreId = data => {
-        data = Util.escapeKeyCharacters(data);
+        data = Util.escapeKeyCharacters(data) + '00000000';
         const key = Buffer.from(data.slice(0, 8));
         const id = jumpConsistentHash(key, Env.numberCores);
         return 'core:' + id;
+    };
+
+    Env.getDecree = type => {
+        return Env.plugins[type]?.getDecree(Env) || Env.adminDecrees;
+    };
+
+    Env.allDecrees = {};
+    Env.cacheDecrees = (type, decrees) => {
+        type ||= 'admin';
+        const cache = Env.allDecrees[type] ||= [];
+        Array.prototype.push.apply(cache, decrees);
+    };
+    Env.getCachedDecrees = () => {
+        return Env.allDecrees;
     };
 
     // Network
@@ -159,19 +193,19 @@ const init = (Env, mainConfig) => {
     // XXX plugins
     // plugins can includes custom Env values
 
-    // XXX ACCOUNTS
-    Env.accounts_api = config.accounts_api; // XXX move to plugin
-    let acc_domain = new URL(Env.httpUnsafeOrigin);
-    Env.accounts_domain = acc_domain.host;
-
-    // XXX curve keys for form deletion
     // XXX enforceMFA
 
-    Env.onlyOffice = false; // XXX TODO OO
+    let ooVersions = getInstalledOOVersions(Env);
+    Env.onlyOffice = config.onlyOffice || (ooVersions.length ? {
+          availableVersions: ooVersions,
+    } : false);
 
     Env.shouldUpdateNode = !isRecentVersion();
 
     Env.paths = Core.getPaths(mainConfig, true);
+
+    Env.plugins = plugins;
+    plugins.call('customizeEnv')(Env);
 
     return Env;
 };

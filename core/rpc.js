@@ -227,12 +227,10 @@ Rpc.handleUnauthenticated = (Env, data, userId, cb) => {
 
     Env.Log.verbose('LOG_RPC', command);
 
-    //Env.plugins?.MONITORING?.increment(`rpc_${command}`); // XXX MONITORING
-
     const method = UNAUTHENTICATED_CALLS[command];
     method(Env, content, (err, value) => {
         if (err) {
-            Env.Log.warn('ANON_RPC_ERROR', err, content);
+            Env.Log.warn('ANON_RPC_ERROR', command, err, content);
             return void cb(err);
         }
         cb(void 0, [null, value, null]);
@@ -266,7 +264,7 @@ Rpc.handleAuthenticated = (Env, publicKey, data, cb) => {
     if (typeof(AUTHENTICATED_USER_TARGETED[TYPE]) === 'function') {
         return void AUTHENTICATED_USER_TARGETED[TYPE](Env, safeKey, data[1], (e, value) => {
             if (e) {
-                Env.Log.warn('RPC_ERROR', e, safeKey);
+                Env.Log.warn('RPC_ERROR', TYPE, e, safeKey, data[1]);
                 return void Respond(e);
             }
             Respond(e, value);
@@ -276,7 +274,7 @@ Rpc.handleAuthenticated = (Env, publicKey, data, cb) => {
     if (typeof(AUTHENTICATED_USER_SCOPED[TYPE]) === 'function') {
         return void AUTHENTICATED_USER_SCOPED[TYPE](Env, safeKey, (e, value) => {
             if (e) {
-                Env.Log.warn('RPC_ERROR', e, safeKey);
+                Env.Log.warn('RPC_ERROR', TYPE, e, safeKey);
                 return void Respond(e);
             }
             Respond(e, value);

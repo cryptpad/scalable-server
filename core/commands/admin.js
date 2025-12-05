@@ -308,6 +308,13 @@ const commands = {
     GET_MODERATORS: getModerators,
 };
 
+let pluginsInitialized = false;
+const initPlugins = Env => {
+    if (pluginsInitialized) { return; }
+    pluginsInitialized = true;
+    Env.plugins.call('addAdminCommands')(Env, commands);
+};
+
 Admin.command = (Env, safeKey, data, _cb) => {
     const cb = Util.once(Util.mkAsync(_cb));
 
@@ -317,6 +324,8 @@ Admin.command = (Env, safeKey, data, _cb) => {
     if (admins.indexOf(unsafeKey) === -1) {
         return void cb("FORBIDDEN");
     }
+
+    initPlugins(Env);
 
     const command = commands[data[0]];
 
