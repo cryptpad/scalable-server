@@ -38,7 +38,6 @@ const Pinning = require('./commands/pin.js');
 const Quota = require('./commands/quota.js');
 const Block = require('./commands/block.js');
 const Metadata = require('./commands/metadata.js');
-const Invitation = require('./commands/invitation.js');
 const Admin = require('./commands/admin.js');
 
 const {
