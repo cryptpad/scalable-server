@@ -15,7 +15,7 @@ const getWorkerProfiles = function (Env, _publicKey, _data, cb) {
 
 
 const getInvitations = (Env, _publicKey, _data, cb) => {
-    Env.interface.broadcast('storage', 'GET_INVITATIONS', {}, (_err, data) => {
+    Env.interface.broadcast('storage', 'ADMIN_CMD', { cmd: 'GET_INVITATIONS' }, (_err, data) => {
         // It’s necessary to add the arguments for Object.assign as reduce
         // provides extra arguments to its callback function that interfers with
         // extra arguments of Object.assign
