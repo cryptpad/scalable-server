@@ -2,27 +2,27 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-const Admin = module.exports;
 const User = require('../storage/user');
 const Users = require('./users');
+const Invitation = require('./invitation');
 const Fs = require('node:fs');
 const getFolderSize = require("get-folder-size");
 const nThen = require('nthen');
 
 
 // XXX: Find a way to detect if it’s called from the same virtual machine?
-Admin.getFileDescriptorCount = (Env, _args, cb) => {
+const getFileDescriptorCount = (Env, _args, cb) => {
     Fs.readdir('/proc/self/fd', function(err, list) {
         if (err) { return void cb(err); }
         cb(void 0, list.length);
     });
 };
 
-Admin.getKnownUsers = (Env, _args, cb) => {
+const getKnownUsers = (Env, _args, cb) => {
     User.getAll(Env, cb);
 };
 
-Admin.addKnownUser = (Env, data, cb) => {
+const addKnownUser = (Env, data, cb) => {
     const obj = Array.isArray(data) && data[1];
     const { edPublic, block, alias, unsafeKey, email, name } = obj;
     const userData = {
@@ -36,7 +36,7 @@ Admin.addKnownUser = (Env, data, cb) => {
     Users.add(Env, edPublic, userData, unsafeKey, cb);
 };
 
-Admin.getDiskUsage = (Env, _args, cb) => {
+const getDiskUsage = (Env, _args, cb) => {
     Env.batchDiskUsage('', cb, function (done) {
         var data = {};
         nThen(function (waitFor) {
@@ -62,4 +62,25 @@ Admin.getDiskUsage = (Env, _args, cb) => {
             done(void 0, data);
         });
     });
+};
+
+const commands = {
+    'GET_FILE_DESCRIPTOR_COUNT': getFileDescriptorCount,
+    'GET_INVITATIONS': Invitation.getAll,
+    'GET_USERS': getKnownUsers,
+    'ADD_KNOWN_USER': addKnownUser,
+    'GET_DISK_USAGE': getDiskUsage,
+};
+
+module.exports = {
+    command: (Env, args, cb) => {
+        const {cmd, data} = args;
+        const command = commands[cmd];
+
+        if (typeof(command) === 'function') {
+            return void command(Env, data, cb);
+        }
+
+        return void cb('UNHANDLED_ADMIN_COMMAND');
+    }
 };

@@ -75,7 +75,7 @@ const getDiskUsage = (Env, _publicKey, _data, cb) => {
         }
         return acc;
     };
-    Env.interface.broadcast('storage', 'GET_DISK_USAGE', {}, (_err, data) => {
+    Env.interface.broadcast('storage', 'ADMIN_CMD', { cmd: 'GET_DISK_USAGE' }, (_err, data) => {
         const totalDiskUsage = data.reduce(sumDiskUsage, {});
         cb(void 0, totalDiskUsage);
     });
@@ -91,7 +91,7 @@ const getRegisteredUsers = (Env, _publicKey, _data, cb) => {
 // To remove (not meaningful with multiple servers)
 // To change format (not urgent)
 const getFileDescriptorCount = (Env, _publicKey, _data , cb) => {
-    Env.interface.broadcast('storage', 'GET_FILE_DESCRIPTOR_COUNT', {}, (_err, data) => {
+    Env.interface.broadcast('storage', 'ADMIN_CMD', { cmd: 'GET_FILE_DESCRIPTOR_COUNT' }, (_err, data) => {
         const fdCount = data.reduce((a, b) => a + b);
         cb(void 0, fdCount);
     });
@@ -264,7 +264,7 @@ const isUserOnline = (Env, _publicKey, data, cb) => {
 };
 
 const getKnownUsers = (Env, _publicKey, _data, cb) => {
-    Env.interface.broadcast('storage', 'GET_USERS', {}, (_err, data) => {
+    Env.interface.broadcast('storage', 'ADMIN_CMD', { cmd: 'GET_USERS' }, (_err, data) => {
         const knownUsers = data.reduce((acc, it) => Object.assign(acc, it), {});
         cb(void 0, knownUsers);
     });

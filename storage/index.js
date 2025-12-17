@@ -453,11 +453,7 @@ let COMMANDS = {
     'INVITATION_CMD': callWithEnv(MFAManager.invitationCmd),
 
     // Admin commands
-    'GET_FILE_DESCRIPTOR_COUNT': callWithEnv(Admin.getFileDescriptorCount),
-    'GET_INVITATIONS': callWithEnv(Invitation.getAll),
-    'GET_USERS': callWithEnv(Admin.getKnownUsers),
-    'ADD_KNOWN_USER': callWithEnv(Admin.addKnownUser),
-    'GET_DISK_USAGE': callWithEnv(Admin.getDiskUsage),
+    'ADMIN_CMD': callWithEnv(Admin.command),
 };
 
 const initWorkerCommands = () => {
