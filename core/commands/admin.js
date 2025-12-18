@@ -246,7 +246,7 @@ const getPinActivity = (_Env, _publicKey, _data, cb) => {
 };
 
 const isUserOnlineHandle = (Env, safeKey, cb) => {
-    const userCore = getCoreId(safeKey);
+    const userCore = Env.getCoreId(safeKey);
     if (Env.myId !== userCore) { return void cb('EINVAL'); }
     cb('E_NOT_IMPLEMENTED');
     // XXX: TODO
@@ -257,10 +257,18 @@ const isUserOnline = (Env, _publicKey, data, cb) => {
     let key = Array.isArray(data) && data[1];
     if (!Core.isValidPublicKey(key)) { return void cb("EINVAL"); }
     key = Util.unescapeKeyCharacters(key);
-    const userCore = getCoreId(key);
+    const userCore = Env.getCoreId(key);
     if (Env.myId === userCore) {
         return void isUserOnlineHandle(Env, safeKey, cb);
     }
+};
+
+
+const getUserQuota = (Env, data, cb) => {
+    const key = Array.isArray(data) && data[1];
+    if (!isValidKey(key)) { return void cb("EINVAL"); }
+    const storage = Env.getStorageId(key);
+    Env.interface.sendQuery(storage, 'ADMIN_CMD', {cmd: 'GET_USER_QUOTA', data}, cb);
 };
 
 const getKnownUsers = (Env, _publicKey, _data, cb) => {
@@ -288,6 +296,7 @@ const commands = {
 
     GET_PIN_ACTIVITY: getPinActivity,
     IS_USER_ONLINE: isUserOnline,
+    GET_USER_QUOTA: getUserQuota,
 
     CHECK_TEST_DECREE: checkTestDecree,
     ADMIN_DECREE: Admin.sendDecree,

@@ -5,6 +5,7 @@
 const User = require('../storage/user');
 const Users = require('./users');
 const Invitation = require('./invitation');
+const Pinning = require('./pin');
 const Fs = require('node:fs');
 const getFolderSize = require("get-folder-size");
 const nThen = require('nthen');
@@ -64,12 +65,22 @@ const getDiskUsage = (Env, _args, cb) => {
     });
 };
 
+const getUserQuota = (Env, args, cb) => {
+    const key = args[1];
+    Pinning.getLimit(Env, key, cb);
+};
+
+const onGetInvitations = (Env, _args, cb) => {
+    Invitation.getAll(Env, cb);
+};
+
 const commands = {
     'GET_FILE_DESCRIPTOR_COUNT': getFileDescriptorCount,
-    'GET_INVITATIONS': Invitation.getAll,
+    'GET_INVITATIONS': onGetInvitations,
     'GET_USERS': getKnownUsers,
     'ADD_KNOWN_USER': addKnownUser,
     'GET_DISK_USAGE': getDiskUsage,
+    'GET_USER_QUOTA': getUserQuota,
 };
 
 module.exports = {
