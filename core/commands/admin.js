@@ -263,7 +263,6 @@ const isUserOnline = (Env, _publicKey, data, cb) => {
     }
 };
 
-
 const getUserQuota = (Env, data, cb) => {
     const key = Array.isArray(data) && data[1];
     if (!isValidKey(key)) { return void cb("EINVAL"); }
