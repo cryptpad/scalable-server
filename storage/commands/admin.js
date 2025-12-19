@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 const User = require('../storage/user');
+const Util = require('../common-util');
 const Users = require('./users');
 const Invitation = require('./invitation');
 const Pinning = require('./pin');
@@ -75,15 +76,75 @@ const onGetInvitations = (Env, _args, cb) => {
 };
 
 const onGetPinActivity = (Env, data, cb) => {
-    Env.workers.send('GET_PIN_ACTIVITY', data, cb);
+    if (!data) { return void cb("INVALID_ARGS"); }
+    if (typeof (data.key) !== 'string') { return void cb("INVALID_KEY"); }
+    var safeKey = Util.escapeKeyCharacters(data.key);
+    var first;
+    var latest;
+    Env.pinStore.readMessagesBin(safeKey, 0, (msgObj, readMore) => {
+        var line = msgObj.buff.toString('utf8');
+        if (!line || !line.trim()) { return readMore(); }
+        try {
+            var parsed = JSON.parse(line);
+            var temp = parsed[parsed.length - 1];
+            if (!temp || typeof (temp) !== 'number') { return readMore(); }
+            latest = temp;
+            if (first) { return readMore(); }
+            first = latest;
+            readMore();
+        } catch (err) { readMore(); }
+    }, function(err) {
+        if (err) { return void cb(err); }
+        cb(void 0, {
+            first: first,
+            latest: latest,
+        });
+    });
 };
 
 const onGetUserStorageStats = (Env, data, cb) => {
-    Env.workers.send('GET_USER_STORAGE_STATS', data, cb);
+    // Have been validated above
+    const key = Util.escapeKeyCharacters(Array.isArray(data) && data[1]);
+    Env.getPinState(key, function (err, value) {
+        if (err) { return void cb(err); }
+        try {
+            const res = {
+                channels: 0,
+                files: 0,
+            };
+            Object.keys(value).forEach(k => {
+                switch (k.length) {
+                    case 32: return void ((res.channels++));
+                    case 48: return void ((res.files++));
+                }
+            });
+            return void cb(void 0, res);
+        } catch (err2) { }
+        cb("UNEXPECTED_SERVER_ERROR");
+    });
 };
 
 const onGetPinLogStatus = (Env, data, cb) => {
-    Env.workers.send('GET_PIN_LOG_STATUS', data, cb);
+    const { key } = data;
+    const safeKey = Util.escapeKeyCharacters(key);
+
+    const response = {};
+    nThen(function (w) {
+        Env.pinStore.isChannelAvailable(safeKey, w(function (err, result) {
+            if (err) {
+                return void Env.Log.error('PIN_LOG_STATUS_AVAILABLE', err);
+            }
+            response.live = result;
+        }));
+        Env.pinStore.isChannelArchived(safeKey, w(function (err, result) {
+            if (err) {
+                return void Env.Log.error('PIN_LOG_STATUS_ARCHIVED', err);
+            }
+            response.archived = result;
+        }));
+    }).nThen(function () {
+        cb(void 0, response);
+    });
 };
 
 const commands = {

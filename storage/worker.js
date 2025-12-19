@@ -400,78 +400,6 @@ const getPinState = (data, cb) => {
     });
 };
 
-const getPinActivity = (data, cb) => {
-    if (!data) { return void cb("INVALID_ARGS"); }
-    if (typeof (data.key) !== 'string') { return void cb("INVALID_KEY"); }
-    var safeKey = Util.escapeKeyCharacters(data.key);
-    var first;
-    var latest;
-    Env.pinStore.readMessagesBin(safeKey, 0, (msgObj, readMore) => {
-        var line = msgObj.buff.toString('utf8');
-        if (!line || !line.trim()) { return readMore(); }
-        try {
-            var parsed = JSON.parse(line);
-            var temp = parsed[parsed.length - 1];
-            if (!temp || typeof (temp) !== 'number') { return readMore(); }
-            latest = temp;
-            if (first) { return readMore(); }
-            first = latest;
-            readMore();
-        } catch (err) { readMore(); }
-    }, function(err) {
-        if (err) { return void cb(err); }
-        cb(void 0, {
-            first: first,
-            latest: latest,
-        });
-    });
-};
-
-const getUserStorageStats = (_data, cb) => {
-    // Have been validated above
-    const data =  { key: Util.escapeKeyCharacters(Array.isArray(_data) && _data[1])};
-    getPinState(data, function (err, value) {
-        if (err) { return void cb(err); }
-        try {
-            const res = {
-                channels: 0,
-                files: 0,
-            };
-            Object.keys(value).forEach(k => {
-                switch (k.length) {
-                    case 32: return void ((res.channels++));
-                    case 48: return void ((res.files++));
-                }
-            });
-            return void cb(void 0, res);
-        } catch (err2) { }
-        cb("UNEXPECTED_SERVER_ERROR");
-    });
-};
-
-const getPinLogStatus = (data, cb) => {
-    const { key } = data;
-    const safeKey = Util.escapeKeyCharacters(key);
-
-    const response = {};
-    nThen(function (w) {
-        Env.pinStore.isChannelAvailable(safeKey, w(function (err, result) {
-            if (err) {
-                return void Env.Log.error('PIN_LOG_STATUS_AVAILABLE', err);
-            }
-            response.live = result;
-        }));
-        Env.pinStore.isChannelArchived(safeKey, w(function (err, result) {
-            if (err) {
-                return void Env.Log.error('PIN_LOG_STATUS_ARCHIVED', err);
-            }
-            response.archived = result;
-        }));
-    }).nThen(function () {
-        cb(void 0, response);
-    });
-};
-
 const _iterateFiles = (channels, handler, cb) => {
     if (!Array.isArray(channels)) { return cb('INVALID_LIST'); }
     const L = channels.length;
@@ -685,12 +613,8 @@ const COMMANDS = {
     GET_MULTIPLE_FILE_SIZE: getMultipleFileSize,
     GET_TOTAL_SIZE: getTotalSize,
     GET_PIN_STATE: getPinState,
-    GET_PIN_ACTIVITY: getPinActivity,
     GET_DELETED_PADS: getDeletedPads,
     HASH_CHANNEL_LIST: hashChannelList,
-
-    GET_USER_STORAGE_STATS: getUserStorageStats,
-    GET_PIN_LOG_STATUS: getPinLogStatus,
 
     REMOVE_OWNED_BLOB: removeOwnedBlob,
 
