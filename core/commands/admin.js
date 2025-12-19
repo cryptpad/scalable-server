@@ -278,8 +278,10 @@ const getUserStorageStats = (Env, _key, data, cb) => {
     Core.coreToStorage(Env, unsafeKey, 'ADMIN_CMD', {cmd: 'GET_USER_STORAGE_STATS', data}, cb);
 };
 
-const getPinLogStatus = (_Env, _key, _args, cb) => {
-    cb('E_NOT_IMPLEMENTED');
+const getPinLogStatus = (Env, _key, _data, cb) => {
+    const data = { key: Array.isArray(_data) && _data[1] };
+    if (!Core.isValidPublicKey(data.key)) { return void cb("EINVAL"); }
+    Core.coreToStorage(Env, data.key, 'ADMIN_CMD', {cmd: 'GET_PIN_LOG_STATUS', data}, cb);
 };
 
 const getKnownUsers = (Env, _publicKey, _data, cb) => {

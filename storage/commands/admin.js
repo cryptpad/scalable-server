@@ -82,6 +82,10 @@ const onGetUserStorageStats = (Env, data, cb) => {
     Env.workers.send('GET_USER_STORAGE_STATS', data, cb);
 };
 
+const onGetPinLogStatus = (Env, data, cb) => {
+    Env.workers.send('GET_PIN_LOG_STATUS', data, cb);
+};
+
 const commands = {
     'GET_FILE_DESCRIPTOR_COUNT': getFileDescriptorCount,
     'GET_INVITATIONS': onGetInvitations,
@@ -91,6 +95,7 @@ const commands = {
     'GET_USER_QUOTA': getUserQuota,
     'GET_PIN_ACTIVITY': onGetPinActivity,
     'GET_USER_STORAGE_STATS': onGetUserStorageStats,
+    'GET_PIN_LOG_STATUS': onGetPinLogStatus,
 };
 
 module.exports = {

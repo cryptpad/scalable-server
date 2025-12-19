@@ -449,6 +449,29 @@ const getUserStorageStats = (_data, cb) => {
     });
 };
 
+const getPinLogStatus = (data, cb) => {
+    const { key } = data;
+    const safeKey = Util.escapeKeyCharacters(key);
+
+    const response = {};
+    nThen(function (w) {
+        Env.pinStore.isChannelAvailable(safeKey, w(function (err, result) {
+            if (err) {
+                return void Env.Log.error('PIN_LOG_STATUS_AVAILABLE', err);
+            }
+            response.live = result;
+        }));
+        Env.pinStore.isChannelArchived(safeKey, w(function (err, result) {
+            if (err) {
+                return void Env.Log.error('PIN_LOG_STATUS_ARCHIVED', err);
+            }
+            response.archived = result;
+        }));
+    }).nThen(function () {
+        cb(void 0, response);
+    });
+};
+
 const _iterateFiles = (channels, handler, cb) => {
     if (!Array.isArray(channels)) { return cb('INVALID_LIST'); }
     const L = channels.length;
@@ -667,6 +690,7 @@ const COMMANDS = {
     HASH_CHANNEL_LIST: hashChannelList,
 
     GET_USER_STORAGE_STATS: getUserStorageStats,
+    GET_PIN_LOG_STATUS: getPinLogStatus,
 
     REMOVE_OWNED_BLOB: removeOwnedBlob,
 
