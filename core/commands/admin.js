@@ -239,35 +239,43 @@ const getUserTotalSize = (Env, _publicKey, data, cb) => {
     StorageCommands.getTotalSize(Env, safeKey, cb);
 };
 
-const getPinActivity = (_Env, _publicKey, _data, cb) => {
-    cb('E_NOT_IMPLEMENTED');
-    // XXX: todo
-
+const getPinActivity = (Env, _publicKey, data, cb) => {
+    const key = Array.isArray(data) && data[1];
+    if (!Core.isValidPublicKey(key)) { return void cb("EINVAL"); }
+    const storageId = Env.getStorageId(key);
+    // the db-worker ensures the signing key is of the appropriate form
+    Env.interface.sendQuery(storageId, 'ADMIN_CMD', { cmd: 'GET_PIN_ACTIVITY', data: { key } },
+        response => {
+            cb(response.error, response.data);
+        }
+    );
 };
 
 const isUserOnlineHandle = (Env, safeKey, cb) => {
     const userCore = Env.getCoreId(safeKey);
     if (Env.myId !== userCore) { return void cb('EINVAL'); }
-    cb('E_NOT_IMPLEMENTED');
+    cb('E_NOT_IMPLEMENTED', false);
     // XXX: TODO
 };
 
 const isUserOnline = (Env, _publicKey, data, cb) => {
     console.log('Call IS_USER_ONLINE', data);
-    let key = Array.isArray(data) && data[1];
-    if (!Core.isValidPublicKey(key)) { return void cb("EINVAL"); }
-    key = Util.unescapeKeyCharacters(key);
-    const userCore = Env.getCoreId(key);
+    const safeKey = Array.isArray(data) && data[1];
+    if (!Core.isValidPublicKey(safeKey)) { return void cb("EINVAL"); }
+    const unsafeKey = Util.unescapeKeyCharacters(safeKey);
+    const userCore = Env.getCoreId(unsafeKey);
     if (Env.myId === userCore) {
         return void isUserOnlineHandle(Env, safeKey, cb);
     }
 };
 
-const getUserQuota = (Env, data, cb) => {
+const getUserQuota = (Env, _publicKey, data, cb) => {
     const key = Array.isArray(data) && data[1];
-    if (!isValidKey(key)) { return void cb("EINVAL"); }
+    if (!Core.isValidPublicKey(key)) { return void cb("EINVAL"); }
     const storage = Env.getStorageId(key);
-    Env.interface.sendQuery(storage, 'ADMIN_CMD', {cmd: 'GET_USER_QUOTA', data}, cb);
+    Env.interface.sendQuery(storage, 'ADMIN_CMD', { cmd: 'GET_USER_QUOTA', data }, response => {
+        cb(response.error, response.data);
+    });
 };
 
 const getKnownUsers = (Env, _publicKey, _data, cb) => {

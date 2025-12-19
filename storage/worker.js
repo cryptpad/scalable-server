@@ -400,6 +400,33 @@ const getPinState = (data, cb) => {
     });
 };
 
+const getPinActivity = (data, cb) => {
+    if (!data) { return void cb("INVALID_ARGS"); }
+    if (typeof (data.key) !== 'string') { return void cb("INVALID_KEY"); }
+    var safeKey = Util.escapeKeyCharacters(data.key);
+    var first;
+    var latest;
+    Env.pinStore.readMessagesBin(safeKey, 0, (msgObj, readMore) => {
+        var line = msgObj.buff.toString('utf8');
+        if (!line || !line.trim()) { return readMore(); }
+        try {
+            var parsed = JSON.parse(line);
+            var temp = parsed[parsed.length - 1];
+            if (!temp || typeof (temp) !== 'number') { return readMore(); }
+            latest = temp;
+            if (first) { return readMore(); }
+            first = latest;
+            readMore();
+        } catch (err) { readMore(); }
+    }, function(err) {
+        if (err) { return void cb(err); }
+        cb(void 0, {
+            first: first,
+            latest: latest,
+        });
+    });
+};
+
 const _iterateFiles = (channels, handler, cb) => {
     if (!Array.isArray(channels)) { return cb('INVALID_LIST'); }
     const L = channels.length;
@@ -613,6 +640,7 @@ const COMMANDS = {
     GET_MULTIPLE_FILE_SIZE: getMultipleFileSize,
     GET_TOTAL_SIZE: getTotalSize,
     GET_PIN_STATE: getPinState,
+    GET_PIN_ACTIVITY: getPinActivity,
     GET_DELETED_PADS: getDeletedPads,
     HASH_CHANNEL_LIST: hashChannelList,
 

@@ -74,6 +74,10 @@ const onGetInvitations = (Env, _args, cb) => {
     Invitation.getAll(Env, cb);
 };
 
+const onGetPinActivity = (Env, data, cb) => {
+    Env.workers.send('GET_PIN_ACTIVITY', data, cb);
+};
+
 const commands = {
     'GET_FILE_DESCRIPTOR_COUNT': getFileDescriptorCount,
     'GET_INVITATIONS': onGetInvitations,
@@ -81,6 +85,7 @@ const commands = {
     'ADD_KNOWN_USER': addKnownUser,
     'GET_DISK_USAGE': getDiskUsage,
     'GET_USER_QUOTA': getUserQuota,
+    'GET_PIN_ACTIVITY': onGetPinActivity,
 };
 
 module.exports = {
