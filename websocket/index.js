@@ -681,9 +681,9 @@ const start = (config) => {
             Env.Log.info('WS started', Env.myId);
 
             if (process.send !== undefined) {
-                process.send({type: 'websocket', index: Env.config.index, msg: 'READY'});
+                process.send({type: 'websocket', index: interfaceConfig.index, msg: 'READY'});
             } else {
-                Env.Log.info('websocket:' + Env.config.index + ' started');
+                Env.Log.info('websocket:' + interfaceConfig.index + ' started');
             }
         });
         Env.plugins.call('addWebsocketCommands')(Env, CORE_COMMANDS);
