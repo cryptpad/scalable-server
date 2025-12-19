@@ -427,6 +427,28 @@ const getPinActivity = (data, cb) => {
     });
 };
 
+const getUserStorageStats = (_data, cb) => {
+    // Have been validated above
+    const data =  { key: Util.escapeKeyCharacters(Array.isArray(_data) && _data[1])};
+    getPinState(data, function (err, value) {
+        if (err) { return void cb(err); }
+        try {
+            const res = {
+                channels: 0,
+                files: 0,
+            };
+            Object.keys(value).forEach(k => {
+                switch (k.length) {
+                    case 32: return void ((res.channels++));
+                    case 48: return void ((res.files++));
+                }
+            });
+            return void cb(void 0, res);
+        } catch (err2) { }
+        cb("UNEXPECTED_SERVER_ERROR");
+    });
+};
+
 const _iterateFiles = (channels, handler, cb) => {
     if (!Array.isArray(channels)) { return cb('INVALID_LIST'); }
     const L = channels.length;
@@ -643,6 +665,8 @@ const COMMANDS = {
     GET_PIN_ACTIVITY: getPinActivity,
     GET_DELETED_PADS: getDeletedPads,
     HASH_CHANNEL_LIST: hashChannelList,
+
+    GET_USER_STORAGE_STATS: getUserStorageStats,
 
     REMOVE_OWNED_BLOB: removeOwnedBlob,
 

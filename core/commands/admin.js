@@ -242,19 +242,15 @@ const getUserTotalSize = (Env, _publicKey, data, cb) => {
 const getPinActivity = (Env, _publicKey, data, cb) => {
     const key = Array.isArray(data) && data[1];
     if (!Core.isValidPublicKey(key)) { return void cb("EINVAL"); }
-    const storageId = Env.getStorageId(key);
     // the db-worker ensures the signing key is of the appropriate form
-    Env.interface.sendQuery(storageId, 'ADMIN_CMD', { cmd: 'GET_PIN_ACTIVITY', data: { key } },
-        response => {
-            cb(response.error, response.data);
-        }
-    );
+    Core.coreToStorage(Env, key, 'ADMIN_CMD', {cmd: 'GET_PIN_ACTIVITY', data: { key }}, cb);
 };
 
 const isUserOnlineHandle = (Env, safeKey, cb) => {
-    const userCore = Env.getCoreId(safeKey);
-    if (Env.myId !== userCore) { return void cb('EINVAL'); }
-    cb('E_NOT_IMPLEMENTED', false);
+    // const userCore = Env.getCoreId(safeKey);
+    // if (Env.myId !== userCore) { return void cb('EINVAL'); }
+    cb(void 0, true);
+    //cb('E_NOT_IMPLEMENTED');
     // XXX: TODO
 };
 
@@ -264,18 +260,26 @@ const isUserOnline = (Env, _publicKey, data, cb) => {
     if (!Core.isValidPublicKey(safeKey)) { return void cb("EINVAL"); }
     const unsafeKey = Util.unescapeKeyCharacters(safeKey);
     const userCore = Env.getCoreId(unsafeKey);
-    if (Env.myId === userCore) {
+    // if (Env.myId === userCore) {
         return void isUserOnlineHandle(Env, safeKey, cb);
-    }
+    // }
 };
 
 const getUserQuota = (Env, _publicKey, data, cb) => {
     const key = Array.isArray(data) && data[1];
     if (!Core.isValidPublicKey(key)) { return void cb("EINVAL"); }
     const storage = Env.getStorageId(key);
-    Env.interface.sendQuery(storage, 'ADMIN_CMD', { cmd: 'GET_USER_QUOTA', data }, response => {
-        cb(response.error, response.data);
-    });
+    Core.coreToStorage(Env, key, 'ADMIN_CMD', { cmd: 'GET_USER_QUOTA', data }, cb);
+};
+
+const getUserStorageStats = (Env, _key, data, cb) => {
+    const unsafeKey = Array.isArray(data) && data[1];
+    if (!Core.isValidPublicKey(unsafeKey)) { return void cb("EINVAL"); }
+    Core.coreToStorage(Env, unsafeKey, 'ADMIN_CMD', {cmd: 'GET_USER_STORAGE_STATS', data}, cb);
+};
+
+const getPinLogStatus = (_Env, _key, _args, cb) => {
+    cb('E_NOT_IMPLEMENTED');
 };
 
 const getKnownUsers = (Env, _publicKey, _data, cb) => {
@@ -304,6 +308,8 @@ const commands = {
     GET_PIN_ACTIVITY: getPinActivity,
     IS_USER_ONLINE: isUserOnline,
     GET_USER_QUOTA: getUserQuota,
+    GET_USER_STORAGE_STATS: getUserStorageStats,
+    GET_PIN_LOG_STATUS: getPinLogStatus,
 
     CHECK_TEST_DECREE: checkTestDecree,
     ADMIN_DECREE: Admin.sendDecree,
