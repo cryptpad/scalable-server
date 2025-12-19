@@ -9,7 +9,7 @@ const Admin = {};
 
 // CryptPad_AsyncStore.rpc.send('ADMIN', ['GET_WORKER_PROFILES'], console.log)
 // To remove?
-const getWorkerProfiles = function (Env, _publicKey, _data, cb) {
+const getWorkerProfiles = function(Env, _publicKey, _data, cb) {
     cb(void 0, Env.commandTimers);
 };
 
@@ -39,7 +39,7 @@ var deleteInvitation = (_Env, _publicKey, _data, cb) => {
 
 
 // CryptPad_AsyncStore.rpc.send('ADMIN', ['GET_ACTIVE_SESSIONS'], console.log)
-var getActiveSessions = function (_Env, _publicKey, _data, cb) {
+var getActiveSessions = function(_Env, _publicKey, _data, cb) {
     return cb('E_NOT_IMPLEMENTED');
     // TODO: do the total (unique TBD)
     // XXX to check later
@@ -58,8 +58,9 @@ var getActiveChannelCount = (_Env, _publicKey, _data, cb) => {
 };
 
 const flushCache = (Env, _publicKey, _data, cb) => {
-    Env.interface.broadcast('websocket', 'FLUSH_CACHE', {
-        freshKey: +new Date()
+    Env.interface.broadcast('websocket', 'ADMIN_CMD', {
+        cmd: 'FLUSH_CACHE',
+        data: { freshKey: +new Date() }
     }, () => { cb(void 0, true); });
 
     // To sync with core:0 as well
@@ -90,7 +91,7 @@ const getRegisteredUsers = (Env, _publicKey, _data, cb) => {
 
 // To remove (not meaningful with multiple servers)
 // To change format (not urgent)
-const getFileDescriptorCount = (Env, _publicKey, _data , cb) => {
+const getFileDescriptorCount = (Env, _publicKey, _data, cb) => {
     Env.interface.broadcast('storage', 'ADMIN_CMD', { cmd: 'GET_FILE_DESCRIPTOR_COUNT' }, (_err, data) => {
         const fdCount = data.reduce((a, b) => a + b);
         cb(void 0, fdCount);
@@ -105,20 +106,20 @@ Admin.sendDecree = (Env, publicKey, data, cb) => {
     const command = value[0];
     const args = value[1];
 
-/*
-
-The admin should have sent a command to be run:
-
-the server adds two pieces of information to the supplied decree:
-
-* the unsafeKey of the admin who uploaded it
-* the current time
-
-1. test the command to see if it's valid and will result in a change
-2. if so, apply it and write it to the log for persistence
-3. respond to the admin with an error or nothing
-
-*/
+    /*
+    
+    The admin should have sent a command to be run:
+    
+    the server adds two pieces of information to the supplied decree:
+    
+    * the unsafeKey of the admin who uploaded it
+    * the current time
+    
+    1. test the command to see if it's valid and will result in a change
+    2. if so, apply it and write it to the log for persistence
+    3. respond to the admin with an error or nothing
+    
+    */
 
     const decree = [command, args, publicKey, +new Date()];
 
@@ -130,7 +131,7 @@ the server adds two pieces of information to the supplied decree:
 
 // addFirstAdmin is an anon_rpc command
 Admin.addFirstAdmin = (Env, data, cb) => {
-    if (!Env.installToken) { return void cb('EINVAL'); }
+    if (!Env.installToken) { return void cb('EINVAL'); }
     const token = data.token;
     if (!token || !data.edPublic) { return void cb('MISSING_ARGS'); }
     if (token.length !== 64 || data.edPublic.length !== 44) { return void cb('INVALID_ARGS'); }
@@ -158,9 +159,9 @@ const getAdminsData = (Env) => {
         // str is either a full public key or just the ed part
         const edPublic = Keys.canonicalize(str);
         const hardcoded = Array.isArray(Env.config.adminKeys) &&
-                Env.config.adminKeys.some(key => {
-                    return Keys.canonicalize(key) === edPublic;
-                });
+            Env.config.adminKeys.some(key => {
+                return Keys.canonicalize(key) === edPublic;
+            });
         if (str.length === 44) {
             return { edPublic, first: true, hardcoded };
         }
@@ -168,7 +169,7 @@ const getAdminsData = (Env) => {
         try {
             const parsed = Keys.parseUser(str);
             name = parsed.user;
-        } catch (e) {}
+        } catch (e) { }
         return {
             edPublic, hardcoded, name
         };
@@ -243,7 +244,7 @@ const getPinActivity = (Env, _publicKey, data, cb) => {
     const key = Array.isArray(data) && data[1];
     if (!Core.isValidPublicKey(key)) { return void cb("EINVAL"); }
     // the db-worker ensures the signing key is of the appropriate form
-    Core.coreToStorage(Env, key, 'ADMIN_CMD', {cmd: 'GET_PIN_ACTIVITY', data: { key }}, cb);
+    Core.coreToStorage(Env, key, 'ADMIN_CMD', { cmd: 'GET_PIN_ACTIVITY', data: { key } }, cb);
 };
 
 const isUserOnlineHandle = (_Env, _safeKey, cb) => {
@@ -262,7 +263,7 @@ const isUserOnline = (Env, _publicKey, data, cb) => {
     // const userCore = Env.getCoreId(unsafeKey);
     // TODO: send to the right websocket
     // if (Env.myId === userCore) {
-        return void isUserOnlineHandle(Env, safeKey, cb);
+    return void isUserOnlineHandle(Env, safeKey, cb);
     // }
 };
 
@@ -275,13 +276,13 @@ const getUserQuota = (Env, _publicKey, data, cb) => {
 const getUserStorageStats = (Env, _key, data, cb) => {
     const unsafeKey = Array.isArray(data) && data[1];
     if (!Core.isValidPublicKey(unsafeKey)) { return void cb("EINVAL"); }
-    Core.coreToStorage(Env, unsafeKey, 'ADMIN_CMD', {cmd: 'GET_USER_STORAGE_STATS', data}, cb);
+    Core.coreToStorage(Env, unsafeKey, 'ADMIN_CMD', { cmd: 'GET_USER_STORAGE_STATS', data }, cb);
 };
 
 const getPinLogStatus = (Env, _key, _data, cb) => {
     const data = { key: Array.isArray(_data) && _data[1] };
     if (!Core.isValidPublicKey(data.key)) { return void cb("EINVAL"); }
-    Core.coreToStorage(Env, data.key, 'ADMIN_CMD', {cmd: 'GET_PIN_LOG_STATUS', data}, cb);
+    Core.coreToStorage(Env, data.key, 'ADMIN_CMD', { cmd: 'GET_PIN_LOG_STATUS', data }, cb);
 };
 
 const getKnownUsers = (Env, _publicKey, _data, cb) => {
@@ -369,7 +370,7 @@ Admin.command = (Env, safeKey, data, _cb) => {
     });
     */
 
-    if (typeof(command) === 'function') {
+    if (typeof (command) === 'function') {
         return void command(Env, unsafeKey, data, cb);
     }
 

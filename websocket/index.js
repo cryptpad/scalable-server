@@ -13,6 +13,7 @@ const Logger = require("../common/logger.js");
 const WorkerModule = require("../common/worker-module.js");
 const Cluster = require("node:cluster");
 const Environment = require('../common/env.js');
+const Admin = require('./commands/admin');
 
 const {
     hkId,
@@ -457,11 +458,6 @@ const shutdown = (Env) => {
     delete Env.wss;
 };
 
-const onFlushCache = (Env, args, cb) => {
-    Env.FRESH_KEY = args.freshKey;
-    Env.workers.broadcast('FLUSH_CACHE', args, () => {cb();});
-};
-
 // Respond to WORKER commands
 
 const onHttpCommand = (Env, data, cb) => {
@@ -652,8 +648,8 @@ const start = (config) => {
         'SEND_USER_MESSAGE': callWithEnv(sendUserMessage),
         'SEND_CHANNEL_MESSAGE': callWithEnv(sendChannelMessage),
         'NEW_DECREES': callWithEnv(onNewDecrees),
-        'FLUSH_CACHE': callWithEnv(onFlushCache) ,
-        'SHUTDOWN': callWithEnv(shutdown)
+        'SHUTDOWN': callWithEnv(shutdown),
+        'ADMIN_CMD': callWithEnv(Admin.command)
     };
 
     const WORKER_COMMANDS = {
