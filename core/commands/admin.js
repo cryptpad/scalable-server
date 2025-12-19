@@ -246,7 +246,7 @@ const getPinActivity = (Env, _publicKey, data, cb) => {
     Core.coreToStorage(Env, key, 'ADMIN_CMD', {cmd: 'GET_PIN_ACTIVITY', data: { key }}, cb);
 };
 
-const isUserOnlineHandle = (Env, safeKey, cb) => {
+const isUserOnlineHandle = (_Env, _safeKey, cb) => {
     // const userCore = Env.getCoreId(safeKey);
     // if (Env.myId !== userCore) { return void cb('EINVAL'); }
     cb(void 0, true);
@@ -258,8 +258,9 @@ const isUserOnline = (Env, _publicKey, data, cb) => {
     console.log('Call IS_USER_ONLINE', data);
     const safeKey = Array.isArray(data) && data[1];
     if (!Core.isValidPublicKey(safeKey)) { return void cb("EINVAL"); }
-    const unsafeKey = Util.unescapeKeyCharacters(safeKey);
-    const userCore = Env.getCoreId(unsafeKey);
+    // const unsafeKey = Util.unescapeKeyCharacters(safeKey);
+    // const userCore = Env.getCoreId(unsafeKey);
+    // TODO: send to the right websocket
     // if (Env.myId === userCore) {
         return void isUserOnlineHandle(Env, safeKey, cb);
     // }
@@ -268,7 +269,6 @@ const isUserOnline = (Env, _publicKey, data, cb) => {
 const getUserQuota = (Env, _publicKey, data, cb) => {
     const key = Array.isArray(data) && data[1];
     if (!Core.isValidPublicKey(key)) { return void cb("EINVAL"); }
-    const storage = Env.getStorageId(key);
     Core.coreToStorage(Env, key, 'ADMIN_CMD', { cmd: 'GET_USER_QUOTA', data }, cb);
 };
 
