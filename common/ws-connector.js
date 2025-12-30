@@ -61,15 +61,10 @@ module.exports = {
     },
     initServer: function(ctx, config, onNewClient, cb) {
         if (!cb) { cb = () => { }; };
-        let app = Express();
-        let httpServer = Http.createServer(app);
-        if (!httpServer) {
-            console.error('Error: failed to create server');
-            cb('E_INITHTTPSERVER');
-        }
-
-        httpServer.listen(config.port, config.host, function() {
-            let server = new WebSocket.Server({ server: httpServer });
+        let httpServer = config.httpServer; // may be undefined
+        let path = config.wsPath || '';
+        const onServerReady = () => {
+            let server = new WebSocket.Server({ server: httpServer, path });
             ctx.self = socketToClient(server);
             server.on('connection', ws => {
                 // TODO: get data from req to know who we are talking to and handle new connections
@@ -77,7 +72,42 @@ module.exports = {
             });
             ctx.self.onDisconnect(() => { httpServer.close(err => { cb(err); }); });
             cb(void 0, ctx.self);
-        });
+        };
+
+        if (httpServer) { return onServerReady(); }
+
+        httpServer = Http.createServer();
+        if (!httpServer) {
+            console.error('Error: failed to create server');
+            cb('E_INITHTTPSERVER');
+        }
+
+        httpServer.listen(config.port, config.host, onServerReady);
+    },
+    initOneClient: (ctx, config, id, onConnected, cb) => {
+        const [type, number] = id.split(':');
+        const serv = config?.infra?.[type]?.[+number];
+        let wsURL = 'ws://' + serv.host + ':' + serv.port;
+        if (type !== "core") { wsURL += '/websocket'; }
+
+        let ready = false;
+        // Try to connect until the remote server is ready
+        const again = () => {
+            if (ready) { return; }
+            let socket = new WebSocket(wsURL);
+            socket.on('error', (error) => {
+                console.error('Remote server not ready', id, 'trying again in 1000ms');
+                setTimeout(again, 1000); // try again
+            }).on('open', () => {
+                ready = true;
+                let client = socketToClient(socket);
+                ctx.self = client; // XXX this looks wrong (multiple clients)
+                onConnected(ctx, client, +number);
+                cb();
+            });
+        };
+
+        again();
     },
     initClient: function(ctx, config, onConnected, cb) {
         let toStart = config?.infra?.core?.map((server, id) => new Promise((resolve, reject) => {
@@ -103,8 +133,10 @@ module.exports = {
             })
             .catch((err) => {
                 // In case of error, close opened websockets
-                ctx.others.forEach(client => {
-                    client.disconnect();
+                Object.keys(ctx.others).forEach(type => {
+                    ctx.others[type].forEach(client => {
+                        client.disconnect();
+                    });
                 });
                 return cb(err);
             });

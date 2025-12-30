@@ -24,22 +24,21 @@ let findIdFromDest = function(ctx, dest) {
 
 const onNewConnection = Util.mkEvent();
 
-const newConnection = (ctx, other, txid, type, data) => {
+const newConnection = (ctx, other, txid, type, data, message) => {
     if (type === 'ACCEPT') {
         const coreId = ctx.pendingConnections?.[txid];
         const [acceptName, acceptIndex] = data.split(':'); // XXX: more robust code
-        if (typeof (coreId) === 'undefined' || acceptName !== 'core' || Number(acceptIndex) !== coreId) {
+        if (typeof (coreId) === 'undefined' || !['core','storage'].includes(acceptName) || Number(acceptIndex) !== coreId) {
             return console.error(ctx.myId, ': unknown connection accepted');
         }
         // Connection accepted, add to others and resolve the promise
-        ctx.others.core[coreId] = other;
-        ctx.pendingPromises?.[acceptIndex]?.();
+        ctx.others[acceptName][acceptIndex] = other;
+        ctx.pendingPromises?.[data]?.();
         return;
     }
     if (type !== 'IDENTITY') {
-        // TODO: Log error properly
-        console.error("Unidentified message received");
-        other.disconnect();
+        // queue until we're ready
+        ctx.queue.push({other, message});
         return;
     }
     const { type: rcvType, idx, challenge: challengeBase64, nonce: nonceBase64 } = data;
@@ -104,7 +103,7 @@ let handleMessage = function(ctx, other, message) {
 
     let fromId = findIdFromDest(ctx, other);
     if (!fromId) {
-        return newConnection(ctx, other, txid, type, data);
+        return newConnection(ctx, other, txid, type, data, message);
     }
 
     if (type !== 'MESSAGE') {
@@ -264,6 +263,7 @@ let connect = function(config, cb) {
         },
         commands: [],
         nodes_key: Crypto.decodeBase64(config?.server?.private?.nodes_key),
+        queue: [],
         pendingConnections : {},
         pendingPromises : {}
     };
@@ -301,7 +301,7 @@ let connect = function(config, cb) {
                 clearTimeout(t);
                 resolve();
             };
-            ctx.pendingPromises[id] = accept;
+            ctx.pendingPromises['core:'+id] = accept;
         });
         promises.push(p);
     });
@@ -328,12 +328,14 @@ let connect = function(config, cb) {
 };
 
 /* This function initializes the different ws servers on the Core components */
+/*
 let init = function(config, cb) {
     cb = Util.once(cb || function () {});
 
     let ctx = {
         others: {
             storage: [],
+            core: [],
             http: [],
             websocket: []
         },
@@ -381,6 +383,124 @@ let init = function(config, cb) {
 
         return cb();
     });
+    return manager;
+};
+*/
+
+const init = (config, cb, httpServer) => {
+    cb = Util.once(cb || function () {});
+
+    const ctx = {
+        myId: config.myId,
+        others: {
+            storage: [],
+            core: [],
+            http: [],
+            websocket: []
+        },
+        commands: {},
+        queue: [],
+        nodes_key: Crypto.decodeBase64(config?.server?.private?.nodes_key),
+        pendingConnections : {},
+        pendingPromises : {},
+        ChallengesCache: {},
+        ChallengeLifetime: 30 * 1000 // 30 seconds
+    };
+
+    let parsedId = ctx.myId.split(':');
+    ctx.myType = parsedId[0];
+    ctx.myNumber = Number(parsedId[1]);
+
+    ctx.response = Util.response((error) => {
+        console.log('Response error:', error);
+    });
+
+    const { connector } = config;
+    if (!connector) { return cb('E_MISSINGCONNECTOR'); }
+
+    /* Types:
+     *  - core: start a server and connect to lower cores
+     *  - ws: connect to all cores
+     *  - storage: connect to cores and connect to lower storages
+     */
+
+    let manager = communicationManager(ctx);
+    const promises = [];
+
+    const connectClient = (id) => {
+        const p = new Promise((resolve, reject) => {
+            const t = setTimeout(() => {
+                reject();
+            }, 30000);
+            const accept = () => {
+                clearTimeout(t);
+                resolve();
+            };
+            ctx.pendingPromises[id] = accept;
+            connector.initOneClient(ctx, config, id, onConnected, (err) => {
+                if (err) { return reject(err); }
+            });
+        });
+        promises.push(p);
+    };
+
+    if (ctx.myType === "core") {
+        const myConfig = config.infra.core[ctx.myNumber];
+        if (!myConfig) {
+            console.log("Error: trying to create a non-existing server");
+            throw new Error('INVALID_SERVER_ID');
+        }
+
+        const servP = new Promise((resolve, reject) => {
+            connector.initServer(ctx, myConfig, createHandlers, (err, selfClient) => {
+                if (err) { return reject(err); }
+                if (!selfClient) { return reject('E_INITWSSERVER'); }
+                resolve();
+            });
+        });
+        promises.push(servP);
+        for (let i = 0; i < ctx.myNumber; i++) {
+            connectClient(`core:${i}`);
+        }
+    }
+    if (ctx.myType === "storage") {
+        const myConfig = config.infra.storage[ctx.myNumber];
+        if (!myConfig) {
+            console.log("Error: trying to create a non-existing server");
+            throw new Error('INVALID_SERVER_ID');
+        }
+
+        myConfig.wsPath = '/websocket';
+        myConfig.httpServer = httpServer;
+        const servP = new Promise((resolve, reject) => {
+            connector.initServer(ctx, myConfig, createHandlers, (err, selfClient) => {
+                if (err) { return reject(err); }
+                if (!selfClient) { return reject('E_INITWSSERVER'); }
+                resolve();
+            });
+        });
+        promises.push(servP);
+        for (let i = 0; i < ctx.myNumber; i++) {
+            connectClient(`storage:${i}`);
+        }
+        config?.infra?.core?.forEach((server, id) => {
+            connectClient(`core:${id}`);
+        });
+    }
+
+    Promise.all(promises).then(() => {
+        // empty queue
+        while(ctx.queue.length) {
+            let obj =  ctx.queue.shift();
+            handleMessage(ctx, obj.other, obj.message);
+        }
+
+        return cb();
+    }).catch(e => {
+        console.error(e);
+        throw new Error(e);
+    });
+
     return manager;
 };
 
