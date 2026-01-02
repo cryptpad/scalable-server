@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2024 XWiki CryptPad Team <contact@cryptpad.org> and contributors
 const WebSocket = require("ws");
-const Express = require("express");
 const Http = require("http");
 
 const socketToClient = function(ws) {
@@ -95,7 +94,7 @@ module.exports = {
         const again = () => {
             if (ready) { return; }
             let socket = new WebSocket(wsURL);
-            socket.on('error', (error) => {
+            socket.on('error', () => {
                 console.error('Remote server not ready', id, 'trying again in 1000ms');
                 setTimeout(again, 1000); // try again
             }).on('open', () => {

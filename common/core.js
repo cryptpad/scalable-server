@@ -7,6 +7,7 @@ const Util = require("./common-util");
 const Constants = require("./constants");
 const escapeKeyCharacters = Util.escapeKeyCharacters;
 const Path = require('node:path');
+const Crypto = require('node:crypto');
 const Keys = require("./keys");
 //const { fork } = require('child_process');
 
@@ -240,10 +241,15 @@ Core.coreToStorage = (Env, id, cmd, data, cb) => {
 };
 
 Core.storageToStorage = (Env, id, cmd, data, cb) => {
-    const coreId = Env.getCoreId(id);
-    Env.interface.sendQuery(coreId, 'STORAGE_STORAGE', {
-        id, cmd, data
-    }, res => {
+    if (id === 'all') {
+        Env.interface.broadcast('storage', cmd, data, (errors, data) => {
+            if (errors && errors.length) { return void cb(errors, data); }
+            cb(void 0, data);
+        });
+        return;
+    }
+    const storageId = Env.getStorageId(id);
+    Env.interface.sendQuery(storageId, cmd, data, res => {
         if (res.error) { return void cb(res.error); }
         cb(void 0, res.data);
     });
@@ -267,4 +273,8 @@ Core.checkStorage = (Env, id, cmd, data, cb) => {
         return false;
     }
     return true;
+};
+
+Core.createChannelId = () => {
+    return Crypto.randomBytes(16).toString('hex');
 };

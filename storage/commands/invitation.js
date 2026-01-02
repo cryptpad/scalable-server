@@ -55,13 +55,9 @@ Invitation.delete = (Env, id, _cb) => {
 Invitation.check = (Env, id, _cb, noRedirect) => {
     const cb = Util.once(Util.mkAsync(_cb));
 
-    const storageId = Env.getStorageId(id);
-    if (storageId !== Env.myId && !noRedirect) {
-        return Core.storageToStorage(Env, id, 'INVITATION_CMD', {
-            cmd: 'CHECK',
-            inviteToken: id
-        }, cb);
-    }
+    if (!noRedirect && !Core.checkStorage(Env, id, 'INVITATION_CMD', {
+        cmd: 'CHECK', inviteToken: id
+    }, cb)) { return; }
 
     Invite.read(Env, id, (err) => {
         if (err) { return void cb(err); }
@@ -72,14 +68,10 @@ Invitation.check = (Env, id, _cb, noRedirect) => {
 Invitation.use = (Env, id, blockId, userData, _cb, noRedirect) => {
     const cb = Util.once(Util.mkAsync(_cb));
 
-    const storageId = Env.getStorageId(id);
-    if (storageId !== Env.myId && !noRedirect) {
-        return Core.storageToStorage(Env, id, 'INVITATION_CMD', {
-            cmd: 'USE',
-            inviteToken: id,
-            data: { blockId, userData }
-        }, cb);
-    }
+    if (!noRedirect && !Core.checkStorage(Env, id, 'INVITATION_CMD', {
+        cmd: 'USE', inviteToken: id,
+        data: { blockId, userData }
+    }, cb)) { return; }
 
     Invite.read(Env, id, (err, _data) => {
         if (err) { return void cb(err); }

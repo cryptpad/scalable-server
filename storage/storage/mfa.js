@@ -33,12 +33,9 @@ const pathFromId = (Env, id) => {
 };
 
 MFA.read = (Env, id, cb, noRedirect) => {
-    const storageId = Env.getStorageId(id);
-    if (storageId !== Env.myId && !noRedirect) {
-        return Core.storageToStorage(Env, id, 'BLOCK_GET_MFA', {
-            blockId: id
-        }, cb);
-    }
+    if (!noRedirect && !Core.checkStorage(Env, id, 'BLOCK_GET_MFA', {
+        blockId: id
+    }, cb)) { return; }
 
     const path = pathFromId(Env, id);
     Basic.read(Env, path, cb);

@@ -284,7 +284,9 @@ const newDecreeHandler = (args, cb) => { // bcast from core:0
 };
 
 const getChannelListHandler = (args, cb) => {
-    Pinning.getChannelList(Env, args.safeKey, cb, true);
+    Pinning.getChannelList(Env, args.safeKey, channels => {
+        cb(void 0, channels);
+    }, true);
 };
 
 const accountsLimitsHandler = (args, cb) => { // sent from UI
@@ -314,7 +316,7 @@ const getChannelsTotalSizeHandler = (channels, cb) => {
     Pinning.getChannelsTotalSize(Env, channels, cb, true);
 };
 const getRegisteredUsersHandler = (args, cb) => {
-    Pinning.getRegisteredUsers(Env, cb, args.noRedirect);
+    Pinning.getRegisteredUsers(Env, cb, true);
 };
 
 const setMetadataHandler = (args, cb) => {
