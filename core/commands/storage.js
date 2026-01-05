@@ -32,10 +32,6 @@ StorageCommands.getMultipleFileSize = (Env, channels, _cb) => {
     });
 };
 
-StorageCommands.getChannelList = (Env, safeKey, cb) => {
-    Core.coreToStorage(Env, safeKey, 'GET_CHANNEL_LIST', { safeKey }, cb);
-};
-
 StorageCommands.getTotalSize = (Env, safeKey, cb) => {
     Core.coreToStorage(Env, safeKey, 'GET_TOTAL_SIZE', { safeKey }, cb);
 };
@@ -59,16 +55,6 @@ StorageCommands.getChannelsTotalSize = (Env, channels, cb) => {
     }).nThen(() => {
         cb(void 0, result);
     });
-};
-
-StorageCommands.getRegisteredUsers = (Env, cb) => {
-    let users = 0;
-    Env.interface.broadcast('storage', 'GET_REGISTERED_USERS', {}, (err, res) => {
-        res.forEach(obj => {
-            users += obj?.users;
-        });
-        cb(void 0, {users});
-    }, ['storage:0']);
 };
 
 StorageCommands.getLimit = Pinning.getLimit;

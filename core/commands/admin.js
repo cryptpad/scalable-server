@@ -83,7 +83,7 @@ const getDiskUsage = (Env, _publicKey, _data, cb) => {
 };
 
 const getRegisteredUsers = (Env, _publicKey, _data, cb) => {
-    Env.interface.broadcast('storage', 'GET_REGISTERED_USERS', { noRedirect: true }, (_err, data) => {
+    Env.interface.broadcast('storage', 'GET_REGISTERED_USERS', {}, (_err, data) => {
         let users = data.reduce((acc, it) => acc + it?.users, 0);
         cb(void 0, { users });
     });

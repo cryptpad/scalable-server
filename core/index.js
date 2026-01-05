@@ -413,11 +413,6 @@ const onAuthRpc = (args, cb, extra) => {
     });
 };
 
-const onGetChannelList = (args, cb, extra) => {
-    if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
-    const { safeKey } = args;
-    StorageCommands.getChannelList(Env, safeKey, cb);
-};
 const onGetMultipleFileSize = (channels, cb, extra) => {
     if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
     StorageCommands.getMultipleFileSize(Env, channels, cb);
@@ -432,23 +427,6 @@ const onGetChannelsTotalSize = (channels, cb, extra) => {
     StorageCommands.getChannelsTotalSize(Env, channels, cb);
 };
 
-const onGetRegisteredUsers = (args, cb, extra) => {
-    if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
-    StorageCommands.getRegisteredUsers(Env, cb);
-};
-
-const onStorageToStorage = (args, cb, extra) => {
-    if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
-    const { id, cmd, data } = args;
-    if (id === 'all') {
-        Env.interface.broadcast('storage', cmd, data, (errors, data) => {
-            if (errors && errors.length) { return void cb(errors, data); }
-            cb(void 0, data);
-        }, [extra.from]);
-        return;
-    }
-    Core.coreToStorage(Env, id, cmd, data, cb);
-};
 const onStorageToWs = (args, cb, extra) => {
     if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
     const { cmd, data } = args;
@@ -606,13 +584,10 @@ let startServers = function(config) {
         'SEND_CHANNEL_MESSAGE': onSendChannelMessage,
         'GET_AUTH_KEYS': onGetAuthKeys,
 
-        'GET_CHANNEL_LIST': onGetChannelList,
         'GET_MULTIPLE_FILE_SIZE': onGetMultipleFileSize,
         'GET_TOTAL_SIZE': onGetTotalSize,
         'GET_CHANNELS_TOTAL_SIZE': onGetChannelsTotalSize,
-        'GET_REGISTERED_USERS': onGetRegisteredUsers,
 
-        'STORAGE_STORAGE': onStorageToStorage,
         'STORAGE_WS': onStorageToWs,
     };
     queriesToStorage.forEach(function(command) {

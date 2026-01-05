@@ -18,14 +18,11 @@ Users.getAll = (Env, cb) => {
 Users.add = (Env, edPublic, data, adminKey, _cb, noRedirect) => {
     const cb = Util.once(Util.mkAsync(_cb));
 
-    const storageId = Env.getStorageId(edPublic);
-    if (storageId !== Env.myId && !noRedirect) {
-        return Core.storageToStorage(Env, edPublic, 'USER_REGISTRY_CMD', {
-            cmd: 'ADD',
-            edPublic,
-            data: { adminKey, content: data }
-        }, cb);
-    }
+    const id = edPublic;
+    if (!noRedirect && !Core.checkStorage(Env, id, 'USER_REGISTRY_CMD', {
+        cmd: 'ADD', edPublic,
+        data: { adminKey, content: data }
+    }, cb)) { return; }
 
     const safeKey = Util.escapeKeyCharacters(edPublic);
     data.createdBy = adminKey;
@@ -39,13 +36,9 @@ Users.add = (Env, edPublic, data, adminKey, _cb, noRedirect) => {
 Users.delete = (Env, id, _cb, noRedirect) => {
     const cb = Util.once(Util.mkAsync(_cb));
 
-    const storageId = Env.getStorageId(id);
-    if (storageId !== Env.myId && !noRedirect) {
-        return Core.storageToStorage(Env, id, 'USER_REGISTRY_CMD', {
-            cmd: 'DELETE',
-            edPublic: id
-        }, cb);
-    }
+    if (!noRedirect && !Core.checkStorage(Env, id, 'USER_REGISTRY_CMD', {
+        cmd: 'DELETE', edPublic: id
+    }, cb)) { return; }
 
     User.delete(Env, id, (err) => {
         if (err && err !== 'ENOENT') { return void cb(err); }
@@ -90,14 +83,11 @@ Users.checkUpdate = (Env, userData, newBlock, cb, noRedirect) => {
     let edPublic = userData[1];
     if (!edPublic) { return void cb('INVALID_PUBLIC_KEY'); }
 
-    const storageId = Env.getStorageId(edPublic);
-    if (storageId !== Env.myId && !noRedirect) {
-        return Core.storageToStorage(Env, edPublic, 'USER_REGISTRY_CMD', {
-            cmd: 'CHECK_UPDATE',
-            edPublic,
-            data: { newBlock, content: userData }
-        }, cb);
-    }
+    const id = edPublic;
+    if (!noRedirect && !Core.checkStorage(Env, id, 'USER_REGISTRY_CMD', {
+        cmd: 'CHECK_UPDATE', edPublic,
+        data: { newBlock, content: userData }
+    }, cb)) { return; }
 
     Users.read(Env, edPublic, (err, data) => {
         if (err === 'ENOENT') { return void cb(); }

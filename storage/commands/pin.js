@@ -54,8 +54,8 @@ const getMultipleFileSize = Pinning.getMultipleFileSize = (Env, channels, cb, no
     let result = {};
     nThen(w => {
         if (toSend.length && !noRedirect) {
-            // FIXME don't always send to core:0
-            Env.interface.sendQuery('core:0',
+            const coreId = Env.getCoreId(Core.createChannelId());
+            Env.interface.sendQuery(coreId,
                 'GET_MULTIPLE_FILE_SIZE', toSend, w(res => {
                 if (res.error) {
                     w.abort();
@@ -110,15 +110,12 @@ const getChannelList = Pinning.getChannelList =
                     (Env, safeKey, _cb, noRedirect) => {
     const cb = Util.once(Util.mkAsync(_cb));
 
-    const storageId = Env.getStorageId(safeKey);
-    if (storageId !== Env.myId && !noRedirect) {
-        const coreId = Env.getCoreId(safeKey);
-        return Env.interface.sendQuery(coreId, 'GET_CHANNEL_LIST', {
-            safeKey
-        }, res => {
-            cb(res.data || []);
-        });
-    }
+    const id = safeKey;
+    if (!noRedirect && !Core.checkStorage(Env, id, 'GET_CHANNEL_LIST', {
+        safeKey
+    }, res => {
+        cb(res.data || []);
+    })) { return; }
 
     loadUserPins(Env, safeKey, (pins) => {
         cb(truthyKeys(pins));
@@ -128,39 +125,34 @@ const getChannelList = Pinning.getChannelList =
 Pinning.getChannelsTotalSize = (Env, channels, cb, noRedirect) => {
     cb = Util.once(cb);
     const storages = Core.getChannelsStorage(Env, channels);
-    const toSend = [];
-    let toKeep;
-    Object.keys(storages).forEach(storageId => {
-        const _channels = storages[storageId];
-        if (storageId !== Env.myId) {
-            Array.prototype.push.apply(toSend, _channels);
-            return;
-        }
-        toKeep = _channels;
-    });
 
     let result = 0;
     nThen(w => {
-        if (toSend.length && !noRedirect) {
-            // FIXME don't always send to core:0
-            Env.interface.sendQuery('core:0',
-                'GET_CHANNELS_TOTAL_SIZE', toSend, w(res => {
-                if (res.error || typeof(res.data) !== "number") {
-                    w.abort();
-                    return void cb(res.error);
-                }
-                result += res.data;
-            }));
-        }
-        if (toKeep && toKeep.length) {
-            Env.worker.getTotalSize(toKeep, w((err, value) => {
-                if (err) {
-                    w.abort();
-                    return void cb(res.error);
-                }
-                result += value;
-            }));
-        }
+        Object.keys(storages).forEach(storageId => {
+            const _channels = storages[storageId];
+            // noRedirect guards against infinite loops
+            if (!noRedirect && storageId !== Env.myId) {
+                Env.sendQuery(storageId, 'GET_CHANNELS_TOTAL_SIZE',
+                _channels, w(res => {
+                    if (res.error || typeof(res.data) !== "number") {
+                        w.abort();
+                        return void cb(res.error);
+                    }
+                    result += res.data;
+                }));
+                return;
+            }
+            let myChannels = storages[Env.myId];
+            if (myChannels && myChannels.length) {
+                Env.worker.getTotalSize(myChannels, w((err, value) => {
+                    if (err) {
+                        w.abort();
+                        return void cb(res.error);
+                    }
+                    result += value;
+                }));
+            }
+        });
     }).nThen(() => {
         cb(void 0, result);
     });
@@ -174,24 +166,13 @@ Pinning.getTotalSize = (Env, safeKey, cb, noRedirect) => {
     // Get a common key if multiple users share the same quota, otherwise take the public key
     const batchKey = (limit && Array.isArray(limit.users)) ? limit.users.join('') : safeKey;
 
-    const storageId = Env.getStorageId(batchKey);
-    if (Env.myId !== storageId && !noRedirect) {
-        const coreId = Env.getCoreId(batchKey);
-        return Env.interface.sendQuery(coreId, 'GET_TOTAL_SIZE', {
-            safeKey,
-            batchKey
-        }, res => {
-            cb(res.error, res.data);
-        });
-    }
+    const id = batchKey;
+    if (!noRedirect && !Core.checkStorage(Env, id, 'GET_TOTAL_SIZE', {
+        safeKey, batchKey
+    }, cb)) { return; }
 
     Env.batchTotalSize(batchKey, cb, (done) => {
-        const channels = [];
-
-        const addUnique = function (channel) {
-            if (channels.indexOf(channel) !== -1) { return; }
-            channels.push(channel);
-        };
+        const channels = new Set();
 
         nThen((waitFor) => {
             // Get the channels list for our user account
@@ -200,7 +181,9 @@ Pinning.getTotalSize = (Env, safeKey, cb, noRedirect) => {
                     waitFor.abort();
                     return done('INVALID_PIN_LIST');
                 }
-                _channels.forEach(addUnique);
+                for (let channel of _channels) {
+                    channels.add(channel);
+                }
             }));
             // Get the channels list for users sharing our quota
             if (limit && Array.isArray(limit.users) && limit.users.length > 1) {
@@ -208,12 +191,14 @@ Pinning.getTotalSize = (Env, safeKey, cb, noRedirect) => {
                     if (key === unsafeKey) { return; } // Don't count ourselves twice
                     getChannelList(Env, key, waitFor(_channels => {
                         if (!_channels) { return; } // Broken user, don't count their quota
-                        _channels.forEach(addUnique);
+                        for (let channel of _channels) {
+                            channels.add(channel);
+                        }
                     }));
                 });
             }
         }).nThen(() => {
-            Pinning.getChannelsTotalSize(Env, channels, done);
+            Pinning.getChannelsTotalSize(Env, Array.from(channels), done);
         });
     });
 };
@@ -443,11 +428,12 @@ const computeRegisteredUsers = (Env, cb) => {
     });
 };
 Pinning.getRegisteredUsers = (Env, cb, noRedirect) => {
-    if (noRedirect || Env.myId !== "storage:0") {
+    if (noRedirect) { // compute only your values
         return void computeRegisteredUsers(Env, cb);
     }
 
     let users = 0;
+
     const onResult = (err, value) => {
         if (err || typeof(value?.users) !== "number") {
             Env.Log.error("GET_REGISTERED_USERS_ERR", err);
@@ -457,8 +443,15 @@ Pinning.getRegisteredUsers = (Env, cb, noRedirect) => {
     };
 
     nThen(waitFor => {
-        Env.interface.sendQuery('core:0', 'GET_REGISTERED_USERS', {},
-            waitFor(res => { onResult(res.error, res.data); }));
+        // Sum your values with every other storage's values
+        Env.interface.broadcast('storage', 'GET_REGISTERED_USERS', {},
+        waitFor((errors, data) => {
+            if (errors || !Array.isArray(data)) {
+                Env.Log.error("GET_REGISTERED_USERS_ERR", errors);
+                return;
+            }
+            data.forEach(value => { onResult(null, value); });
+        }));
 
         computeRegisteredUsers(Env, waitFor(onResult));
     }).nThen(() => {
