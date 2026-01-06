@@ -89,12 +89,36 @@ const getRegisteredUsers = (Env, _publicKey, _data, cb) => {
     });
 };
 
-// To remove (not meaningful with multiple servers)
+// XXX: To remove (not meaningful with multiple servers)
 // To change format (not urgent)
 const getFileDescriptorCount = (Env, _publicKey, _data, cb) => {
     Env.interface.broadcast('storage', 'ADMIN_CMD', { cmd: 'GET_FILE_DESCRIPTOR_COUNT' }, (_err, data) => {
         const fdCount = data.reduce((a, b) => a + b);
         cb(void 0, fdCount);
+    });
+};
+
+// XXX: To remove (not meaningful if the above function doesn’t exist)
+const getFileDescriptorLimit = (_Env, _publicKey, _data, cb) => {
+    cb('E_NOT_IMPLEMENTED');
+};
+
+const getCacheStats = (Env, _publicKey, _data, cb) => {
+    Env.interface.broadcast('storage', 'ADMIN_CMD', { cmd: 'GET_CACHE_STATS' }, (err, data) => {
+        console.log('Err:', err);
+        let metadata = 0;
+        let metaSize = 0;
+        let channel = 0;
+        let channelSize = 0;
+        let memory = 0;
+        for (it in data) {
+            metaSize += it?.metaSize;
+            metadata += it?.metadata;
+            channel += it?.channel;
+            channelSize += it?.channelSize;
+            memory += it?.memory;
+        }
+        cb(void 0, {metadata, metaSize, channel, channelSize, memory});
     });
 };
 
@@ -307,6 +331,8 @@ const commands = {
     DISK_USAGE: getDiskUsage,
     FLUSH_CACHE: flushCache,
     GET_FILE_DESCRIPTOR_COUNT: getFileDescriptorCount,
+    GET_FILE_DESCRIPTOR_LIMIT: getFileDescriptorLimit,
+    GET_CACHE_STATS: getCacheStats,
 
     GET_PIN_ACTIVITY: getPinActivity,
     IS_USER_ONLINE: isUserOnline,
@@ -375,8 +401,6 @@ Admin.command = (Env, safeKey, data, _cb) => {
     }
 
     return void cb('UNHANDLED_ADMIN_COMMAND');
-
-
 };
 
 module.exports = Admin;

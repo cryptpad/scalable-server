@@ -147,6 +147,43 @@ const onGetPinLogStatus = (Env, data, cb) => {
     });
 };
 
+
+const onGetCacheStats = (Env, _data, cb) => {
+    let metaSize = 0;
+    let channelSize = 0;
+    let metaCount = 0;
+    let channelCount = 0;
+
+    try {
+        const meta = Env.metadata_cache;
+        for (let x in meta) {
+            if (meta.hasOwnProperty(x)) {
+                metaCount++;
+                metaSize += JSON.stringify(meta[x]).length;
+            }
+        }
+
+        const channels = Env.channel_cache;
+        for (let y in channels) {
+            if (channels.hasOwnProperty(y)) {
+                channelCount++;
+                channelSize += JSON.stringify(channels[y]).length;
+            }
+        }
+    } catch (err) {
+        return void cb(err && err.message);
+    }
+
+    cb(void 0, {
+        metadata: metaCount,
+        metaSize: metaSize,
+        channel: channelCount,
+        channelSize: channelSize,
+        memoryUsage: process.memoryUsage(),
+    });
+};
+
+
 const commands = {
     'GET_FILE_DESCRIPTOR_COUNT': getFileDescriptorCount,
     'GET_INVITATIONS': onGetInvitations,
@@ -157,6 +194,7 @@ const commands = {
     'GET_PIN_ACTIVITY': onGetPinActivity,
     'GET_USER_STORAGE_STATS': onGetUserStorageStats,
     'GET_PIN_LOG_STATUS': onGetPinLogStatus,
+    'GET_CACHE_STATS': onGetCacheStats,
 };
 
 module.exports = {
