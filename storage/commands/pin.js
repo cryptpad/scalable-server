@@ -132,7 +132,7 @@ Pinning.getChannelsTotalSize = (Env, channels, cb, noRedirect) => {
             const _channels = storages[storageId];
             // noRedirect guards against infinite loops
             if (!noRedirect && storageId !== Env.myId) {
-                Env.sendQuery(storageId, 'GET_CHANNELS_TOTAL_SIZE',
+                Env.interface.sendQuery(storageId, 'GET_CHANNELS_TOTAL_SIZE',
                 _channels, w(res => {
                     if (res.error || typeof(res.data) !== "number") {
                         w.abort();
