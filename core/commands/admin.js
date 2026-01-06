@@ -309,6 +309,37 @@ const getPinLogStatus = (Env, _key, _data, cb) => {
     Core.coreToStorage(Env, data.key, 'ADMIN_CMD', { cmd: 'GET_PIN_LOG_STATUS', data }, cb);
 };
 
+const getMetadataHistory = (Env, _key, data, cb) => {
+    const id = Array.isArray(data) && data[1];
+    if (!Core.isValidId(id)) { return void cb('INVALID_CHAN'); }
+
+    Core.coreToStorage(Env, id, 'ADMIN_CMD', { cmd: 'GET_METADATA_HISTORY', data: { id } }, cb);
+};
+
+const getStoredMetadata = (Env, _key, data, cb) => {
+    const id = Array.isArray(data) && data[1];
+    if (!Core.isValidId(id)) { return void cb('INVALID_CHAN'); }
+    Core.coreToStorage(Env, id, 'ADMIN_CMD', { cmd: 'GET_STORED_METADATA', data: { id } }, cb);
+};
+
+const getDocumentSize = (Env, _key, data, cb) => {
+    const id = Array.isArray(data) && data[1];
+    if (!Core.isValidId(id)) { return void cb('INVALID_CHAN'); }
+    Core.coreToStorage(Env, id, 'ADMIN_CMD', { cmd: 'GET_DOCUMENT_SIZE', data: { id } }, cb);
+};
+
+const getLastChannelTime = (Env, _key, data, cb) => {
+    const id = Array.isArray(data) && data[1];
+    if (!Core.isValidId(id)) { return void cb('INVALID_CHAN'); }
+    Core.coreToStorage(Env, id, 'ADMIN_CMD', { cmd: 'GET_LAST_CHANNEL_TIME', data: { id } }, cb);
+};
+
+const getDocumentStatus = (Env, _key, data, cb) => {
+    const id = Array.isArray(data) && data[1];
+    if (!Core.isValidId(id)) { return void cb('INVALID_CHAN'); }
+    Core.coreToStorage(Env, id, 'ADMIN_CMD', { cmd: 'GET_DOCUMENT_STATUS', data: { id } }, cb);
+};
+
 const getKnownUsers = (Env, _publicKey, _data, cb) => {
     Env.interface.broadcast('storage', 'ADMIN_CMD', { cmd: 'GET_USERS' }, (_err, data) => {
         const knownUsers = data.reduce((acc, it) => Object.assign(acc, it), {});
@@ -339,6 +370,12 @@ const commands = {
     GET_USER_QUOTA: getUserQuota,
     GET_USER_STORAGE_STATS: getUserStorageStats,
     GET_PIN_LOG_STATUS: getPinLogStatus,
+
+    GET_METADATA_HISTORY: getMetadataHistory,
+    GET_STORED_METADATA: getStoredMetadata,
+    GET_DOCUMENT_SIZE: getDocumentSize,
+    GET_LAST_CHANNEL_TIME: getLastChannelTime,
+    GET_DOCUMENT_STATUS: getDocumentStatus,
 
     CHECK_TEST_DECREE: checkTestDecree,
     ADMIN_DECREE: Admin.sendDecree,

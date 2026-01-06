@@ -7,24 +7,25 @@ const Util = require('../common-util');
 const Users = require('./users');
 const Invitation = require('./invitation');
 const Pinning = require('./pin');
+const MFA = require("../storage/mfa");
 const Fs = require('node:fs');
 const getFolderSize = require("get-folder-size");
 const nThen = require('nthen');
 
 
 // XXX: Find a way to detect if it’s called from the same virtual machine?
-const getFileDescriptorCount = (Env, _args, cb) => {
+const onGetFileDescriptorCount = (Env, _args, cb) => {
     Fs.readdir('/proc/self/fd', function(err, list) {
         if (err) { return void cb(err); }
         cb(void 0, list.length);
     });
 };
 
-const getKnownUsers = (Env, _args, cb) => {
+const onGetKnownUsers = (Env, _args, cb) => {
     User.getAll(Env, cb);
 };
 
-const addKnownUser = (Env, data, cb) => {
+const onAddKnownUser = (Env, data, cb) => {
     const obj = Array.isArray(data) && data[1];
     const { edPublic, block, alias, unsafeKey, email, name } = obj;
     const userData = {
@@ -38,7 +39,7 @@ const addKnownUser = (Env, data, cb) => {
     Users.add(Env, edPublic, userData, unsafeKey, cb);
 };
 
-const getDiskUsage = (Env, _args, cb) => {
+const onGetDiskUsage = (Env, _args, cb) => {
     Env.batchDiskUsage('', cb, function (done) {
         var data = {};
         nThen(function (waitFor) {
@@ -66,7 +67,7 @@ const getDiskUsage = (Env, _args, cb) => {
     });
 };
 
-const getUserQuota = (Env, args, cb) => {
+const onGetUserQuota = (Env, args, cb) => {
     const key = args[1];
     Pinning.getLimit(Env, key, cb);
 };
@@ -183,18 +184,148 @@ const onGetCacheStats = (Env, _data, cb) => {
     });
 };
 
+const onGetMetadataHistory = (Env, data, cb) => {
+    const { id } = data;
+    let lines = [];
+    Env.store.readChannelMetadata(id, (err, line) => {
+        if (err) { return; }
+        lines.push(line);
+    }, err => {
+        if (err) {
+            Env.Log.error('ADMIN_GET_METADATA_HISTORY', {
+                error: err,
+                id: id,
+            });
+            return void cb(err);
+        }
+        cb(void 0, lines);
+    });
+    
+};
+
+const onGetStoredMetadata = (Env, data, cb) => {
+    const { id } = data;
+    Env.worker.computeMetadata(id, (err, data) => {
+        cb(err, data);
+    });
+};
+
+const onGetDocumentSize = (Env, data, cb) => {
+    const { id } = data;
+    Env.worker.getFileSize(id, (err, size) => {
+        if (err) { return void cb(err); }
+        cb(err, size);
+    });
+};
+
+const onGetLastChannelTime = (Env, data, cb) => {
+    const { id } = data;
+    Env.worker.getLastChannelTime(id, function (err, time) {
+        if (err) { return void cb(err && err.code); }
+        cb(err, time);
+    });
+};
+
+const onGetDocumentStatus = (Env, data, cb) => {
+    const { id } = data;
+    let response = {};
+    if (id.length === 44) {
+        return void nThen(function (w) {
+            Env.modules.BlockStore.isAvailable(Env, id, w(function (err, result) {
+                if (err) {
+                    return void Env.Log.error('BLOCK_STATUS_AVAILABLE', err);
+                }
+                response.live = result;
+            }));
+            Env.modules.BlockStore.isArchived(Env, id, w(function (err, result) {
+                if (err) {
+                    return void Env.Log.error('BLOCK_STATUS_ARCHIVED', err);
+                }
+                response.archived = result;
+            }));
+            Env.modules.BlockStore.readPlaceholder(Env, id, w((result) => {
+                if (!result) { return; }
+                response.placeholder = result;
+            }));
+            MFA.read(Env, id, w(function (err, v) {
+                if (err === 'ENOENT') {
+                    response.totp = 'DISABLED';
+                } else if (v) {
+                    const parsed = Util.tryParse(v);
+                    response.totp = {
+                        enabled: true,
+                        recovery: parsed.contact && parsed.contact.split(':')[0]
+                    };
+                } else {
+                    response.totp = err;
+                }
+            }));
+        }).nThen(function () {
+            cb(void 0, response);
+        });
+    }
+    if (id.length === 48) {
+        return void nThen(function (w) {
+            Env.blobStore.isBlobAvailable(id, w(function (err, result) {
+                if (err) {
+                    return void Env.Log.error('BLOB_STATUS_AVAILABLE', err);
+                }
+                response.live = result;
+            }));
+            Env.blobStore.isBlobArchived(id, w(function (err, result) {
+                if (err) {
+                    return void Env.Log.error('BLOB_STATUS_ARCHIVED', err);
+                }
+                response.archived = result;
+            }));
+            Env.blobStore.getPlaceholder(id, w((result) => {
+                if (!result) { return; }
+                response.placeholder = result;
+            }));
+        }).nThen(function () {
+            cb(void 0, response);
+        });
+    }
+    if (id.length !== 32) { return void cb("EINVAL"); }
+    nThen(function (w) {
+        Env.store.isChannelAvailable(id, w(function (err, result) {
+            if (err) {
+                return void Env.Log.error('CHANNEL_STATUS_AVAILABLE', err);
+            }
+            response.live = result;
+        }));
+        Env.store.isChannelArchived(id, w(function (err, result) {
+            if (err) {
+                return void Env.Log.error('CHANNEL_STATUS_ARCHIVED', err);
+            }
+            response.archived = result;
+        }));
+        Env.store.getPlaceholder(id, w((result) => {
+            if (!result) { return; }
+            response.placeholder = result;
+        }));
+    }).nThen(function () {
+        cb(void 0, response);
+    });
+};
+
 
 const commands = {
-    'GET_FILE_DESCRIPTOR_COUNT': getFileDescriptorCount,
+    'GET_FILE_DESCRIPTOR_COUNT': onGetFileDescriptorCount,
     'GET_INVITATIONS': onGetInvitations,
-    'GET_USERS': getKnownUsers,
-    'ADD_KNOWN_USER': addKnownUser,
-    'GET_DISK_USAGE': getDiskUsage,
-    'GET_USER_QUOTA': getUserQuota,
+    'GET_USERS': onGetKnownUsers,
+    'ADD_KNOWN_USER': onAddKnownUser,
+    'GET_DISK_USAGE': onGetDiskUsage,
+    'GET_USER_QUOTA': onGetUserQuota,
     'GET_PIN_ACTIVITY': onGetPinActivity,
     'GET_USER_STORAGE_STATS': onGetUserStorageStats,
     'GET_PIN_LOG_STATUS': onGetPinLogStatus,
     'GET_CACHE_STATS': onGetCacheStats,
+    'GET_METADATA_HISTORY': onGetMetadataHistory,
+    'GET_STORED_METADATA': onGetStoredMetadata,
+    'GET_DOCUMENT_SIZE': onGetDocumentSize,
+    'GET_LAST_CHANNEL_TIME': onGetLastChannelTime,
+    'GET_DOCUMENT_STATUS': onGetDocumentStatus,
 };
 
 module.exports = {

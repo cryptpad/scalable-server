@@ -564,6 +564,13 @@ const initWorkerCommands = () => {
             args: args,
         }, cb);
     };
+
+    // Admin
+    Env.worker.getLastChannelTime = (channel, cb) => {
+        Env.workers.send('GET_LAST_CHANNEL_TIME', {
+            channel
+        }, cb);
+    };
 };
 
 const initAccountsIntervals = () => {

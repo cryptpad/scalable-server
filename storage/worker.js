@@ -601,6 +601,22 @@ const onNewDecrees = (data, cb) => {
     cb();
 };
 
+const getLastChannelTime = (data, cb) => {
+    if (!data) { return void cb("INVALID_ARGS"); }
+    let latest;
+    Env.store.getMessages(data.channel, function(line) {
+        try {
+            const parsed = JSON.parse(line);
+            const temp = parsed[parsed.length - 1];
+            if (!temp || typeof (temp) !== 'number') { return; }
+            latest = temp;
+        } catch (err) { }
+    }, function(err) {
+        if (err) { return void cb(err); }
+        cb(void 0, latest);
+    });
+};
+
 const COMMANDS = {
     NEW_DECREES: onNewDecrees,
 
@@ -615,6 +631,7 @@ const COMMANDS = {
     GET_PIN_STATE: getPinState,
     GET_DELETED_PADS: getDeletedPads,
     HASH_CHANNEL_LIST: hashChannelList,
+    GET_LAST_CHANNEL_TIME: getLastChannelTime,
 
     REMOVE_OWNED_BLOB: removeOwnedBlob,
 
