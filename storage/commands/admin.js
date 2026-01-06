@@ -158,7 +158,7 @@ const onGetCacheStats = (Env, _data, cb) => {
     try {
         const meta = Env.metadata_cache;
         for (let x in meta) {
-            if (meta.hasOwnProperty(x)) {
+            if (Object.prototype.hasOwnProperty.call(meta, x)) {
                 metaCount++;
                 metaSize += JSON.stringify(meta[x]).length;
             }
@@ -166,7 +166,7 @@ const onGetCacheStats = (Env, _data, cb) => {
 
         const channels = Env.channel_cache;
         for (let y in channels) {
-            if (channels.hasOwnProperty(y)) {
+            if (Object.prototype.hasOwnProperty.call(channels, y)) {
                 channelCount++;
                 channelSize += JSON.stringify(channels[y]).length;
             }
