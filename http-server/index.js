@@ -89,9 +89,10 @@ const start = (config) => {
         const interfaceConfig = {
             connector: WSConnector,
             index, infra, server, myId,
-            public: server?.public
+            public: server?.public,
+            Log: Env.Log
         };
-        Env.interface = Interface.connect(interfaceConfig, w(err => {
+        Env.interface = Interface.init(interfaceConfig, w(err => {
             if (err) {
                 w.abort();
                 Env.Log.error(interfaceConfig.myId, ' error:', err);
