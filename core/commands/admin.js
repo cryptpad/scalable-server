@@ -103,22 +103,35 @@ const getFileDescriptorLimit = (_Env, _publicKey, _data, cb) => {
     cb('E_NOT_IMPLEMENTED');
 };
 
+// Compute the total amount of use and store the result in a map indexed by
+// storage names plus a total
 const getCacheStats = (Env, _publicKey, _data, cb) => {
     Env.interface.broadcast('storage', 'ADMIN_CMD', { cmd: 'GET_CACHE_STATS' }, (err, data) => {
-        console.log('Err:', err);
-        let metadata = 0;
-        let metaSize = 0;
-        let channel = 0;
-        let channelSize = 0;
-        let memory = 0;
-        for (it in data) {
-            metaSize += it?.metaSize;
-            metadata += it?.metadata;
-            channel += it?.channel;
-            channelSize += it?.channelSize;
-            memory += it?.memory;
+        if (err.length !== 0) {
+            return cb(err);
         }
-        cb(void 0, {metadata, metaSize, channel, channelSize, memory});
+        let total = {};
+        let result = {};
+        for (let i = 0; i < data.length; i++) {
+            const el = data[i];
+            result[`storage:${i}`] = el;
+            for (const x in el) {
+                if (Object.prototype.hasOwnProperty.call(el, x)) {
+                    if (typeof(el[x]) === 'number') {
+                        total[x] = (total[x] ? total[x] : 0) + el[x];
+                    } else if (typeof(el[x]) === 'object') {
+                        total[x] = total[x] ? total[x] : {};
+                        for (const y in el[x]) {
+                            total[x][y] = (total[x][y] ? total[x][y] : 0) + el[x][y];
+                        }
+                    } else {
+                        console.error('Warning in GET_CACHE_STATS: mismatched data');
+                    }
+                }
+            }
+        }
+        result['total'] = total;
+        cb(void 0, result);
     });
 };
 
