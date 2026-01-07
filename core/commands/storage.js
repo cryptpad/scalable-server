@@ -59,5 +59,16 @@ StorageCommands.getChannelsTotalSize = (Env, channels, cb) => {
 
 StorageCommands.getLimit = Pinning.getLimit;
 
+StorageCommands.channelCommand = (cmd) => (Env, _key, data, cb) => {
+    const id = Array.isArray(data) && data[1];
+    if (!Core.isValidId(id)) { return void cb('INVALID_CHAN'); }
+    Core.coreToStorage(Env, id, 'ADMIN_CMD', { cmd, data: { id } }, cb);
+};
+
+StorageCommands.keyCommand = (cmd) => (Env, _key, data, cb) => {
+    const key = Array.isArray(data) && data[1];
+    if (!Core.isValidPublicKey(key)) { return void cb("EINVAL"); }
+    Core.coreToStorage(Env, key, 'ADMIN_CMD', { cmd, data: { key } }, cb);
+};
 
 module.exports = StorageCommands;

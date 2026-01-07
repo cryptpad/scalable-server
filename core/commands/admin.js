@@ -277,13 +277,6 @@ const getUserTotalSize = (Env, _publicKey, data, cb) => {
     StorageCommands.getTotalSize(Env, safeKey, cb);
 };
 
-const getPinActivity = (Env, _publicKey, data, cb) => {
-    const key = Array.isArray(data) && data[1];
-    if (!Core.isValidPublicKey(key)) { return void cb("EINVAL"); }
-    // the db-worker ensures the signing key is of the appropriate form
-    Core.coreToStorage(Env, key, 'ADMIN_CMD', { cmd: 'GET_PIN_ACTIVITY', data: { key } }, cb);
-};
-
 const isUserOnlineHandle = (_Env, _safeKey, cb) => {
     // const userCore = Env.getCoreId(safeKey);
     // if (Env.myId !== userCore) { return void cb('EINVAL'); }
@@ -302,43 +295,6 @@ const isUserOnline = (Env, _publicKey, data, cb) => {
     // if (Env.myId === userCore) {
     return void isUserOnlineHandle(Env, safeKey, cb);
     // }
-};
-
-const getUserQuota = (Env, _publicKey, data, cb) => {
-    const key = Array.isArray(data) && data[1];
-    if (!Core.isValidPublicKey(key)) { return void cb("EINVAL"); }
-    Core.coreToStorage(Env, key, 'ADMIN_CMD', { cmd: 'GET_USER_QUOTA', data }, cb);
-};
-
-const getUserStorageStats = (Env, _key, data, cb) => {
-    const unsafeKey = Array.isArray(data) && data[1];
-    if (!Core.isValidPublicKey(unsafeKey)) { return void cb("EINVAL"); }
-    Core.coreToStorage(Env, unsafeKey, 'ADMIN_CMD', { cmd: 'GET_USER_STORAGE_STATS', data }, cb);
-};
-
-const getPinLogStatus = (Env, _key, _data, cb) => {
-    const data = { key: Array.isArray(_data) && _data[1] };
-    if (!Core.isValidPublicKey(data.key)) { return void cb("EINVAL"); }
-    Core.coreToStorage(Env, data.key, 'ADMIN_CMD', { cmd: 'GET_PIN_LOG_STATUS', data }, cb);
-};
-
-const getPinList = (Env, _key, data, cb) => {
-    const key = Array.isArray(data) && data[1];
-    if (!Core.isValidPublicKey(key)) { return void cb("EINVAL"); }
-    Core.coreToStorage(Env, key, 'ADMIN_CMD', { cmd: 'GET_PIN_LIST', data: { key } }, cb);
-
-};
-
-const channelCommand = (cmd) => (Env, _key, data, cb) => {
-    const id = Array.isArray(data) && data[1];
-    if (!Core.isValidId(id)) { return void cb('INVALID_CHAN'); }
-    Core.coreToStorage(Env, id, 'ADMIN_CMD', { cmd, data: { id } }, cb);
-};
-
-const disableMFA = (Env, _key, data, cb) => {
-    const id = Array.isArray(data) && data[1];
-    if (!Core.isValidPublicKey(id)) { return void cb('EINVAL'); }
-    Core.coreToStorage(Env, id, 'ADMIN_CMD', { cmd: 'DISABLE_MFA', data: { id } }, cb);
 };
 
 const getKnownUsers = (Env, _publicKey, _data, cb) => {
@@ -394,24 +350,24 @@ const commands = {
     GET_FILE_DESCRIPTOR_LIMIT: getFileDescriptorLimit,
     GET_CACHE_STATS: getCacheStats,
 
-    GET_PIN_ACTIVITY: getPinActivity,
+    GET_PIN_ACTIVITY: StorageCommands.keyCommand('GET_PIN_ACTIVITY'),
     IS_USER_ONLINE: isUserOnline,
-    GET_USER_QUOTA: getUserQuota,
-    GET_USER_STORAGE_STATS: getUserStorageStats,
-    GET_PIN_LOG_STATUS: getPinLogStatus,
+    GET_USER_QUOTA: StorageCommands.keyCommand('GET_USER_QUOTA'),
+    GET_USER_STORAGE_STATS: StorageCommands.keyCommand('GET_USER_STORAGE_STATS'),
+    GET_PIN_LOG_STATUS: StorageCommands.keyCommand('GET_PIN_LOG_STATUS'),
 
-    GET_METADATA_HISTORY: channelCommand('GET_METADATA_HISTORY'),
-    GET_STORED_METADATA: channelCommand('GET_STORED_METADATA'),
-    GET_DOCUMENT_SIZE: channelCommand('GET_DOCUMENT_SIZE'),
-    GET_LAST_CHANNEL_TIME: channelCommand('GET_LAST_CHANNEL_TIME'),
-    GET_DOCUMENT_STATUS: channelCommand('GET_DOCUMENT_STATUS'),
+    GET_METADATA_HISTORY: StorageCommands.channelCommand('GET_METADATA_HISTORY'),
+    GET_STORED_METADATA: StorageCommands.channelCommand('GET_STORED_METADATA'),
+    GET_DOCUMENT_SIZE: StorageCommands.channelCommand('GET_DOCUMENT_SIZE'),
+    GET_LAST_CHANNEL_TIME: StorageCommands.channelCommand('GET_LAST_CHANNEL_TIME'),
+    GET_DOCUMENT_STATUS: StorageCommands.channelCommand('GET_DOCUMENT_STATUS'),
 
-    DISABLE_MFA: disableMFA,
+    DISABLE_MFA: StorageCommands.keyCommand('DISABLE_MFA'),
 
     ARCHIVE_BLOCK: archiveBlock,
     RESTORE_ARCHIVED_BLOCK: restoreArchivedBlock,
 
-    GET_PIN_LIST: getPinList,
+    GET_PIN_LIST: StorageCommands.keyCommand('GET_PIN_LIST'),
     GET_PIN_HISTORY: getPinHistory,
     ARCHIVE_OWNED_DOCUMENTS: archiveOwnedDocuments,
 

@@ -68,7 +68,7 @@ const onGetDiskUsage = (Env, _args, cb) => {
 };
 
 const onGetUserQuota = (Env, args, cb) => {
-    const key = args[1];
+    const { key } = args;
     Pinning.getLimit(Env, key, cb);
 };
 
@@ -104,8 +104,8 @@ const onGetPinActivity = (Env, data, cb) => {
 };
 
 const onGetUserStorageStats = (Env, data, cb) => {
-    // Have been validated above
-    const key = Util.escapeKeyCharacters(Array.isArray(data) && data[1]);
+    // Have been previously validated
+    const { key } = data;
     Env.getPinState(key, function (err, value) {
         if (err) { return void cb(err); }
         try {
@@ -322,8 +322,8 @@ const onGetDocumentStatus = (Env, data, cb) => {
 };
 
 const onDisableMFA = (Env, data, cb) => {
-    const { id } = data;
-    MFA.revoke(Env, id, cb);
+    const { key } = data;
+    MFA.revoke(Env, key, cb);
 };
 
 const onArchiveBlock = (Env, data, cb) => {
