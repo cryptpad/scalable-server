@@ -322,10 +322,23 @@ const getPinLogStatus = (Env, _key, _data, cb) => {
     Core.coreToStorage(Env, data.key, 'ADMIN_CMD', { cmd: 'GET_PIN_LOG_STATUS', data }, cb);
 };
 
+const getPinList = (Env, _key, data, cb) => {
+    const key = Array.isArray(data) && data[1];
+    if (!Core.isValidPublicKey(key)) { return void cb("EINVAL"); }
+    Core.coreToStorage(Env, key, 'ADMIN_CMD', { cmd: 'GET_PIN_LIST', data: { key } }, cb);
+
+};
+
 const channelCommand = (cmd) => (Env, _key, data, cb) => {
     const id = Array.isArray(data) && data[1];
     if (!Core.isValidId(id)) { return void cb('INVALID_CHAN'); }
     Core.coreToStorage(Env, id, 'ADMIN_CMD', { cmd, data: { id } }, cb);
+};
+
+const disableMFA = (Env, _key, data, cb) => {
+    const id = Array.isArray(data) && data[1];
+    if (!Core.isValidPublicKey(id)) { return void cb('EINVAL'); }
+    Core.coreToStorage(Env, id, 'ADMIN_CMD', { cmd: 'DISABLE_MFA', data: { id } }, cb);
 };
 
 const getKnownUsers = (Env, _publicKey, _data, cb) => {
@@ -341,6 +354,34 @@ const addKnownUser = (_Env, _unsafeKey, _data, cb) => {
 
 const getModerators = (Env, _publicKey, _data, cb) => {
     cb(void 0, Env.moderators);
+};
+
+// Not implemented in CryptPad server
+const getPinHistory = (Env, _key, data, cb) => {
+    Env.Log.debug('GET_PIN_HISTORY', data);
+    cb("NOT_IMPLEMENTED");
+};
+
+// Not implemented in CryptPad server
+const archiveOwnedDocuments = (Env, _key, data, cb) => {
+    Env.Log.debug('ARCHIVE_OWNED_DOCUMENTS', data);
+    cb("NOT_IMPLEMENTED");
+};
+
+const archiveBlock = (Env, _key, data, cb) => {
+    const args = Array.isArray(data) && data[1];
+    if (!args) { return void cb("INVALID_ARGS"); }
+    const { key } = args;
+    if (!Core.isValidPublicKey(key)) { return void cb("EINVAL"); }
+    Core.coreToStorage(Env, key, 'ARCHIVE_BLOCK', args, cb);
+};
+
+const restoreArchivedBlock = (Env, _key, data, cb) => {
+    const args = Array.isArray(data) && data[1];
+    if (!args) { return void cb("INVALID_ARGS"); }
+    const { key } = args;
+    if (!Core.isValidPublicKey(key)) { return void cb("EINVAL"); }
+    Core.coreToStorage(Env, key, 'RESTORE_ARCHIVED_BLOCK', args, cb);
 };
 
 const commands = {
@@ -364,6 +405,15 @@ const commands = {
     GET_DOCUMENT_SIZE: channelCommand('GET_DOCUMENT_SIZE'),
     GET_LAST_CHANNEL_TIME: channelCommand('GET_LAST_CHANNEL_TIME'),
     GET_DOCUMENT_STATUS: channelCommand('GET_DOCUMENT_STATUS'),
+
+    DISABLE_MFA: disableMFA,
+
+    ARCHIVE_BLOCK: archiveBlock,
+    RESTORE_ARCHIVED_BLOCK: restoreArchivedBlock,
+
+    GET_PIN_LIST: getPinList,
+    GET_PIN_HISTORY: getPinHistory,
+    ARCHIVE_OWNED_DOCUMENTS: archiveOwnedDocuments,
 
     CHECK_TEST_DECREE: checkTestDecree,
     ADMIN_DECREE: Admin.sendDecree,

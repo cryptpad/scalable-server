@@ -148,6 +148,18 @@ const onGetPinLogStatus = (Env, data, cb) => {
     });
 };
 
+const onGetPinList = (Env, data, cb) => {
+    const { key } = data;
+    const safeKey = Util.escapeKeyCharacters(key);
+
+    Env.getPinState(safeKey, function (err, value) {
+        if (err) { return void cb(err); }
+        try {
+            return void cb(void 0, Object.keys(value).filter(k => value[k]));
+        } catch (err2) { }
+        cb("UNEXPECTED_SERVER_ERROR");
+    });
+};
 
 const onGetCacheStats = (Env, _data, cb) => {
     let metaSize = 0;
@@ -309,6 +321,45 @@ const onGetDocumentStatus = (Env, data, cb) => {
     });
 };
 
+const onDisableMFA = (Env, data, cb) => {
+    const { id } = data;
+    MFA.revoke(Env, id, cb);
+};
+
+const onArchiveBlock = (Env, data, cb) => {
+    const { key, reason } = data;
+    const archiveReason = {
+        code: 'MODERATION_BLOCK',
+        txt: reason
+    };
+    Env.modules.BlockStore.archive(Env, key, archiveReason, err => {
+        Env.Log.info("ARCHIVE_BLOCK_BY_ADMIN", {
+            error: err,
+            key: key,
+            reason: reason || '',
+        });
+        cb(err);
+    });
+    let SSOUtils = Env.plugins && Env.plugins.SSO && Env.plugins.SSO.utils;
+    if (SSOUtils) { SSOUtils.deleteAccount(Env, key, () => {}); }
+};
+
+const onRestoreArchivedBlock = (Env, data, cb) => {
+    const { key, reason } = data;
+    Env.modules.BlockStore.restore(Env, key, err => {
+        Env.Log.info("RESTORE_ARCHIVED_BLOCK_BY_ADMIN", {
+            error: err,
+            key: key,
+            reason: reason || '',
+        });
+
+        // Also restore SSO data
+        let SSOUtils = Env.plugins && Env.plugins.SSO && Env.plugins.SSO.utils;
+        if (SSOUtils) { SSOUtils.restoreAccount(Env, key, () => {}); }
+
+        cb(err);
+    });
+};
 
 const commands = {
     'GET_FILE_DESCRIPTOR_COUNT': onGetFileDescriptorCount,
@@ -326,6 +377,10 @@ const commands = {
     'GET_DOCUMENT_SIZE': onGetDocumentSize,
     'GET_LAST_CHANNEL_TIME': onGetLastChannelTime,
     'GET_DOCUMENT_STATUS': onGetDocumentStatus,
+    'DISABLE_MFA': onDisableMFA,
+    'GET_PIN_LIST': onGetPinList,
+    'ARCHIVE_BLOCK': onArchiveBlock,
+    'RESTORE_ARCHIVED_BLOCK': onRestoreArchivedBlock,
 };
 
 module.exports = {
