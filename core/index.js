@@ -538,7 +538,8 @@ let startServers = function(config) {
         infra,
         server,
         myId,
-        index
+        index,
+        Log: Env.Log
     };
     config.connector = WSConnector;
 
@@ -607,7 +608,6 @@ let startServers = function(config) {
             console.error('E: interface initialisation error', err);
             return;
         }
-        console.log("Core started", config.myId);
         if (process.send !== undefined) {
             process.send({ type: 'core', index: config.index, msg: 'READY' });
         }

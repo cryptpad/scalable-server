@@ -3,7 +3,7 @@
 const WebSocket = require("ws");
 const Http = require("http");
 
-const socketToClient = function(ws) {
+const socketToClient = (ctx, ws) => {
     let handlers = ws.__handlers = {
         messages: [],
         disconnect: []
@@ -14,7 +14,7 @@ const socketToClient = function(ws) {
             try {
                 handler(msg);
             } catch (e) {
-                console.error(e);
+                ctx.Log.error(e);
             }
         });
     });
@@ -24,7 +24,7 @@ const socketToClient = function(ws) {
             try {
                 handler(code, reason);
             } catch (e) {
-                console.error(e);
+                ctx.Log.error(e);
             }
         });
     });
@@ -64,10 +64,10 @@ module.exports = {
         let path = config.wsPath || '';
         const onServerReady = () => {
             let server = new WebSocket.Server({ server: httpServer, path });
-            ctx.self = socketToClient(server);
+            ctx.self = socketToClient(ctx, server);
             server.on('connection', ws => {
                 // TODO: get data from req to know who we are talking to and handle new connections
-                onNewClient(ctx, socketToClient(ws));
+                onNewClient(ctx, socketToClient(ctx, ws));
             });
             ctx.self.onDisconnect(() => { httpServer.close(err => { cb(err); }); });
             cb(void 0, ctx.self);
@@ -77,13 +77,13 @@ module.exports = {
 
         httpServer = Http.createServer();
         if (!httpServer) {
-            console.error('Error: failed to create server');
+            ctx.Log.error('Error: failed to create server');
             cb('E_INITHTTPSERVER');
         }
 
         httpServer.listen(config.port, config.host, onServerReady);
     },
-    initOneClient: (ctx, config, id, onConnected, cb) => {
+    initClient: (ctx, config, id, onConnected, cb) => {
         const [type, number] = id.split(':');
         const serv = config?.infra?.[type]?.[+number];
         let wsURL = 'ws://' + serv.host + ':' + serv.port;
@@ -95,49 +95,16 @@ module.exports = {
             if (ready) { return; }
             let socket = new WebSocket(wsURL);
             socket.on('error', () => {
-                console.error('Remote server not ready', id, 'trying again in 1000ms');
+                ctx.Log.error('Remote server not ready', id, 'trying again in 1000ms');
                 setTimeout(again, 1000); // try again
             }).on('open', () => {
                 ready = true;
-                let client = socketToClient(socket);
-                ctx.self = client; // XXX this looks wrong (multiple clients)
+                let client = socketToClient(ctx, socket);
                 onConnected(ctx, client, +number);
                 cb();
             });
         };
 
         again();
-    },
-    initClient: function(ctx, config, onConnected, cb) {
-        let toStart = config?.infra?.core?.map((server, id) => new Promise((resolve, reject) => {
-
-            // XXX wss protocol and domain without port?
-            let socket = new WebSocket('ws://' + server.host + ':' + server.port);
-            socket
-                .on('error', function(error) {
-                    console.error('Websocket connection error on', server, ':', error);
-                    reject(error);
-                })
-                .on('open', function() {
-                    let client = socketToClient(socket);
-                    ctx.self = client;
-                    onConnected(ctx, client, id);
-                    resolve();
-                });
-        }));
-
-        Promise.all(toStart)
-            .then(() => {
-                return cb(void 0);
-            })
-            .catch((err) => {
-                // In case of error, close opened websockets
-                Object.keys(ctx.others).forEach(type => {
-                    ctx.others[type].forEach(client => {
-                        client.disconnect();
-                    });
-                });
-                return cb(err);
-            });
     }
 };

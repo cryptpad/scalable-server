@@ -29,7 +29,7 @@ const newConnection = (ctx, other, txid, type, data, message) => {
         const coreId = ctx.pendingConnections?.[txid];
         const [acceptName, acceptIndex] = data.split(':'); // XXX: more robust code
         if (typeof (coreId) === 'undefined' || !['core','storage'].includes(acceptName) || Number(acceptIndex) !== coreId) {
-            return console.error(ctx.myId, ': unknown connection accepted');
+            return ctx.Log.error(ctx.myId, ': unknown connection accepted');
         }
         // Connection accepted, add to others and resolve the promise
         ctx.others[acceptName][acceptIndex] = other;
@@ -48,13 +48,13 @@ const newConnection = (ctx, other, txid, type, data, message) => {
     // Check for reused challenges
     if (ctx.ChallengesCache[challengeBase64]) {
         other.disconnect();
-        return console.error("Reused challenge");
+        return ctx.Log.error("Reused challenge");
     }
     // Buffer.from is needed for compatibility with tweetnacl
     const msg = Buffer.from(Crypto.secretboxOpen(challenge, nonce, ctx.nodes_key));
     if (!msg) {
         other.disconnect();
-        return console.error("Bad challenge answer");
+        return ctx.Log.error("Bad challenge answer");
     }
     let [challType, challIndex, challTimestamp] = String(msg).split(':');
     // This requires servers to be time-synchronised to avoid “Challenge in
@@ -63,7 +63,7 @@ const newConnection = (ctx, other, txid, type, data, message) => {
     if (challengeLife < 0 || challengeLife > ctx.ChallengeLifetime ||
         rcvType !== challType || idx !== Number(challIndex)) {
         other.disconnect();
-        return console.error("Bad challenge answer");
+        return ctx.Log.error("Bad challenge answer");
     }
 
     // Challenge caching once it’s validated
@@ -73,6 +73,7 @@ const newConnection = (ctx, other, txid, type, data, message) => {
     other.send([txid, 'ACCEPT', ctx.myId]);
 
     ctx.others[rcvType][idx] = other;
+    ctx.pendingPromises?.[`${rcvType}:${idx}`]?.();
     onNewConnection.fire({
         type: rcvType,
         index: idx
@@ -85,7 +86,7 @@ let handleMessage = function(ctx, other, message) {
 
     let parsed = Util.tryParse(message);
     if (!parsed) {
-        return void console.log("JSON parse error", message);
+        return void ctx.Log.warn("JSON parse error", message);
     }
 
     // Message format: [txid, type, data, (extra)]
@@ -107,7 +108,7 @@ let handleMessage = function(ctx, other, message) {
     }
 
     if (type !== 'MESSAGE') {
-        console.error(ctx.myId, "Unexpected message type", type, ', message:', data);
+        ctx.Log.error(ctx.myId, "Unexpected message type", type, ', message:', data);
         return;
     }
 
@@ -128,10 +129,8 @@ let createHandlers = function(ctx, other) {
         handleMessage(ctx, other, message);
     });
     other.onDisconnect(function(_code, _reason) { // XXX: to handle properly in the future
-        console.log(`Interface disconnected: ${other} from ${ctx.myId}. ${_code}, ${_reason}`);
-        if (ctx.self.isOpen()) {
-            ctx.self.disconnect();
-        }
+        ctx.Log.warn(`Interface disconnected: ${other} from ${ctx.myId}. ${_code}, ${_reason}`);
+        // TODO disconnect all? or reconnect
     });
 };
 
@@ -158,7 +157,7 @@ let communicationManager = function(ctx) {
         let dest = findDestFromId(ctx, destId);
         if (!dest) {
             // XXX: handle this more properly: timeout?
-            console.log("Error: dest", destId, "not found in ctx.", ctx.myId);
+            ctx.Log.error("Error: dest", destId, "not found in ctx.", ctx.myId);
             return false;
         }
 
@@ -177,7 +176,7 @@ let communicationManager = function(ctx) {
         let dest = findDestFromId(ctx, destId);
         if (!dest) {
             // XXX: handle this more properly: timeout?
-            console.log("Error: dest", destId, "not found in ctx.", ctx.myId);
+            ctx.Log.error("Error: dest", destId, "not found in ctx.", ctx.myId);
             return false;
         }
 
@@ -213,7 +212,8 @@ let communicationManager = function(ctx) {
                 _interface.disconnect();
             });
         });
-        ctx.self.disconnect();
+        // disconnect own server
+        if (ctx.self) { ctx.self.disconnect(); }
     };
 
     const broadcast = (type, command, args, cb, exclude) => {
@@ -250,147 +250,12 @@ let communicationManager = function(ctx) {
     };
 };
 
-/* Creates a connection to another node.
- * - config: contains ../ws-config.js and a string `myId` identifying the initiator
- * of the connection.
- */
-let connect = function(config, cb) {
-    if (!cb) { cb = () => { }; }
-
-    let ctx = {
-        others: {
-            core: []
-        },
-        commands: [],
-        nodes_key: Crypto.decodeBase64(config?.server?.private?.nodes_key),
-        queue: [],
-        pendingConnections : {},
-        pendingPromises : {}
-    };
-    ctx.myId = config.myId;
-
-    let parsedId = ctx.myId.split(':');
-    if (parsedId[0] === 'core') {
-        console.log("Error: trying to create a connection from a core node");
-        throw new Error('INVALID_CLIENT_ID');
-    }
-    ctx.myType = parsedId[0];
-    ctx.myNumber = Number(parsedId[1]);
-
-    ctx.response = Util.response(function(error) {
-        console.log('Server response error:', error);
-    });
-
-    /*
-    let myConfig = Util.find(config.infra, parsedId);
-
-    if (!myConfig) {
-        console.log("Error: client not found in the network topology");
-        throw new Error('INVALID_CLIENT_ID');
-    }
-    */
-
-    // Create promises
-    const promises = [];
-    config?.infra?.core?.forEach((server, id) => {
-        const p = new Promise((resolve, reject) => {
-            const t = setTimeout(() => {
-                reject();
-            }, 30000);
-            const accept = () => {
-                clearTimeout(t);
-                resolve();
-            };
-            ctx.pendingPromises['core:'+id] = accept;
-        });
-        promises.push(p);
-    });
-
-    // Connection to the different core servers
-    const { connector } = config;
-    if (!connector) {
-        return cb('E_MISSINGCONNECTOR');
-    }
-
-    let manager = communicationManager(ctx);
-    connector.initClient(ctx, config, onConnected, (err) => {
-        if (err) {
-            return cb(err);
-        }
-
-        Promise.all(promises).then(() => {
-            return cb();
-        }).catch(e => {
-            throw new Error(e);
-        });
-    });
-    return manager;
-};
-
-/* This function initializes the different ws servers on the Core components */
-/*
-let init = function(config, cb) {
-    cb = Util.once(cb || function () {});
-
-    let ctx = {
-        others: {
-            storage: [],
-            core: [],
-            http: [],
-            websocket: []
-        },
-        commands: {},
-        nodes_key: Crypto.decodeBase64(config?.server?.private?.nodes_key),
-        ChallengesCache: {},
-        ChallengeLifetime: 30 * 1000 // 30 seconds
-    };
-    ctx.myId = config.myId;
-
-    let parsedId = ctx.myId.split(':');
-    if (parsedId[0] !== 'core') {
-        console.log("Error: trying to create a server from a non-core node");
-        throw new Error('INVALID_SERVER_ID');
-    }
-    ctx.myType = parsedId[0];
-    ctx.myNumber = Number(parsedId[1]);
-
-    // Response manager
-    ctx.response = Util.response(function(error) {
-        console.error("Client response error:", error);
-        cb('E_CLIENT');
-    });
-
-    let myConfig = config.infra.core[ctx.myNumber];
-
-    if (!myConfig) {
-        console.log("Error: trying to create a non-existing server");
-        throw new Error('INVALID_SERVER_ID');
-    }
-
-    const { connector } = config;
-    if (!connector) {
-        return cb('E_MISSINGCONNECTOR');
-    }
-
-    let manager = communicationManager(ctx);
-    connector.initServer(ctx, myConfig, createHandlers, (err, selfClient) => {
-        if (err) {
-            return cb(err);
-        }
-        if (!selfClient) {
-            return cb('E_INITWSSERVER');
-        }
-
-        return cb();
-    });
-    return manager;
-};
-*/
-
+/* This function initializes the different nodes process and connect them to each other */
 const init = (config, cb, httpServer) => {
     cb = Util.once(cb || function () {});
 
     const ctx = {
+        Log: config.Log,
         myId: config.myId,
         others: {
             storage: [],
@@ -412,7 +277,7 @@ const init = (config, cb, httpServer) => {
     ctx.myNumber = Number(parsedId[1]);
 
     ctx.response = Util.response((error) => {
-        console.log('Response error:', error);
+        ctx.Log.info('Response error:', error);
     });
 
     const { connector } = config;
@@ -427,7 +292,9 @@ const init = (config, cb, httpServer) => {
     let manager = communicationManager(ctx);
     const promises = [];
 
+    // Connect to a server and wait for the ACCEPT message
     const connectClient = (id) => {
+        ctx.Log.verbose(ctx.myId, 'connecting to', id);
         const p = new Promise((resolve, reject) => {
             const t = setTimeout(() => {
                 reject();
@@ -437,20 +304,38 @@ const init = (config, cb, httpServer) => {
                 resolve();
             };
             ctx.pendingPromises[id] = accept;
-            connector.initOneClient(ctx, config, id, onConnected, (err) => {
+            connector.initClient(ctx, config, id, onConnected, (err) => {
                 if (err) { return reject(err); }
             });
         });
         promises.push(p);
     };
+    // Wait for a client to be connected and accepted before resolving
+    const waitClient = (id) => {
+        ctx.Log.verbose(ctx.myId, 'waiting for', id);
+        const p = new Promise((resolve, reject) => {
+            const t = setTimeout(() => {
+                reject();
+            }, 30000);
+            const accept = () => {
+                clearTimeout(t);
+                resolve();
+            };
+            ctx.pendingPromises[id] = accept;
+        });
+        promises.push(p);
+    };
 
     if (ctx.myType === "core") {
+        // Cores: start a server and connect to other cores
+
         const myConfig = config.infra.core[ctx.myNumber];
         if (!myConfig) {
-            console.log("Error: trying to create a non-existing server");
+            ctx.Log.error("Error: trying to create a non-existing server");
             throw new Error('INVALID_SERVER_ID');
         }
 
+        // Start websocket server
         const servP = new Promise((resolve, reject) => {
             connector.initServer(ctx, myConfig, createHandlers, (err, selfClient) => {
                 if (err) { return reject(err); }
@@ -459,17 +344,25 @@ const init = (config, cb, httpServer) => {
             });
         });
         promises.push(servP);
+        // Connect to "lower" cores
         for (let i = 0; i < ctx.myNumber; i++) {
             connectClient(`core:${i}`);
         }
-    }
-    if (ctx.myType === "storage") {
+        // And wait for "bigger" cores
+        const length = config.infra.core.length;
+        for (let i = (ctx.myNumber+1); i < length; i++) {
+            waitClient(`core:${i}`);
+        }
+
+    } else if (ctx.myType === "storage") {
+        // Storages: start a server and connect to other storages and cores
         const myConfig = config.infra.storage[ctx.myNumber];
         if (!myConfig) {
-            console.log("Error: trying to create a non-existing server");
+            ctx.Log.error("Error: trying to create a non-existing server");
             throw new Error('INVALID_SERVER_ID');
         }
 
+        // Start websocket server
         myConfig.wsPath = '/websocket';
         myConfig.httpServer = httpServer;
         const servP = new Promise((resolve, reject) => {
@@ -480,9 +373,20 @@ const init = (config, cb, httpServer) => {
             });
         });
         promises.push(servP);
+        // Connect to storages
         for (let i = 0; i < ctx.myNumber; i++) {
             connectClient(`storage:${i}`);
         }
+        const length = config.infra.storage.length;
+        for (let i = (ctx.myNumber+1); i < length; i++) {
+            waitClient(`storage:${i}`);
+        }
+        // Connect to cores
+        config?.infra?.core?.forEach((server, id) => {
+            connectClient(`core:${id}`);
+        });
+    } else {
+        // Ws and http: connect to cores
         config?.infra?.core?.forEach((server, id) => {
             connectClient(`core:${id}`);
         });
@@ -497,11 +401,11 @@ const init = (config, cb, httpServer) => {
 
         return cb();
     }).catch(e => {
-        console.error(e);
+        ctx.Log.error(e);
         throw new Error(e);
     });
 
     return manager;
 };
 
-module.exports = { connect, init };
+module.exports = { init };

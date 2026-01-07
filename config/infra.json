@@ -6,27 +6,27 @@
         },
         {
             "host": "localhost",
-            "port": 3015
+            "port": 3011
         }
     ],
     "core": [
         {
             "host": "localhost",
-            "port": 3011
+            "port": 3020
         },
         {
             "host": "localhost",
-            "port": 3012
+            "port": 3021
         }
     ],
     "storage": [
         {
             "host": "localhost",
-            "port": 3014
+            "port": 3030
         },
         {
             "host": "localhost",
-            "port": 3016
+            "port": 3031
         }
     ]
 }

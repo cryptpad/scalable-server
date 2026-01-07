@@ -36,7 +36,7 @@ const startNode = (type, index, forking, cb) => {
         infra: infraConfig
     };
 
-    Log.info(`Starting: ${initConfig.myId}`);
+    //Log.info(`Starting: ${initConfig.myId}`);
     if (forking) {
         let nodeProcess = fork(nodeFile);
         nodeProcess.send(initConfig);
@@ -55,13 +55,23 @@ const startNode = (type, index, forking, cb) => {
 };
 
 const coresReady = () => {
+    const promises = [];
     infraConfig?.websocket?.forEach((_, index) => {
-        startNode('websocket', index, true);
+        promises.push(new Promise(resolve => {
+            startNode('websocket', index, true, resolve);
+        }));
     });
     infraConfig?.storage?.forEach((_, index) => {
-        startNode('storage', index, true);
+        promises.push(new Promise(resolve => {
+            startNode('storage', index, true, resolve);
+        }));
     });
-    startNode('http', 0, true);
+    promises.push(new Promise(resolve => {
+        startNode('http', 0, true, resolve);
+    }));
+    Promise.all(promises).then(() => {
+        Log.info('CryptPad server ready');
+    });
 };
 
 const startCores = () => {

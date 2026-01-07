@@ -673,7 +673,8 @@ let start = function(config) {
         index,
         infra,
         server,
-        myId
+        myId,
+        Log: Env.Log
     };
 
     const {

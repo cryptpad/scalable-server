@@ -14,6 +14,7 @@ const WorkerModule = require("../common/worker-module.js");
 const Cluster = require("node:cluster");
 const Environment = require('../common/env.js');
 const Admin = require('./commands/admin');
+const nThen = require('nthen');
 
 const {
     hkId,
@@ -615,27 +616,27 @@ const initHttpCluster = (Env, config) => {
 
 const start = (config) => {
     const {myId, index, server, infra} = config;
+    const Env = {
+        logIP: true, // XXX
+        openConnections: {},
+        user_channel_cache: {},
+        Log: Logger(),
+        active: true,
+        users: {},
+        config,
+        public: server?.public?.websocket?.[index],
+    };
+    Environment.init(Env, config);
+
     const interfaceConfig = {
         connector: WSConnector,
         index,
         infra,
         server,
         myId,
-        public: server?.public
+        public: server?.public,
+        Log: Env.Log
     };
-    const Env = {
-        myId: interfaceConfig.myId,
-        logIP: true,
-        openConnections: {},
-        user_channel_cache: {},
-        Log: Logger(),
-        active: true,
-        users: {},
-        config: interfaceConfig,
-        public: server?.public?.websocket?.[index],
-    };
-
-    Environment.init(Env, config);
 
     const callWithEnv = f => {
         return function () {
@@ -656,10 +657,11 @@ const start = (config) => {
         'HTTP_COMMAND': callWithEnv(onHttpCommand)
     };
 
-    initServer(Env)
-    .then(() => {
-        return initHttpCluster(Env, config);
-    }).then(() => {
+    nThen(w => {
+        initServer(Env).then(w());
+    }).nThen(w => {
+        initHttpCluster(Env, config).then(w());
+    }).nThen(w => {
         try {
             Object.keys(WORKER_COMMANDS).forEach(cmd => {
                 let handler = WORKER_COMMANDS[cmd];
@@ -669,22 +671,24 @@ const start = (config) => {
             console.error(e);
         }
 
-        Env.interface = Interface.connect(interfaceConfig, err => {
+        Env.interface = Interface.init(interfaceConfig, w(err => {
             if (err) {
+                w.abort();
                 Env.Log.error(interfaceConfig.myId, ' error:', err);
                 return;
             }
-            Env.Log.info('WS started', Env.myId);
-
-            if (process.send !== undefined) {
-                process.send({type: 'websocket', index: interfaceConfig.index, msg: 'READY'});
-            } else {
-                Env.Log.info('websocket:' + interfaceConfig.index + ' started');
-            }
-        });
+        }));
         Env.plugins.call('addWebsocketCommands')(Env, CORE_COMMANDS);
         Env.interface.handleCommands(CORE_COMMANDS);
-    }).catch((e) => { return Env.Log.error('Error:', e); });
+    }).nThen(() => {
+        Env.Log.info('WS started', Env.myId);
+
+        if (process.send !== undefined) {
+            process.send({type: 'websocket', index: config.index, msg: 'READY'});
+        } else {
+            Env.Log.info('websocket:' + config.index + ' started');
+        }
+    });
 };
 
 module.exports = {
