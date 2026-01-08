@@ -324,6 +324,18 @@ const archiveOwnedDocuments = (Env, _key, data, cb) => {
     cb("NOT_IMPLEMENTED");
 };
 
+const archiveDocument = (Env, _key, data, cb) => {
+    StorageCommands.archiveDocument(Env, data, cb);
+};
+
+const archiveDocuments = (Env, _key, data, cb) => {
+    StorageCommands.archiveDocuments(Env, data, cb);
+};
+
+const restoreArchivedDocument = (Env, _key, data, cb) => {
+    StorageCommands.restoreArchivedDocument(Env, data, cb);
+};
+
 const commands = {
     ACTIVE_SESSIONS: getActiveSessions,
     ACTIVE_PADS: getActiveChannelCount,
@@ -350,6 +362,10 @@ const commands = {
 
     ARCHIVE_BLOCK: StorageCommands.argsCommand('ARCHIVE_BLOCK'),
     RESTORE_ARCHIVED_BLOCK: StorageCommands.argsCommand('RESTORE_ARCHIVED_BLOCK'),
+
+    ARCHIVE_DOCUMENT: archiveDocument,
+    ARCHIVE_DOCUMENTS: archiveDocuments,
+    RESTORE_ARCHIVED_DOCUMENT: restoreArchivedDocument,
 
     GET_PIN_LIST: StorageCommands.keyCommand('GET_PIN_LIST'),
     GET_PIN_HISTORY: getPinHistory,

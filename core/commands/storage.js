@@ -79,4 +79,58 @@ StorageCommands.argsCommand = (cmd) => (Env, _key, data, cb) => {
     Core.coreToStorage(Env, key, 'ADMIN_CMD', { cmd, data: args }, cb);
 };
 
+const archiveDocument = StorageCommands.archiveDocument = (Env, data, cb) => {
+    const args = Array.isArray(data) && data[1];
+    if (!args) { return void cb("EINVAL"); }
+    let id, reason;
+    if (typeof(args) === 'string') {
+        id = args;
+    } else if (args && typeof(args) === 'object') {
+        id = args.id;
+        reason = args.reason;
+    }
+    if (typeof(id) !== 'string' || id.length < 32) { return void cb("EINVAL"); }
+
+    Core.coreToStorage(Env, id, 'ADMIN_CMD', { cmd: 'ARCHIVE_DOCUMENT', data: { id, reason } }, cb);
+};
+
+StorageCommands.archiveDocuments = (Env, data, cb) => {
+    if (!Array.isArray(data)) { return void cb("EINVAL"); }
+    let args = data[1];
+    const { list, reason } = args;
+    if (!Array.isArray(list)) { return void cb('EINVAL'); }
+    let n = nThen;
+    let failed = [];
+    // May be optimized by batching requests by storage id
+    list.forEach(id => {
+        n = n((w) => {
+            archiveDocument(Env,
+                [0, { id, reason }],
+                w(err => {
+                    console.log(err);
+                    if (err && err !== 'ENOENT') { failed.push(id); }
+                }));
+        }).nThen;
+    });
+    n(() => {
+        cb(void 0, { state: true, failed });
+    });
+};
+
+StorageCommands.restoreArchivedDocument = (Env, data, cb) => {
+    const args = Array.isArray(data) && data[1];
+    if (!args) { return void cb("EINVAL"); }
+
+    let id, reason;
+    if (typeof(args) === 'string') {
+        id = args;
+    } else if (args && typeof(args) === 'object') {
+        id = args.id;
+        reason = args.reason;
+    }
+
+    if (typeof(id) !== 'string' || id.length < 32) { return void cb("EINVAL"); }
+    Core.coreToStorage(Env, id, 'ADMIN_CMD', { cmd: 'RESTORE_ARCHIVED_DOCUMENT', data: { id, reason } }, cb);
+};
+
 module.exports = StorageCommands;

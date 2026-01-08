@@ -361,6 +361,72 @@ const onRestoreArchivedBlock = (Env, data, cb) => {
     });
 };
 
+const onArchiveDocument = (Env, data, _cb) => {
+    const cb = Util.mkAsync(_cb);
+    const { id, reason } = data;
+    const archiveReason = {
+        code: 'MODERATION_PAD',
+        txt: reason
+    };
+    const reasonStr = `MODERATION_PAD:${reason}`;
+
+    switch (id.length) {
+        case 32:
+            return void Env.store.archiveChannel(id, archiveReason, Util.both(cb, function(err) {
+                Env.Log.info("ARCHIVAL_CHANNEL_BY_ADMIN_RPC", {
+                    channelId: id,
+                    reason: reason,
+                    status: err ? String(err) : "SUCCESS",
+                });
+                Env.CM.disconnectChannelMembers(Env, id, 'EDELETED', reasonStr, err => {
+                    if (err) { } // TODO
+                });
+            }));
+        case 48:
+            return void Env.blobStore.archive.blob(id, archiveReason, Util.both(cb, function(err) {
+                Env.Log.info("ARCHIVAL_BLOB_BY_ADMIN_RPC", {
+                    id: id,
+                    reason: reason,
+                    status: err ? String(err) : "SUCCESS",
+                });
+            }));
+        default:
+            return void cb("INVALID_ID_LENGTH");
+    }
+
+    // archival for blob proofs isn't automated, but evict-inactive.js will
+    // clean up orpaned blob proofs
+    // Env.blobStore.archive.proof(userSafeKey, blobId, cb)
+
+};
+
+const onRestoreArchivedDocument = (Env, data, cb) => {
+    const { id, reason } = data;
+
+    switch (id.length) {
+        case 32:
+            return void Env.store.restoreArchivedChannel(id, Util.both(cb, function(err) {
+                Env.Log.info("RESTORATION_CHANNEL_BY_ADMIN_RPC", {
+                    id: id,
+                    reason: reason,
+                    status: err ? String(err) : 'SUCCESS',
+                });
+            }));
+        case 48:
+            // FIXME this does not yet restore blob ownership
+            // Env.blobStore.restore.proof(userSafekey, id, cb)
+            return void Env.blobStore.restore.blob(id, Util.both(cb, function(err) {
+                Env.Log.info("RESTORATION_BLOB_BY_ADMIN_RPC", {
+                    id: id,
+                    reason: reason,
+                    status: err ? String(err) : 'SUCCESS',
+                });
+            }));
+        default:
+            return void cb("INVALID_ID_LENGTH");
+    }
+};
+
 const commands = {
     'GET_FILE_DESCRIPTOR_COUNT': onGetFileDescriptorCount,
     'GET_INVITATIONS': onGetInvitations,
@@ -381,6 +447,8 @@ const commands = {
     'GET_PIN_LIST': onGetPinList,
     'ARCHIVE_BLOCK': onArchiveBlock,
     'RESTORE_ARCHIVED_BLOCK': onRestoreArchivedBlock,
+    'ARCHIVE_DOCUMENT': onArchiveDocument,
+    'RESTORE_ARCHIVED_DOCUMENT': onRestoreArchivedDocument,
 };
 
 module.exports = {
