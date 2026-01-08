@@ -9,10 +9,6 @@ const Util = require("../common-util");
 const Users = require("./users");
 const Core = require("../../common/core");
 
-const getUid = () => {
-    return Util.uid() + Util.uid() + Util.uid();
-};
-
 Invitation.getAll = (Env, cb) => {
     // Only the invitation of this storage are returned. Core will aggregate the
     // data later.
@@ -22,9 +18,9 @@ Invitation.getAll = (Env, cb) => {
     });
 };
 
-Invitation.create = (Env, alias, email, _cb, unsafeKey) => {
+Invitation.create = (Env, args, _cb) => {
     const cb = Util.once(Util.mkAsync(_cb));
-    const id = getUid();
+    const { id, alias, email, unsafeKey } = args;
     const invitation = {
         alias,
         email,

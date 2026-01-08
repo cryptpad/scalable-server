@@ -13,6 +13,10 @@ const getWorkerProfiles = function(Env, _publicKey, _data, cb) {
     cb(void 0, Env.commandTimers);
 };
 
+const getUid = () => {
+    return Util.uid() + Util.uid() + Util.uid();
+};
+
 
 const getInvitations = (Env, _publicKey, _data, cb) => {
     Env.interface.broadcast('storage', 'ADMIN_CMD', { cmd: 'GET_INVITATIONS' }, (_err, data) => {
@@ -24,19 +28,19 @@ const getInvitations = (Env, _publicKey, _data, cb) => {
     });
 };
 
-var createInvitation = (_Env, _publicKey, _data, cb) => {
-    return cb('E_NOT_IMPLEMENTED');
-    // const args = Array.isArray(data) && data[1];
-    // if (!args || typeof(args) !== 'object') { return void cb("EINVAL"); }
-    // Invitation.create(Env, args.alias, args.email, cb, publicKey);
+const createInvitation = (Env, unsafeKey, _data, cb) => {
+    const data = Array.isArray(_data) && _data[1];
+    if (!data || typeof(data) !== 'object') { return void cb("EINVAL"); }
+    data.id = getUid();
+    data.unsafeKey = unsafeKey;
+    Core.coreToStorage(Env, data.id, 'ADMIN_CMD', {cmd: 'CREATE_INVITATION', data}, cb);
 };
 
-var deleteInvitation = (_Env, _publicKey, _data, cb) => {
-    return cb('E_NOT_IMPLEMENTED');
-    // var id = Array.isArray(data) && data[1];
-    // Invitation.delete(Env, id, cb);
+const deleteInvitation = (Env, _publicKey, data, cb) => {
+    const id = Array.isArray(data) && data[1];
+    if (typeof (id) !== 'string') { return void cb('EINVAL'); }
+    Core.coreToStorage(Env, id, 'ADMIN_CMD', { cmd: 'DELETE_INVITATION', data: id }, cb);
 };
-
 
 // CryptPad_AsyncStore.rpc.send('ADMIN', ['GET_ACTIVE_SESSIONS'], console.log)
 var getActiveSessions = function(_Env, _publicKey, _data, cb) {

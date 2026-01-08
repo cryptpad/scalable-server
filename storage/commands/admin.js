@@ -84,6 +84,14 @@ const onGetInvitations = (Env, _args, cb) => {
     Invitation.getAll(Env, cb);
 };
 
+const onCreateInvitation = (Env, args, cb) => {
+    Invitation.create(Env, args, cb);
+};
+
+const onDeleteInvitation = (Env, id, cb) => {
+    Invitation.delete(Env, id, cb);
+};
+
 const onGetPinActivity = (Env, data, cb) => {
     if (!data) { return void cb("INVALID_ARGS"); }
     if (typeof (data.key) !== 'string') { return void cb("INVALID_KEY"); }
@@ -460,6 +468,8 @@ const onClearCachedChannelMetadata = (Env, id, cb) => {
 const commands = {
     'GET_FILE_DESCRIPTOR_COUNT': onGetFileDescriptorCount,
     'GET_INVITATIONS': onGetInvitations,
+    'CREATE_INVITATION': onCreateInvitation,
+    'DELETE_INVITATION': onDeleteInvitation,
     'GET_USERS': onGetKnownUsers,
     'ADD_KNOWN_USER': onAddKnownUser,
     'DELETE_KNOWN_USER': onDeleteKnownUser,
