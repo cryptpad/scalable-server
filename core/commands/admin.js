@@ -360,6 +360,10 @@ const commands = {
 
     DISABLE_MFA: StorageCommands.keyCommand('DISABLE_MFA'),
 
+    GET_PIN_LIST: StorageCommands.keyCommand('GET_PIN_LIST'),
+    GET_PIN_HISTORY: getPinHistory,
+    ARCHIVE_OWNED_DOCUMENTS: archiveOwnedDocuments,
+
     ARCHIVE_BLOCK: StorageCommands.argsCommand('ARCHIVE_BLOCK'),
     RESTORE_ARCHIVED_BLOCK: StorageCommands.argsCommand('RESTORE_ARCHIVED_BLOCK'),
 
@@ -367,9 +371,16 @@ const commands = {
     ARCHIVE_DOCUMENTS: archiveDocuments,
     RESTORE_ARCHIVED_DOCUMENT: restoreArchivedDocument,
 
-    GET_PIN_LIST: StorageCommands.keyCommand('GET_PIN_LIST'),
-    GET_PIN_HISTORY: getPinHistory,
-    ARCHIVE_OWNED_DOCUMENTS: archiveOwnedDocuments,
+    // XXX: todo: archive/restore accounts
+    // ARCHIVE_ACCOUNT: archiveAccount,
+    // RESTORE_ACCOUNT: restoreAccount,
+    // GET_ACCOUNT_ARCHIVE_STATUS: getAccountArchiveStatus,
+
+    CLEAR_CACHED_CHANNEL_INDEX: StorageCommands.channelIndexCommand('CLEAR_CACHED_CHANNEL_INDEX'),
+    GET_CACHED_CHANNEL_INDEX: StorageCommands.channelIndexCommand('GET_CACHED_CHANNEL_INDEX'),
+
+    CLEAR_CACHED_CHANNEL_METADATA: StorageCommands.channelIndexCommand('CLEAR_CACHED_CHANNEL_METADATA'),
+    GET_CACHED_CHANNEL_METADATA: StorageCommands.channelIndexCommand('GET_CACHED_CHANNEL_METADATA'),
 
     CHECK_TEST_DECREE: checkTestDecree,
     ADMIN_DECREE: Admin.sendDecree,

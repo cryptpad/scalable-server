@@ -427,6 +427,28 @@ const onRestoreArchivedDocument = (Env, data, cb) => {
     }
 };
 
+const onClearCachedChannelIndex = (Env, id, cb) => {
+    delete Env.channel_cache?.[id];
+    cb();
+};
+
+const onGetCachedChannelIndex = (Env, id, cb) => {
+    const index = Env.channel_cache?.[id];
+    if (!index) { return void cb("ENOENT"); }
+    cb(void 0, index);
+};
+
+const onGetCachedChannelMetadata = (Env, id, cb) => {
+    const index = Env.metadata_cache?.[id];
+    if (!index) { return void cb("ENOENT"); }
+    cb(void 0, index);
+};
+
+const onClearCachedChannelMetadata = (Env, id, cb) => {
+    delete Env.metadata_cache[id];
+    cb();
+};
+
 const commands = {
     'GET_FILE_DESCRIPTOR_COUNT': onGetFileDescriptorCount,
     'GET_INVITATIONS': onGetInvitations,
@@ -449,6 +471,10 @@ const commands = {
     'RESTORE_ARCHIVED_BLOCK': onRestoreArchivedBlock,
     'ARCHIVE_DOCUMENT': onArchiveDocument,
     'RESTORE_ARCHIVED_DOCUMENT': onRestoreArchivedDocument,
+    'CLEAR_CACHED_CHANNEL_INDEX': onClearCachedChannelIndex,
+    'GET_CACHED_CHANNEL_INDEX': onGetCachedChannelIndex ,
+    'CLEAR_CACHED_CHANNEL_METADATA': onClearCachedChannelMetadata,
+    'GET_CACHED_CHANNEL_METADATA': onGetCachedChannelMetadata,
 };
 
 module.exports = {

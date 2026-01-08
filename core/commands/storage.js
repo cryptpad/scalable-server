@@ -65,6 +65,12 @@ StorageCommands.channelCommand = (cmd) => (Env, _key, data, cb) => {
     Core.coreToStorage(Env, id, 'ADMIN_CMD', { cmd, data: { id } }, cb);
 };
 
+StorageCommands.channelIndexCommand = (cmd) => (Env, _key, data, cb) => {
+    const id = Array.isArray(data) && data[1];
+    if (typeof(id) !== 'string' || id.length < 32) { return void cb('EINVAL'); }
+    Core.coreToStorage(Env, id, 'ADMIN_CMD', { cmd, data: id }, cb);
+};
+
 StorageCommands.keyCommand = (cmd) => (Env, _key, data, cb) => {
     const key = Array.isArray(data) && data[1];
     if (!Core.isValidPublicKey(key)) { return void cb("EINVAL"); }
