@@ -325,6 +325,7 @@ const updateKnownUser = (Env, _key, _data, cb) => {
     Core.coreToStorage(Env, data.edPublic, 'ADMIN_CMD', { cmd: 'UPDATE_KNOWN_USER', data }, cb);
 };
 
+// XXX: todo
 const getModerators = (Env, _publicKey, _data, cb) => {
     cb(void 0, Env.moderators);
 };
