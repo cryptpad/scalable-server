@@ -304,8 +304,21 @@ const getKnownUsers = (Env, _publicKey, _data, cb) => {
     });
 };
 
-const addKnownUser = (_Env, _unsafeKey, _data, cb) => {
-    cb('E_NOT_IMPLEMENTED');
+const addKnownUser = (Env, _key, _data, cb) => {
+    const data = Array.isArray(_data) && _data[1];
+    if (!data?.edPublic) { return void cb('EINVAL'); }
+    Core.coreToStorage(Env, data.edPublic, 'ADMIN_CMD', { cmd: 'ADD_KNOWN_USER', data }, cb);
+};
+
+const deleteKnownUser = (Env, _key, data, cb) => {
+    const id =  Array.isArray(data) && data[1];
+    Core.coreToStorage(Env, id, 'ADMIN_CMD', { cmd: 'DELETE_KNOWN_USER', data: id }, cb);
+};
+
+const updateKnownUser = (Env, _key, _data, cb) => {
+    const data = Array.isArray(_data) && _data[1];
+    if (!data?.edPublic) { return void cb('EINVAL'); }
+    Core.coreToStorage(Env, data.edPublic, 'ADMIN_CMD', { cmd: 'UPDATE_KNOWN_USER', data }, cb);
 };
 
 const getModerators = (Env, _publicKey, _data, cb) => {
@@ -388,7 +401,6 @@ const commands = {
     GET_LIMITS: getLimits,
 
     GET_WORKER_PROFILES: getWorkerProfiles,
-
     GET_USER_TOTAL_SIZE: getUserTotalSize,
 
     GET_ALL_INVITATIONS: getInvitations,
@@ -397,6 +409,8 @@ const commands = {
 
     GET_ALL_USERS: getKnownUsers,
     ADD_KNOWN_USER: addKnownUser,
+    DELETE_KNOWN_USER: deleteKnownUser,
+    UPDATE_KNOWN_USER: updateKnownUser,
 
     GET_MODERATORS: getModerators,
 };

@@ -26,8 +26,7 @@ const onGetKnownUsers = (Env, _args, cb) => {
 };
 
 const onAddKnownUser = (Env, data, cb) => {
-    const obj = Array.isArray(data) && data[1];
-    const { edPublic, block, alias, unsafeKey, email, name } = obj;
+    const { edPublic, block, alias, unsafeKey, email, name } = data;
     const userData = {
         edPublic,
         block,
@@ -37,6 +36,15 @@ const onAddKnownUser = (Env, data, cb) => {
         type: 'manual'
     };
     Users.add(Env, edPublic, userData, unsafeKey, cb);
+};
+
+const onDeleteKnownUser = (Env, id, cb) => {
+    Users.delete(Env, id, cb);
+};
+
+const onUpdateKnownUser = (Env, args, cb) => {
+    const {edPublic, changes} = args;
+    Users.update(Env, edPublic, changes, cb);
 };
 
 const onGetDiskUsage = (Env, _args, cb) => {
@@ -454,6 +462,8 @@ const commands = {
     'GET_INVITATIONS': onGetInvitations,
     'GET_USERS': onGetKnownUsers,
     'ADD_KNOWN_USER': onAddKnownUser,
+    'DELETE_KNOWN_USER': onDeleteKnownUser,
+    'UPDATE_KNOWN_USER': onUpdateKnownUser,
     'GET_DISK_USAGE': onGetDiskUsage,
     'GET_USER_QUOTA': onGetUserQuota,
     'GET_PIN_ACTIVITY': onGetPinActivity,
