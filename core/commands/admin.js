@@ -324,22 +324,6 @@ const archiveOwnedDocuments = (Env, _key, data, cb) => {
     cb("NOT_IMPLEMENTED");
 };
 
-const archiveBlock = (Env, _key, data, cb) => {
-    const args = Array.isArray(data) && data[1];
-    if (!args) { return void cb("INVALID_ARGS"); }
-    const { key } = args;
-    if (!Core.isValidPublicKey(key)) { return void cb("EINVAL"); }
-    Core.coreToStorage(Env, key, 'ARCHIVE_BLOCK', args, cb);
-};
-
-const restoreArchivedBlock = (Env, _key, data, cb) => {
-    const args = Array.isArray(data) && data[1];
-    if (!args) { return void cb("INVALID_ARGS"); }
-    const { key } = args;
-    if (!Core.isValidPublicKey(key)) { return void cb("EINVAL"); }
-    Core.coreToStorage(Env, key, 'RESTORE_ARCHIVED_BLOCK', args, cb);
-};
-
 const commands = {
     ACTIVE_SESSIONS: getActiveSessions,
     ACTIVE_PADS: getActiveChannelCount,
@@ -364,8 +348,8 @@ const commands = {
 
     DISABLE_MFA: StorageCommands.keyCommand('DISABLE_MFA'),
 
-    ARCHIVE_BLOCK: archiveBlock,
-    RESTORE_ARCHIVED_BLOCK: restoreArchivedBlock,
+    ARCHIVE_BLOCK: StorageCommands.argsCommand('ARCHIVE_BLOCK'),
+    RESTORE_ARCHIVED_BLOCK: StorageCommands.argsCommand('RESTORE_ARCHIVED_BLOCK'),
 
     GET_PIN_LIST: StorageCommands.keyCommand('GET_PIN_LIST'),
     GET_PIN_HISTORY: getPinHistory,

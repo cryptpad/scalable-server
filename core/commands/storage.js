@@ -71,4 +71,12 @@ StorageCommands.keyCommand = (cmd) => (Env, _key, data, cb) => {
     Core.coreToStorage(Env, key, 'ADMIN_CMD', { cmd, data: { key } }, cb);
 };
 
+StorageCommands.argsCommand = (cmd) => (Env, _key, data, cb) => {
+    const args = Array.isArray(data) && data[1];
+    if (!args) { return void cb("INVALID_ARGS"); }
+    const { key } = args;
+    if (!Core.isValidPublicKey(key)) { return void cb("EINVAL"); }
+    Core.coreToStorage(Env, key, 'ADMIN_CMD', { cmd, data: args }, cb);
+};
+
 module.exports = StorageCommands;
