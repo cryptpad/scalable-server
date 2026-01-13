@@ -45,7 +45,7 @@ const init = (Env, mainConfig, pluginModules) => {
     const config = server?.options || {};
     const publicConfig = server?.public || {};
 
-    Env.config = config;
+    Env.config = config; // XXX
     Env.adminDecrees = DecreesCore.create(Constants.adminDecree,
                                           AdminDecrees);
 

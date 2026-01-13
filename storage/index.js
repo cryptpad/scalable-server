@@ -627,8 +627,6 @@ let start = function(config) {
     });
 
 
-    Env.config = config;
-
     Env.updateLimits = () => {
         Quota.updateCachedLimits(Env, (e, limits) => {
             if (!Env.accounts_api) { return; }
