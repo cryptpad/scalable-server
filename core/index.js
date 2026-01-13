@@ -529,6 +529,14 @@ const initIntervals = () => {
     }, Core.SESSION_EXPIRATION_TIME);
 };
 
+const onIsUserOnline = (safeKey, cb) => {
+    if (!Core.isValidPublicKey(safeKey)) { return void cb("EINVAL"); }
+    const unsafeKey = Util.unescapeKeyCharacters(safeKey);
+    const onlineKeys = Object.values(Env.userCache)
+        .filter(v => v.authKeys && Object.keys(v.authKeys).includes(unsafeKey));
+    cb(void 0, onlineKeys);
+};
+
 let startServers = function(config) {
     let { myId, index, server, infra } = config;
     Environment.init(Env, config);
@@ -584,6 +592,8 @@ let startServers = function(config) {
         'ACCOUNTS_LIMITS': onAccountsLimits,
         'SEND_CHANNEL_MESSAGE': onSendChannelMessage,
         'GET_AUTH_KEYS': onGetAuthKeys,
+        // From Core
+        'IS_USER_ONLINE': onIsUserOnline,
 
         'GET_MULTIPLE_FILE_SIZE': onGetMultipleFileSize,
         'GET_TOTAL_SIZE': onGetTotalSize,

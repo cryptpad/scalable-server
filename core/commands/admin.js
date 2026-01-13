@@ -276,24 +276,17 @@ const getUserTotalSize = (Env, _publicKey, data, cb) => {
     StorageCommands.getTotalSize(Env, safeKey, cb);
 };
 
-const isUserOnlineHandle = (_Env, _safeKey, cb) => {
-    // const userCore = Env.getCoreId(safeKey);
-    // if (Env.myId !== userCore) { return void cb('EINVAL'); }
-    cb(void 0, true);
-    //cb('E_NOT_IMPLEMENTED');
-    // XXX: TODO
-};
-
 const isUserOnline = (Env, _publicKey, data, cb) => {
-    console.log('Call IS_USER_ONLINE', data);
     const safeKey = Array.isArray(data) && data[1];
     if (!Core.isValidPublicKey(safeKey)) { return void cb("EINVAL"); }
-    // const unsafeKey = Util.unescapeKeyCharacters(safeKey);
-    // const userCore = Env.getCoreId(unsafeKey);
-    // TODO: send to the right websocket
-    // if (Env.myId === userCore) {
-    return void isUserOnlineHandle(Env, safeKey, cb);
-    // }
+    const unsafeKey = Util.unescapeKeyCharacters(safeKey);
+    let onlineKeys = Object.values(Env.userCache)
+        .filter(v => v.authKeys && Object.keys(v.authKeys).includes(unsafeKey));
+    Env.interface.broadcast('core', 'IS_USER_ONLINE', safeKey, (err, data) => {
+        if(err.length !== 0) { return void cb(err); }
+        onlineKeys = onlineKeys.concat(data).flat();
+        cb(void 0, onlineKeys.length !== 0);
+    }, [ Env.myId ]);
 };
 
 const getKnownUsers = (Env, _publicKey, _data, cb) => {
