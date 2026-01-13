@@ -123,13 +123,8 @@ const getCacheStats = (Env, _publicKey, _data, cb) => {
                 if (Object.prototype.hasOwnProperty.call(el, x)) {
                     if (typeof(el[x]) === 'number') {
                         total[x] = (total[x] ? total[x] : 0) + el[x];
-                    } else if (typeof(el[x]) === 'object') {
-                        total[x] = total[x] ? total[x] : {};
-                        for (const y in el[x]) {
-                            total[x][y] = (total[x][y] ? total[x][y] : 0) + el[x][y];
-                        }
                     } else {
-                        console.error('Warning in GET_CACHE_STATS: mismatched data');
+                        Env.Log.warn('Warning in GET_CACHE_STATS: mismatched data');
                     }
                 }
             }

@@ -208,7 +208,6 @@ const onGetCacheStats = (Env, _data, cb) => {
         metaSize: metaSize,
         channel: channelCount,
         channelSize: channelSize,
-        memoryUsage: process.memoryUsage(),
     });
 };
 
