@@ -19,7 +19,7 @@ const onNewDecrees = (Env, args, cb) => {
     cb();
 };
 
-const initHttpCluster = (Env, config) => {
+const initHttpCluster = (Env, mainConfig) => {
     return new Promise((resolve) => {
         Cluster.setupPrimary({
             exec: './build/http.worker.js',
@@ -36,7 +36,7 @@ const initHttpCluster = (Env, config) => {
             maxWorkers: WORKERS, // XXX
             maxJobs: 10,
             commandTimers: {}, // time spent on each command
-            config: config,
+            config: mainConfig,
             Env: { // Serialized Env (Environment.serialize)
             }
         };
@@ -63,15 +63,15 @@ const initHttpCluster = (Env, config) => {
     });
 };
 
-const start = (config) => {
-    const {server, infra} = config;
+const start = (mainConfig) => {
+    const { config, infra } = mainConfig;
     const index = 0;
     const myId = 'http:0';
     const Env = {
         Log: Logger()
     };
 
-    Environment.init(Env, config);
+    Environment.init(Env, mainConfig);
 
     const callWithEnv = f => {
         return function () {
@@ -84,12 +84,12 @@ const start = (config) => {
     };
 
     nThen(w => {
-        initHttpCluster(Env, config).then(w());
+        initHttpCluster(Env, mainConfig).then(w());
     }).nThen(w => {
         const interfaceConfig = {
             connector: WSConnector,
-            index, infra, server, myId,
-            public: server?.public,
+            index, infra, myId,
+            server: config,
             Log: Env.Log
         };
         Env.interface = Interface.init(interfaceConfig, w(err => {

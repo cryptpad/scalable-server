@@ -40,17 +40,23 @@ const getStorageId = (Env, channel) => {
     return Env.getStorageId(channel);
 };
 
-const initProxy = (Env, app, server, infra) => {
+const initProxy = (Env, app, infra) => {
     const getURL = obj => {
-        if (obj.href) {
-            return obj.href;
-        }
+        if (obj.href) { return obj.href; }
         let url = new URL('http://localhost');
         url.host = obj.host === '::' ? 'localhost' : obj.host;
         url.port = obj.port;
         return url.href;
     };
-    const wsList = server?.public?.websocket?.map(getURL);
+    const getWs = obj => {
+        if (obj.websocketHref) { return obj.websocketHref; }
+        let url = new URL('ws://localhost');
+        url.host = obj.websocketHost === '::' ? 'localhost'
+                                              : obj.websocketHost;
+        url.port = obj.websocketPort;
+        return url.href;
+    };
+    const wsList = infra?.websocket?.map(getWs);
     const httpList = infra?.websocket?.map(getURL);
     const storageList = infra?.storage?.map(getURL);
 
@@ -216,16 +222,16 @@ COMMANDS.NEW_DECREES = (data, cb) => {
     cb();
 };
 
-const init = (config, cb) => {
-    const {server, infra} = config;
+const init = (mainConfig, cb) => {
+    const { infra } = mainConfig;
 
     Env.Log = Logger();
-    Environment.init(Env, config);
+    Environment.init(Env, mainConfig);
 
     const app = Express();
 
     initFeedback(Env, app);
-    const wsProxy = initProxy(Env, app, server, infra);
+    const wsProxy = initProxy(Env, app, infra);
     initHeaders(Env, app);
     initPlugins(Env, app);
     initStatic(Env, app);

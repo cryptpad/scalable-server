@@ -14,8 +14,7 @@ if (cliArgs.h || cliArgs.help) {
     process.exit(1);
 }
 
-let serverConfig = require('./config/config.json');
-const infraConfig = require('./config/infra.json');
+const { config: serverConfig, infra: infraConfig } = require('./common/load-config');
 
 const Log = {
     debug: console.debug,
@@ -32,7 +31,7 @@ const startNode = (type, index, forking, cb) => {
     const initConfig = {
         myId: `${type}:${index}`,
         index,
-        server: serverConfig,
+        config: serverConfig,
         infra: infraConfig
     };
 

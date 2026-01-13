@@ -598,7 +598,7 @@ const initAccountsIntervals = () => {
 
 };
 
-const initHttpServer = (Env, config, _cb) => {
+const initHttpServer = (Env, mainConfig, _cb) => {
     const cb = Util.mkAsync(_cb);
     const app = Express();
 
@@ -606,7 +606,7 @@ const initHttpServer = (Env, config, _cb) => {
 
     const httpServer = Http.createServer(app);
     Env.httpServer = httpServer;
-    const cfg = config?.infra?.storage[config.index];
+    const cfg = mainConfig?.infra?.storage[mainConfig.index];
     httpServer.listen(cfg.port, cfg.host, () => {
         cb();
     });
@@ -624,10 +624,10 @@ const onInitialized = (Env, _cb) => {
 };
 
 // Connect to core
-let start = function(config) {
-    const { myId, index, infra, server } = config;
+const start = (mainConfig) => {
+    const { myId, index, infra, config } = mainConfig;
 
-    Environment.init(Env, config, {
+    Environment.init(Env, mainConfig, {
         Block, Pinning, Decrees,
         BlockStore, Blob, File, Sessions, Basic,
         HKUtil
@@ -677,14 +677,14 @@ let start = function(config) {
         connector: WSConnector,
         index,
         infra,
-        server,
+        server: config,
         myId,
         Log: Env.Log
     };
 
     const {
         filePath, pinPath, archivePath, blobPath, blobStagingPath
-    } = Core.getPaths(config);
+    } = Core.getPaths(mainConfig);
     nThen(waitFor => {
         File.create({
             filePath, archivePath,
@@ -740,7 +740,7 @@ let start = function(config) {
             maxWorkers: 1,
             maxJobs: 15,
             commandTimers: {}, // time spent on each command
-            config: config,
+            config: mainConfig,
             Env: { // Serialized Env (Environment.serialize)
             }
         };
@@ -759,7 +759,7 @@ let start = function(config) {
 
         Env.CM = ChannelManager.create(Env);
 
-        initHttpServer(Env, config, waitFor());
+        initHttpServer(Env, mainConfig, waitFor());
     }).nThen(waitFor => {
         Env.interface = Interface.init(interfaceConfig, waitFor(err => {
             if (err) {
@@ -828,9 +828,9 @@ let start = function(config) {
         });
     }).nThen(() => {
         if (process.send !== undefined) {
-            process.send({ type: 'storage', index: interfaceConfig.index, msg: 'READY' });
+            process.send({ type: 'storage', index, msg: 'READY' });
         } else {
-            console.log(interfaceConfig.myId, 'started');
+            console.log(myId, 'started');
         }
     });
 };

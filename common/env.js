@@ -41,9 +41,8 @@ const getInstalledOOVersions = (Env) => {
 };
 
 const init = (Env, mainConfig, pluginModules) => {
-    const { server , infra } = mainConfig;
-    const config = server?.options || {};
-    const publicConfig = server?.public || {};
+    const { config, infra } = mainConfig;
+    const publicConfig = infra?.public || {};
 
     Env.config = config; // XXX
     Env.adminDecrees = DecreesCore.create(Constants.adminDecree,
@@ -99,24 +98,24 @@ const init = (Env, mainConfig, pluginModules) => {
     };
 
     // Network
-    Env.httpUnsafeOrigin = publicConfig?.main?.origin;
-    Env.httpSafeOrigin = publicConfig?.main?.sandboxOrigin;
+    Env.httpUnsafeOrigin = publicConfig?.origin;
+    Env.httpSafeOrigin = publicConfig?.sandboxOrigin;
     const unsafe = new URL(Env.httpUnsafeOrigin);
     const safe = new URL(Env.httpSafeOrigin);
-    Env.httpAddress = unsafe.hostname;
-    Env.httpPort = unsafe.port;
-    if (unsafe.port && unsafe.hostname === safe.hostname) {
+    Env.httpAddress = publicConfig?.httpHost || unsafe.hostname;
+    Env.httpPort = publicConfig?.httpPort || unsafe.port;
+    // XXX check these port values before release
+    if (unsafe.port && unsafe.hostname === safe.hostname && safe.port) {
         Env.httpSafePort = safe.port;
     }
+    if (publicConfig?.httpSafePort) {
+        Env.httpSafePort = publicConfig.httpSafePort;
+    }
+
     Env.protocol = unsafe.protocol;
 
-    // XXX improve config
-    if (config.origin) { Env.httpUnsafeOrigin = config.origin; }
-    if (config.sandboxOrigin) { Env.httpSafeOrigin = config.sandboxOrigin; }
-
-
-    Env.websocketPath = config.externalWebsocketURL;
-    Env.fileHost = config.fileHost || undefined;
+    Env.websocketPath = publicConfig.externalWebsocketURL;
+    Env.fileHost = publicConfig.fileHost || undefined;
 
     // Setup
     Env.DEV_MODE = Boolean(process.env.DEV);
@@ -145,9 +144,9 @@ const init = (Env, mainConfig, pluginModules) => {
 
     // Instance Config, may be overriden by decrees
     Env.logFeedback = Boolean(config.logFeedback);
-    Env.enableEmbedding = false; // XXX decree...
-    Env.permittedEmbedders = publicConfig?.main?.sandboxOrigin;
-    Env.restrictRegistration = false; // XXX decree
+    Env.enableEmbedding = false;
+    Env.permittedEmbedders = publicConfig?.sandboxOrigin;
+    Env.restrictRegistration = false;
 
     Env.disableIntegratedTasks = config.disableIntegratedTasks || false;
     Env.disableIntegratedEviction = typeof(config.disableIntegratedEviction) === 'undefined'? true: config.disableIntegratedEviction;
@@ -172,6 +171,8 @@ const init = (Env, mainConfig, pluginModules) => {
     Env.listMyInstance = false;
     Env.enforceMFA = config.enforceMFA;
 
+    Env.logIP = config.logIP;
+
     Env.consentToContact = false;
     Env.instanceName = {};
     Env.instanceDescription = {};
@@ -189,11 +190,6 @@ const init = (Env, mainConfig, pluginModules) => {
     // TOTP
     // Number of hours (default 7 days)
     Env.otpSessionExpiration = config.otpSessionExpiration;
-
-    // XXX plugins
-    // plugins can includes custom Env values
-
-    // XXX enforceMFA
 
     let ooVersions = getInstalledOOVersions(Env);
     Env.onlyOffice = config.onlyOffice || (ooVersions.length ? {

@@ -5,7 +5,7 @@ declare interface Message {
     config: {
         myId: string,
         index: number
-        server: object,
+        config: object,
         infra: object,
     }
 }

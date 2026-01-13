@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2024 XWiki CryptPad Team <contact@cryptpad.org> and contributors
 
-const Express = require('express');
 const Http = require('http');
 const WebSocketServer = require('ws').Server;
 const Interface = require("../common/interface.js");
@@ -558,9 +557,8 @@ const initServerHandlers = (Env) => {
 
 const initServer = (Env) => {
     return new Promise((resolve) => {
-        const app = Express();
-        const httpServer = Http.createServer(app);
-        httpServer.listen(Env.public.port, Env.public.host,() => {
+        const httpServer = Http.createServer();
+        httpServer.listen(Env.public.websocketPort, Env.public.websocketHost,() => {
             Env.wss = new WebSocketServer({ server: httpServer });
             initServerHandlers(Env);
             resolve();
@@ -568,7 +566,7 @@ const initServer = (Env) => {
     });
 };
 
-const initHttpCluster = (Env, config) => {
+const initHttpCluster = (Env, mainConfig) => {
     return new Promise((resolve) => {
         Cluster.setupPrimary({
             exec: './build/ws.worker.js',
@@ -585,7 +583,7 @@ const initHttpCluster = (Env, config) => {
             maxWorkers: WORKERS, // XXX
             maxJobs: 10,
             commandTimers: {}, // time spent on each command
-            config: config,
+            config: mainConfig,
             Env: { // Serialized Env (Environment.serialize)
             }
         };
@@ -614,26 +612,24 @@ const initHttpCluster = (Env, config) => {
     });
 };
 
-const start = (config) => {
-    const {myId, index, server, infra} = config;
+const start = (mainConfig) => {
+    const {myId, index, config, infra} = mainConfig;
     const Env = {
-        logIP: true, // XXX
         openConnections: {},
         user_channel_cache: {},
         Log: Logger(),
         active: true,
         users: {},
-        public: server?.public?.websocket?.[index],
+        public: infra?.websocket?.[index],
     };
-    Environment.init(Env, config);
+    Environment.init(Env, mainConfig);
 
     const interfaceConfig = {
         connector: WSConnector,
         index,
         infra,
-        server,
+        server: config,
         myId,
-        public: server?.public,
         Log: Env.Log
     };
 
@@ -659,7 +655,7 @@ const start = (config) => {
     nThen(w => {
         initServer(Env).then(w());
     }).nThen(w => {
-        initHttpCluster(Env, config).then(w());
+        initHttpCluster(Env, mainConfig).then(w());
     }).nThen(w => {
         try {
             Object.keys(WORKER_COMMANDS).forEach(cmd => {

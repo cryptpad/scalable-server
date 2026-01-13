@@ -537,19 +537,18 @@ const onIsUserOnline = (safeKey, cb) => {
     cb(void 0, onlineKeys);
 };
 
-let startServers = function(config) {
-    let { myId, index, server, infra } = config;
-    Environment.init(Env, config);
+const startServers = (mainConfig) => {
+    let { myId, index, config, infra } = mainConfig;
+    Environment.init(Env, mainConfig);
 
     const interfaceConfig = {
         connector: WSConnector,
         infra,
-        server,
+        server: config,
         myId,
         index,
         Log: Env.Log
     };
-    config.connector = WSConnector;
 
     const workerConfig = {
         Log: Env.Log,
@@ -563,7 +562,7 @@ let startServers = function(config) {
         }
     };
 
-    const { challengePath } = Core.getPaths(config);
+    const { challengePath } = Core.getPaths(mainConfig);
     Env.challengePath = challengePath;
     Env.workers = WorkerModule(workerConfig);
 
@@ -619,7 +618,7 @@ let startServers = function(config) {
             return;
         }
         if (process.send !== undefined) {
-            process.send({ type: 'core', index: config.index, msg: 'READY' });
+            process.send({ type: 'core', index, msg: 'READY' });
         }
     });
     Env.plugins.call('addCoreCommands')(Env, COMMANDS);

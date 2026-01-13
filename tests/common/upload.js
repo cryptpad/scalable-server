@@ -2,8 +2,8 @@ const Util = require('../../common/common-util');
 const Nacl = require('tweetnacl/nacl-fast');
 const ServerCommand = require('./http-command');
 
-const config = require('../../config/config.json');
-const origin = config?.public?.main?.origin;
+const { infra } = require('../../common/load-config');
+const origin = infra?.public?.origin;
 ServerCommand.setCustomize({
     ApiConfig: {
         httpUnsafeOrigin: origin

@@ -241,7 +241,6 @@ COMMANDS.FLUSH_CACHE = (args, cb) => {
 };
 
 const init = (config, cb) => {
-    Env.config = config;
     Env.Log = Logger();
 
     Environment.init(Env, config);

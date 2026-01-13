@@ -1,4 +1,3 @@
-//const infra = require('../../config/infra.json');
 const Crypto = require('node:crypto');
 const Path = require('node:path');
 
@@ -11,12 +10,11 @@ const { jumpConsistentHash } = require('../../common/consistent-hash.js');
 const Util = require('../../common/common-util');
 const Core = require('../../common/core');
 
-const config = require('../../config/config.json');
-const infra = require('../../config/infra.json');
+const { infra } = require('../../common/load-config');
 
 const hk = '0123456789abcdef';
 
-const mainCfg = config?.public?.main;
+const mainCfg = infra?.public;
 const getWsURL = () => {
     const wsUrl = new URL('ws://localhost:3000/cryptpad_websocket');
     if (mainCfg.origin) {
