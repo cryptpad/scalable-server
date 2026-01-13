@@ -10,7 +10,7 @@ const Admin = {};
 // CryptPad_AsyncStore.rpc.send('ADMIN', ['GET_WORKER_PROFILES'], console.log)
 // To remove?
 const getWorkerProfiles = function(Env, _publicKey, _data, cb) {
-    cb(void 0, Env.commandTimers);
+    cb(void 0, { "Not Implemented": 1 });
 };
 
 const getUid = () => {
