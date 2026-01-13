@@ -7,6 +7,7 @@ const Util = require('../common-util');
 const Users = require('./users');
 const Invitation = require('./invitation');
 const Pinning = require('./pin');
+const BlockStore = require("../storage/block");
 const MFA = require("../storage/mfa");
 const Fs = require('node:fs');
 const getFolderSize = require("get-folder-size");
@@ -238,19 +239,19 @@ const onGetDocumentStatus = (Env, data, cb) => {
     let response = {};
     if (id.length === 44) {
         return void nThen(function (w) {
-            Env.modules.BlockStore.isAvailable(Env, id, w(function (err, result) {
+            BlockStore.isAvailable(Env, id, w(function (err, result) {
                 if (err) {
                     return void Env.Log.error('BLOCK_STATUS_AVAILABLE', err);
                 }
                 response.live = result;
             }));
-            Env.modules.BlockStore.isArchived(Env, id, w(function (err, result) {
+            BlockStore.isArchived(Env, id, w(function (err, result) {
                 if (err) {
                     return void Env.Log.error('BLOCK_STATUS_ARCHIVED', err);
                 }
                 response.archived = result;
             }));
-            Env.modules.BlockStore.readPlaceholder(Env, id, w((result) => {
+            BlockStore.readPlaceholder(Env, id, w((result) => {
                 if (!result) { return; }
                 response.placeholder = result;
             }));
@@ -327,7 +328,7 @@ const onArchiveBlock = (Env, data, cb) => {
         code: 'MODERATION_BLOCK',
         txt: reason
     };
-    Env.modules.BlockStore.archive(Env, key, archiveReason, err => {
+    BlockStore.archive(Env, key, archiveReason, err => {
         Env.Log.info("ARCHIVE_BLOCK_BY_ADMIN", {
             error: err,
             key: key,
@@ -341,7 +342,7 @@ const onArchiveBlock = (Env, data, cb) => {
 
 const onRestoreArchivedBlock = (Env, data, cb) => {
     const { key, reason } = data;
-    Env.modules.BlockStore.restore(Env, key, err => {
+    BlockStore.restore(Env, key, err => {
         Env.Log.info("RESTORE_ARCHIVED_BLOCK_BY_ADMIN", {
             error: err,
             key: key,
