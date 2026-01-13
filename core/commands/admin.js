@@ -343,16 +343,93 @@ const archiveOwnedDocuments = (Env, _key, data, cb) => {
 };
 
 const archiveDocument = (Env, _key, data, cb) => {
-    StorageCommands.archiveDocument(Env, data, cb);
+    const args = Array.isArray(data) && data[1];
+    if (!args) { return void cb("EINVAL"); }
+    let id, reason;
+    if (typeof(args) === 'string') {
+        id = args;
+    } else if (args && typeof(args) === 'object') {
+        id = args.id;
+        reason = args.reason;
+    }
+    if (typeof(id) !== 'string' || id.length < 32) { return void cb("EINVAL"); }
+
+    Core.coreToStorage(Env, id, 'ADMIN_CMD', { cmd: 'ARCHIVE_DOCUMENT', data: { id, reason } }, cb);
 };
 
 const archiveDocuments = (Env, _key, data, cb) => {
-    StorageCommands.archiveDocuments(Env, data, cb);
+    if (!Array.isArray(data)) { return void cb("EINVAL"); }
+    let args = data[1];
+    const { list, reason } = args;
+    if (!Array.isArray(list)) { return void cb('EINVAL'); }
+    let n = nThen;
+    let failed = [];
+    // May be optimized by batching requests by storage id
+    list.forEach(id => {
+        n = n((w) => {
+            archiveDocument(Env,
+                _key,
+                [0, { id, reason }],
+                w(err => {
+                    console.log(err);
+                    if (err && err !== 'ENOENT') { failed.push(id); }
+                }));
+        }).nThen;
+    });
+    n(() => {
+        cb(void 0, { state: true, failed });
+    });
 };
 
 const restoreArchivedDocument = (Env, _key, data, cb) => {
-    StorageCommands.restoreArchivedDocument(Env, data, cb);
+    const args = Array.isArray(data) && data[1];
+    if (!args) { return void cb("EINVAL"); }
+
+    let id, reason;
+    if (typeof(args) === 'string') {
+        id = args;
+    } else if (args && typeof(args) === 'object') {
+        id = args.id;
+        reason = args.reason;
+    }
+
+    if (typeof(id) !== 'string' || id.length < 32) { return void cb("EINVAL"); }
+    Core.coreToStorage(Env, id, 'ADMIN_CMD', { cmd: 'RESTORE_ARCHIVED_DOCUMENT', data: { id, reason } }, cb);
 };
+
+
+// The following commands send data to corresponding storage with specific data
+// parsing and formats
+// CoreToStorage with target = id, data = { id }, error = INVALID_CHAN
+const channelCommand = (cmd) => (Env, _key, data, cb) => {
+    const id = Array.isArray(data) && data[1];
+    if (!Core.isValidId(id)) { return void cb('INVALID_CHAN'); }
+    Core.coreToStorage(Env, id, 'ADMIN_CMD', { cmd, data: { id } }, cb);
+};
+
+// CoreToStorage with target = id, data = id, error = EINVAL
+const channelIndexCommand = (cmd) => (Env, _key, data, cb) => {
+    const id = Array.isArray(data) && data[1];
+    if (typeof(id) !== 'string' || id.length < 32) { return void cb('EINVAL'); }
+    Core.coreToStorage(Env, id, 'ADMIN_CMD', { cmd, data: id }, cb);
+};
+
+// CoreToStorage with target = key, data = { key }, error = EINVAL
+const keyCommand = (cmd) => (Env, _key, data, cb) => {
+    const key = Array.isArray(data) && data[1];
+    if (!Core.isValidPublicKey(key)) { return void cb("EINVAL"); }
+    Core.coreToStorage(Env, key, 'ADMIN_CMD', { cmd, data: { key } }, cb);
+};
+
+// CoreToStorage with target = args.key, data = args, error = INVALID_ARGS
+const argsCommand = (cmd) => (Env, _key, data, cb) => {
+    const args = Array.isArray(data) && data[1];
+    if (!args) { return void cb("INVALID_ARGS"); }
+    const { key } = args;
+    if (!Core.isValidPublicKey(key)) { return void cb("EINVAL"); }
+    Core.coreToStorage(Env, key, 'ADMIN_CMD', { cmd, data: args }, cb);
+};
+
 
 const commands = {
     ACTIVE_SESSIONS: getActiveSessions,
@@ -364,26 +441,26 @@ const commands = {
     GET_FILE_DESCRIPTOR_LIMIT: getFileDescriptorLimit,
     GET_CACHE_STATS: getCacheStats,
 
-    GET_PIN_ACTIVITY: StorageCommands.keyCommand('GET_PIN_ACTIVITY'),
+    GET_PIN_ACTIVITY: keyCommand('GET_PIN_ACTIVITY'),
     IS_USER_ONLINE: isUserOnline,
-    GET_USER_QUOTA: StorageCommands.keyCommand('GET_USER_QUOTA'),
-    GET_USER_STORAGE_STATS: StorageCommands.keyCommand('GET_USER_STORAGE_STATS'),
-    GET_PIN_LOG_STATUS: StorageCommands.keyCommand('GET_PIN_LOG_STATUS'),
+    GET_USER_QUOTA: keyCommand('GET_USER_QUOTA'),
+    GET_USER_STORAGE_STATS: keyCommand('GET_USER_STORAGE_STATS'),
+    GET_PIN_LOG_STATUS: keyCommand('GET_PIN_LOG_STATUS'),
 
-    GET_METADATA_HISTORY: StorageCommands.channelCommand('GET_METADATA_HISTORY'),
-    GET_STORED_METADATA: StorageCommands.channelCommand('GET_STORED_METADATA'),
-    GET_DOCUMENT_SIZE: StorageCommands.channelCommand('GET_DOCUMENT_SIZE'),
-    GET_LAST_CHANNEL_TIME: StorageCommands.channelCommand('GET_LAST_CHANNEL_TIME'),
-    GET_DOCUMENT_STATUS: StorageCommands.channelCommand('GET_DOCUMENT_STATUS'),
+    GET_METADATA_HISTORY: channelCommand('GET_METADATA_HISTORY'),
+    GET_STORED_METADATA: channelCommand('GET_STORED_METADATA'),
+    GET_DOCUMENT_SIZE: channelCommand('GET_DOCUMENT_SIZE'),
+    GET_LAST_CHANNEL_TIME: channelCommand('GET_LAST_CHANNEL_TIME'),
+    GET_DOCUMENT_STATUS: channelCommand('GET_DOCUMENT_STATUS'),
 
-    DISABLE_MFA: StorageCommands.keyCommand('DISABLE_MFA'),
+    DISABLE_MFA: keyCommand('DISABLE_MFA'),
 
-    GET_PIN_LIST: StorageCommands.keyCommand('GET_PIN_LIST'),
+    GET_PIN_LIST: keyCommand('GET_PIN_LIST'),
     GET_PIN_HISTORY: getPinHistory,
     ARCHIVE_OWNED_DOCUMENTS: archiveOwnedDocuments,
 
-    ARCHIVE_BLOCK: StorageCommands.argsCommand('ARCHIVE_BLOCK'),
-    RESTORE_ARCHIVED_BLOCK: StorageCommands.argsCommand('RESTORE_ARCHIVED_BLOCK'),
+    ARCHIVE_BLOCK: argsCommand('ARCHIVE_BLOCK'),
+    RESTORE_ARCHIVED_BLOCK: argsCommand('RESTORE_ARCHIVED_BLOCK'),
 
     ARCHIVE_DOCUMENT: archiveDocument,
     ARCHIVE_DOCUMENTS: archiveDocuments,
@@ -394,11 +471,11 @@ const commands = {
     // RESTORE_ACCOUNT: restoreAccount,
     // GET_ACCOUNT_ARCHIVE_STATUS: getAccountArchiveStatus,
 
-    CLEAR_CACHED_CHANNEL_INDEX: StorageCommands.channelIndexCommand('CLEAR_CACHED_CHANNEL_INDEX'),
-    GET_CACHED_CHANNEL_INDEX: StorageCommands.channelIndexCommand('GET_CACHED_CHANNEL_INDEX'),
+    CLEAR_CACHED_CHANNEL_INDEX: channelIndexCommand('CLEAR_CACHED_CHANNEL_INDEX'),
+    GET_CACHED_CHANNEL_INDEX: channelIndexCommand('GET_CACHED_CHANNEL_INDEX'),
 
-    CLEAR_CACHED_CHANNEL_METADATA: StorageCommands.channelIndexCommand('CLEAR_CACHED_CHANNEL_METADATA'),
-    GET_CACHED_CHANNEL_METADATA: StorageCommands.channelIndexCommand('GET_CACHED_CHANNEL_METADATA'),
+    CLEAR_CACHED_CHANNEL_METADATA: channelIndexCommand('CLEAR_CACHED_CHANNEL_METADATA'),
+    GET_CACHED_CHANNEL_METADATA: channelIndexCommand('GET_CACHED_CHANNEL_METADATA'),
 
     CHECK_TEST_DECREE: checkTestDecree,
     ADMIN_DECREE: Admin.sendDecree,
