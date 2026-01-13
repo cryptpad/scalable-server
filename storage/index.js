@@ -518,6 +518,13 @@ const initWorkerCommands = () => {
             }, Util.both(next, cb));
         });
     };
+    Env.worker.getPinActivity = (safeKey, cb) => {
+        Env.pinStore.getWeakLock(safeKey, next => {
+            Env.workers.send('GET_PIN_ACTIVITY', {
+                key: safeKey
+            }, Util.both(next, cb));
+        });
+    };
 
     Env.worker.getDeletedPads = (channels, cb) => {
         let avg = Env.plugins?.MONITORING?.average(`getDeletedPads`);

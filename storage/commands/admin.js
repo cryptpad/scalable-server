@@ -95,28 +95,8 @@ const onDeleteInvitation = (Env, id, cb) => {
 const onGetPinActivity = (Env, data, cb) => {
     if (!data) { return void cb("INVALID_ARGS"); }
     if (typeof (data.key) !== 'string') { return void cb("INVALID_KEY"); }
-    var safeKey = Util.escapeKeyCharacters(data.key);
-    var first;
-    var latest;
-    Env.pinStore.readMessagesBin(safeKey, 0, (msgObj, readMore) => {
-        var line = msgObj.buff.toString('utf8');
-        if (!line || !line.trim()) { return readMore(); }
-        try {
-            var parsed = JSON.parse(line);
-            var temp = parsed[parsed.length - 1];
-            if (!temp || typeof (temp) !== 'number') { return readMore(); }
-            latest = temp;
-            if (first) { return readMore(); }
-            first = latest;
-            readMore();
-        } catch (err) { readMore(); }
-    }, function(err) {
-        if (err) { return void cb(err); }
-        cb(void 0, {
-            first: first,
-            latest: latest,
-        });
-    });
+    let safeKey = Util.escapeKeyCharacters(data.key);
+    Env.worker.getPinActivity(safeKey, cb);
 };
 
 const onGetUserStorageStats = (Env, data, cb) => {
