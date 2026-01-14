@@ -537,13 +537,7 @@ const onIsUserOnline = (safeKey, cb) => {
     cb(void 0, onlineKeys);
 };
 
-const onFlushCache = Env.flushCache = (args, cb, extra) => {
-    let s = extra.from?.split(':');
-    if (s?.[0] !== 'core') {
-        console.error('Error:', command, 'received from unauthorized server:', args, extra);
-        cb('UNAUTHORIZED_USER', void 0);
-        return;
-    }
+const onFlushCache = Env.flushCache = (_args, cb) => {
     if (Env.myId !== 'core:0') { return void cb('EINVAL'); }
 
     Env.interface.broadcast('websocket', 'ADMIN_CMD', {

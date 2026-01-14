@@ -68,7 +68,7 @@ const flushCache = (Env, _publicKey, args, cb) => {
             cb(void 0, res.data);
         });
     }
-    Env.flushCache(args, cb, { from: 'core:0' });
+    Env.flushCache(args, cb);
 };
 
 // To be removed (too costly)
