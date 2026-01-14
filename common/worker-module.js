@@ -219,7 +219,7 @@ const init = workerConfig => {
                         error: err,
                         response: data || {}
                     });
-                });
+                }, state);
             });
             return;
         }

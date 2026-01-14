@@ -1,49 +1,48 @@
 module.exports = {
     "public": {
-        "origin": "http://localhost:3000",
-        "sandboxOrigin": "http://localhost:3001",
-        "httpPort": 3000,
-        "httpSafePort": 3001,
-        "httpHost": "localhost",
-        "externalWebsocketURL": undefined,
-        "fileHost": undefined
+        // Public URL of the instance (used for Content-Security-Policy)
+        origin: "http://localhost:3000",
+        // Sandbox URL of the instance
+        sandboxOrigin: "http://localhost:3001",
+        // Address and port of the nodejs HTTP server
+        httpHost: "localhost",
+        httpPort: 3000,
+        httpSafePort: 3001,
+        // (Optional) API server URL if hosted on a different domain (ws and http)
+        externalWebsocketURL: undefined,
+        fileHost: undefined
     },
-    // XXX we have to add "href" and "websocketHref" to the following values
-    // if we want to reach a node located on another machine
-    // This will need to be configured in the proxy (http.worker) and in the
-    // connector (ws-connector / initClient)
+    // Configure the topology here. Add or remove nodes on each level
+    // depending on your instance usage.
+    // "host" and "port" correspond to the nodejs HTTP server of each node
     "websocket": [
         {
-            "host": "localhost",
-            "port": 3010,
-            "websocketPort": 3005,
-            "websocketHost": "::"
+            host: "localhost",
+            port: 3010,
         },
         {
-            "host": "localhost",
-            "port": 3011,
-            "websocketPort": 3006,
-            "websocketHost": "::"
+            host: "localhost",
+            port: 3011,
         }
     ],
     "core": [
         {
-            "host": "localhost",
-            "port": 3020
+            host: "localhost",
+            port: 3020
         },
         {
-            "host": "localhost",
-            "port": 3021
+            host: "localhost",
+            port: 3021
         }
     ],
     "storage": [
         {
-            "host": "localhost",
-            "port": 3030
+            host: "localhost",
+            port: 3030
         },
         {
-            "host": "localhost",
-            "port": 3031
+            host: "localhost",
+            port: 3031
         }
     ]
 };

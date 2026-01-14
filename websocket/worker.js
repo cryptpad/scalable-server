@@ -3,14 +3,18 @@ const Http = require("node:http");
 const Express = require("express");
 const Environment = require('../common/env');
 const Logger = require('../common/logger');
+const WebSocketServer = require('ws').Server;
 const { setHeaders } = require('../http-server/headers.js');
+const Crypto = require('crypto');
 
 const cookieParser = require("cookie-parser");
 const bodyParser = require('body-parser');
 
 const COMMANDS = {};
 const Env = {
-    isWorker: true
+    active: true,
+    isWorker: true,
+    users: {}
 };
 
 const app = Express();
@@ -240,6 +244,238 @@ COMMANDS.FLUSH_CACHE = (args, cb) => {
     cb();
 };
 
+// WEBSOCKET
+
+const now = () => {
+    return +new Date();
+};
+const randName = () => {
+    return Crypto.randomBytes(16).toString('hex');
+};
+const createUniqueName = (Env) => {
+    const name = randName();
+    if (typeof(Env.users[name]) === 'undefined') { return name; }
+    return createUniqueName(Env);
+};
+const socketSendable = (socket) => {
+    return socket && socket.readyState === 1;
+};
+const QUEUE_CHR = 1024 * 1024 * 4;
+const WEBSOCKET_CLOSING = 2;
+const WEBSOCKET_CLOSED = 3;
+
+const dropUser = (user, reason) => {
+    if (!user || !user.socket) { return; }
+    if (user.socket.readyState !== WEBSOCKET_CLOSING
+        && user.socket.readyState !== WEBSOCKET_CLOSED) {
+        try {
+            user.socket.close();
+        } catch (e) {
+            Env.Log.error(e, 'FAIL_TO_DISCONNECT', { id: user.id, });
+            try {
+                user.socket.terminate();
+            } catch (ee) {
+                Env.Log.error(ee, 'FAIL_TO_TERMINATE', {
+                    id: user.id
+                });
+            }
+        }
+    }
+
+    // Warn main thread
+    sendCommand('WS_DROP_USER', {
+        id: user.id, reason
+    }, () => { });
+
+    // Clean memory
+    delete Env.users[user.id];
+
+    // Log unexpected errors
+    if (Env.logIP &&
+        !['SOCKET_CLOSED', 'INACTIVITY'].includes(reason)) {
+        return void Env.Log.info('USER_DISCONNECTED_ERROR', {
+            userId: userId,
+            reason: reason
+        });
+    }
+    if (['BAD_MESSAGE', 'SEND_MESSAGE_FAIL_2'].includes(reason)) {
+        return void Env.Log.error('SESSION_CLOSE_WITH_ERROR', {
+            userId: userId,
+            reason: reason,
+        });
+    }
+
+    if (['SOCKET_CLOSED', 'SOCKET_ERROR'].includes(reason)) {
+        return;
+    }
+    Env.Log.verbose('SESSION_CLOSE_ROUTINE', {
+        userId: userId,
+        reason: reason,
+    });
+};
+
+const sendMsgPromise = (user, msg) => {
+    Env.Log.verbose('Sending', msg, 'to', user.id);
+    return new Promise((resolve, reject) => {
+        // don't bother trying to send if the user doesn't
+        // exist anymore
+        if (!user) { return void reject("NO_USER"); }
+        // or if you determine that it's unsendable
+        if (!socketSendable(user.socket)) {
+            return void reject("UNSENDABLE");
+        }
+
+        try {
+            const strMsg = JSON.stringify(msg);
+            user.inQueue += strMsg.length;
+            user.sendMsgCallbacks.push(() => {
+                resolve({
+                    length: strMsg.length
+                });
+            });
+            user.socket.send(strMsg, () => {
+                user.inQueue -= strMsg.length;
+                if (user.inQueue > QUEUE_CHR) { return; }
+                const smcb = user.sendMsgCallbacks;
+                user.sendMsgCallbacks = [];
+                try {
+                    smcb.forEach((cb)=>{cb();});
+                } catch (e) {
+                    Env.Log.error(e, 'SEND_MESSAGE_FAIL');
+                }
+            });
+        } catch (e) {
+            // call back any pending callbacks before you
+            // drop the user
+            reject(e);
+            Env.Log.error(e, 'SEND_MESSAGE_FAIL_2');
+            dropUser(user, 'SEND_MESSAGE_FAIL_2');
+        }
+    });
+};
+const sendMsg = (user, msg) => {
+    sendMsgPromise(user, msg).catch(e => {
+        Env.Log.error(e, 'SEND_MESSAGE', {
+            user: user.id,
+            message: msg
+        });
+    });
+};
+
+const handleMessage = (user, msg, cb) => {
+    try {
+        let json = JSON.parse(msg);
+        let seq = json.shift();
+        let cmd = json[0];
+
+        user.timeOfLastMessage = now();
+        user.pingOutstanding = false;
+
+        sendCommand('WS_MESSAGE', {
+            userId: user.id,
+            cmd, seq, json,
+            length: msg.length
+        }, cb);
+    } catch (e) {
+        cb(e);
+    }
+};
+
+const LAG_MAX_BEFORE_DISCONNECT = 60000;
+const LAG_MAX_BEFORE_PING = 15000;
+const checkUserActivity = () => {
+    const time = now();
+    Object.keys(Env.users).forEach((userId) => {
+        const u = Env.users[userId];
+        try {
+            if (time - u.timeOfLastMessage > LAG_MAX_BEFORE_DISCONNECT) {
+                dropUser(u, 'BAD_MESSAGE');
+            }
+            if (!u.pingOutstanding && time - u.timeOfLastMessage > LAG_MAX_BEFORE_PING) {
+                sendMsg(u, [0, '', 'PING', now()]);
+                u.pingOutstanding = true;
+                sendCommand('WS_SEND_PING', {}, () => {});
+            }
+        } catch (err) {
+            Env.Log.error(err, 'USER_ACTIVITY_CHECK');
+        }
+    });
+};
+const initServerHandlers = () => {
+    if (!Env.wss) { throw new Error('No WebSocket Server'); }
+
+    setInterval(() => {
+        checkUserActivity();
+    }, 5000);
+
+
+    Env.wss.on('connection', (socket, req) => {
+        // refuse new connections if the server is shutting down
+        if (!Env.active) { return; }
+        if (!socket.upgradeReq) { socket.upgradeReq = req; }
+
+        const ip = (req.headers && req.headers['x-real-ip'])
+                      || req.socket.remoteAddress || '';
+        const user = {
+            socket: socket,
+            id: createUniqueName(Env),
+            timeOfLastMessage: now(),
+            pingOutstanding: false,
+            inQueue: 0,
+            ip: ip.replace(/^::ffff:/, ''),
+            sendMsgCallbacks: [],
+        };
+        Env.users[user.id] = user;
+        sendMsg(user, [0, '', 'IDENT', user.id]);
+
+        sendCommand('WS_NEW_USER', {
+            id: user.id,
+            ip: user.ip
+        }, () => { });
+
+
+        socket.on('message', message => {
+            Env.Log.verbose('Receiving', JSON.parse(message), 'from', user.id);
+            handleMessage(user, message, e => {
+                if (!e) { return; }
+                Env.Log.error(e, 'NETFLUX_BAD_MESSAGE', {
+                    user: user.id,
+                    message: message,
+                });
+                dropUser(user, 'BAD_MESSAGE');
+            });
+        });
+        socket.on('close', function () {
+            dropUser(user, 'SOCKET_CLOSED');
+        });
+        socket.on('error', function (err) {
+            Env.Log.error(err, 'NETFLUX_WEBSOCKET_ERROR');
+            dropUser(user, 'SOCKET_ERROR');
+        });
+    });
+
+};
+
+COMMANDS.WS_SEND_MESSAGE = (args, cb) => {
+    const { id, msg } = args;
+    const user = Env.users[id];
+    sendMsgPromise(user, msg).then((obj) => {
+        cb(void 0, obj);
+    }).catch(e => {
+        cb(e);
+    });
+};
+COMMANDS.WS_SHUTDOWN = (args, cb) => {
+    if (!Env.wss) { return; }
+    Env.active = false;
+    Env.wss.close();
+    delete Env.wss;
+    cb();
+};
+
+
+// INIT Worker
+
 const init = (config, cb) => {
     Env.Log = Logger();
 
@@ -252,6 +488,9 @@ const init = (config, cb) => {
         Env.Log.verbose('HTTP worker listening on port', cfg.port);
         cb();
     });
+
+    Env.wss = new WebSocketServer({ server });
+    initServerHandlers(Env);
 };
 
 let ready = false;

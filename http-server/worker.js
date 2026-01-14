@@ -48,12 +48,12 @@ const initProxy = (Env, app, infra) => {
         url.port = obj.port;
         return url.href;
     };
-    const getWs = obj => {
-        if (obj.websocketHref) { return obj.websocketHref; }
+    const getWs = obj => { // same with ws protocol and /websocket
+        if (obj.href) { return obj.href; }
         let url = new URL('ws://localhost');
-        url.host = obj.websocketHost === '::' ? 'localhost'
-                                              : obj.websocketHost;
-        url.port = obj.websocketPort;
+        url.host = obj.host === '::' ? 'localhost' : obj.host;
+        url.port = obj.port;
+        url.pathname = '/websocket';
         return url.href;
     };
     const wsList = infra?.websocket?.map(getWs);
