@@ -537,6 +537,21 @@ const onIsUserOnline = (safeKey, cb) => {
     cb(void 0, onlineKeys);
 };
 
+const onFlushCache = Env.flushCache = (args, cb, extra) => {
+    let s = extra.from?.split(':');
+    if (s?.[0] !== 'core') {
+        console.error('Error:', command, 'received from unauthorized server:', args, extra);
+        cb('UNAUTHORIZED_USER', void 0);
+        return;
+    }
+    if (Env.myId !== 'core:0') { return void cb('EINVAL'); }
+
+    Env.interface.broadcast('websocket', 'ADMIN_CMD', {
+        cmd: 'FLUSH_CACHE',
+        data: { freshKey: +new Date() }
+    }, () => { cb(void 0, true); });
+};
+
 let startServers = function(config) {
     let { myId, index, server, infra } = config;
     Environment.init(Env, config);
@@ -594,6 +609,7 @@ let startServers = function(config) {
         'GET_AUTH_KEYS': onGetAuthKeys,
         // From Core
         'IS_USER_ONLINE': onIsUserOnline,
+        'FLUSH_CACHE': onFlushCache,
 
         'GET_MULTIPLE_FILE_SIZE': onGetMultipleFileSize,
         'GET_TOTAL_SIZE': onGetTotalSize,

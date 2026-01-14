@@ -61,14 +61,14 @@ var getActiveChannelCount = (_Env, _publicKey, _data, cb) => {
     // Env.channel_cache from storage
 };
 
-const flushCache = (Env, _publicKey, _data, cb) => {
-    Env.interface.broadcast('websocket', 'ADMIN_CMD', {
-        cmd: 'FLUSH_CACHE',
-        data: { freshKey: +new Date() }
-    }, () => { cb(void 0, true); });
-
-    // To sync with core:0 as well
-    // Send to websocket:0 (or storage:0, TBD) to be sent to core:0 to broadcast to every websocket
+const flushCache = (Env, _publicKey, args, cb) => {
+    if (Env.myId !== 'core:0') {
+        return void Env.interface.sendQuery('core:0', 'FLUSH_CACHE', {}, res => {
+            if (res.error) { return void cb(res.error); }
+            cb(void 0, res.data);
+        });
+    }
+    Env.flushCache(args, cb, { from: 'core:0' });
 };
 
 // To be removed (too costly)
