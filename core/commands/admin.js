@@ -43,16 +43,16 @@ const deleteInvitation = (Env, _publicKey, data, cb) => {
 };
 
 // CryptPad_AsyncStore.rpc.send('ADMIN', ['GET_ACTIVE_SESSIONS'], console.log)
-var getActiveSessions = function(_Env, _publicKey, _data, cb) {
-    return cb('E_NOT_IMPLEMENTED');
-    // TODO: do the total (unique TBD)
-    // XXX to check later
-
-    // var stats = Server.getSessionStats();
-    // cb(void 0, [
-    //     stats.total,
-    //     stats.unique
-    // ]);
+var getActiveSessions = function(Env, _publicKey, _data, cb) {
+    Env.interface.broadcast('websocket', 'ADMIN_CMD', { cmd: 'GET_ACTIVE_SESSIONS' }, (err, data) => {
+        if (err.length) { cb(err); };
+        let unique = new Set();
+        const total = data.reduce((acc, it) => {
+            it.unique.forEach(u => unique.add(u));
+            return acc + it.total;
+        }, 0);
+        cb(void 0, [total, unique.size]);
+    });
 };
 
 const getActiveChannelCount = (Env, _publicKey, _data, cb) => {
