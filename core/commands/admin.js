@@ -55,10 +55,12 @@ var getActiveSessions = function(_Env, _publicKey, _data, cb) {
     // ]);
 };
 
-var getActiveChannelCount = (_Env, _publicKey, _data, cb) => {
-    return cb('E_NOT_IMPLEMENTED');
-    // cb(void 0, Server.getActiveChannelCount());
-    // Env.channel_cache from storage
+const getActiveChannelCount = (Env, _publicKey, _data, cb) => {
+    Env.interface.broadcast('storage', 'ADMIN_CMD', {cmd: 'GET_ACTIVE_CHANNEL_COUNT'}, (err, data) => {
+        if (err.length) { return void cb(err); }
+        let activeChannelCount = data.reduce((acc, it) => acc + it, 0);
+        return void cb(void 0, activeChannelCount);
+    });
 };
 
 const flushCache = (Env, _publicKey, args, cb) => {
