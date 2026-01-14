@@ -6,9 +6,6 @@ let config;
 const configPath = process.env.CRYPTPAD_CONFIG || "../config/config.js";
 try {
     config = require(configPath);
-    if (config.adminEmail === 'i.did.not.read.my.config@cryptpad.fr') {
-        console.log("You can configure the administrator email (adminEmail) in the admin page");
-    }
 } catch (e) {
     if (e instanceof SyntaxError) {
         console.error("config/config.js is faulty. See stacktrace below for more information. Terminating. \n");
