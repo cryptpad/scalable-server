@@ -282,13 +282,14 @@ const isUserOnline = (Env, _publicKey, data, cb) => {
     const safeKey = Array.isArray(data) && data[1];
     if (!Core.isValidPublicKey(safeKey)) { return void cb("EINVAL"); }
     const unsafeKey = Util.unescapeKeyCharacters(safeKey);
-    let onlineKeys = Object.values(Env.userCache)
-        .filter(v => v.authKeys && Object.keys(v.authKeys).includes(unsafeKey));
+    if (Object.values(Env.userCache)
+        .some(v => v.authKeys && Object.keys(v.authKeys).includes(unsafeKey))) {
+        return void cb(void 0, true);
+    }
     Env.interface.broadcast('core', 'IS_USER_ONLINE', safeKey, (err, data) => {
-        if(err.length !== 0) { return void cb(err); }
-        onlineKeys = onlineKeys.concat(data).flat();
-        cb(void 0, onlineKeys.length !== 0);
-    }, [ Env.myId ]);
+        if (err.length !== 0) { return void cb(err); }
+        cb(void 0, data.some(isOnline => isOnline));
+    });
 };
 
 const getKnownUsers = (Env, _publicKey, _data, cb) => {

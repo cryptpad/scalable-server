@@ -532,9 +532,8 @@ const initIntervals = () => {
 const onIsUserOnline = (safeKey, cb) => {
     if (!Core.isValidPublicKey(safeKey)) { return void cb("EINVAL"); }
     const unsafeKey = Util.unescapeKeyCharacters(safeKey);
-    const onlineKeys = Object.values(Env.userCache)
-        .filter(v => v.authKeys && Object.keys(v.authKeys).includes(unsafeKey));
-    cb(void 0, onlineKeys);
+    cb(void 0, Object.values(Env.userCache)
+        .some(v => v.authKeys && Object.keys(v.authKeys).includes(unsafeKey)));
 };
 
 const onFlushCache = Env.flushCache = (_args, cb) => {
