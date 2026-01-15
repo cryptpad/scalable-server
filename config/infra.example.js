@@ -17,7 +17,7 @@ module.exports = {
     // "host" and "port" correspond to the nodejs HTTP server of each node
     // "url" can be set if your nodes are on different machines. They must
     // be able to reach each other from this URL
-    "websocket": [
+    "front": [
         {
             url: "", // e.g. "https://node1.my-cryptpad-domain.net"
             host: "localhost",

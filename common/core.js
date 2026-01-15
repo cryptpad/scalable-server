@@ -255,10 +255,10 @@ Core.storageToStorage = (Env, id, cmd, data, cb) => {
     });
 };
 
-Core.storageToWs = (Env, cmd, data, cb) => {
+Core.storageToFront = (Env, cmd, data, cb) => {
     const id = String(+new Date()); // don't always send to core:0
     const coreId = Env.getCoreId(id);
-    Env.interface.sendQuery(coreId, 'STORAGE_WS', {
+    Env.interface.sendQuery(coreId, 'STORAGE_FRONT', {
         cmd, data
     }, res => {
         if (res.error) { return void cb(res.error); }

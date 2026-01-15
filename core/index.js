@@ -22,15 +22,15 @@ const {
 
 let Env = {
     Log: Logger(),
-    userCache: {}, // WS associated to each user
+    userCache: {}, // Front associated to each user
     channelKeyCache: {}, // Validate key of each channel
     queueValidation: WriteQueue(),
     Sessions: {},
     intervals: {},
 };
 
-const isWsCmd = id => {
-    return /^websocket:/.test(id);
+const isFrontCmd = id => {
+    return /^front:/.test(id);
 };
 const isStorageCmd = id => {
     return /^storage:/.test(id);
@@ -40,15 +40,15 @@ const isValidChannel = str => {
 };
 
 
-let getWsId = function(userId) {
-    return Env.userCache?.[userId]?.from || 'websocket:0';
+let getFrontId = function(userId) {
+    return Env.userCache?.[userId]?.from || 'front:0';
 };
 
-let wsToStorage = function(command, validated, isEvent) {
+let frontToStorage = function(command, validated, isEvent) {
     return function(args, cb, extra) {
         if (!validated) {
             let s = extra.from.split(':');
-            if (s[0] !== 'websocket') {
+            if (s[0] !== 'front') {
                 console.error('Error:', command, 'received from unauthorized server:', args, extra);
                 cb('UNAUTHORIZED_USER', void 0);
                 return;
@@ -69,7 +69,7 @@ let wsToStorage = function(command, validated, isEvent) {
     };
 };
 
-let storageToWs = function(command) {
+let storageToFront = function(command) {
     return function(args, cb, extra) {
         let s = extra.from.split(':');
         if (s[0] !== 'storage') {
@@ -79,9 +79,9 @@ let storageToWs = function(command) {
         }
         let userId = args.userId;
 
-        let wsId = getWsId(userId);
+        let frontId = getFrontId(userId);
 
-        Env.interface.sendQuery(wsId, command, args, function(response) {
+        Env.interface.sendQuery(frontId, command, args, function(response) {
             cb(response.error, response.data);
         });
     };
@@ -134,10 +134,10 @@ const dropChannelHandler = (args, cb, extra) => {
 const sendChannelMessage = (users, message) => {
     const sent = new Set();
     (users || []).forEach(id => {
-        const wsId = getWsId(id);
-        if (!wsId || sent.has(wsId)) { return; }
-        sent.add(wsId);
-        Env.interface.sendEvent(wsId, 'SEND_CHANNEL_MESSAGE', {
+        const frontId = getFrontId(id);
+        if (!frontId || sent.has(frontId)) { return; }
+        sent.add(frontId);
+        Env.interface.sendEvent(frontId, 'SEND_CHANNEL_MESSAGE', {
             users,
             message
         });
@@ -146,7 +146,7 @@ const sendChannelMessage = (users, message) => {
 
 // Event: when a user is disconnected, remove it from all its channels
 const dropUser = (args, _cb, extra) => {
-    if (!isWsCmd(extra.from)) { return; }
+    if (!isFrontCmd(extra.from)) { return; }
 
     const { channels, userId } = args;
     if (!userId || !Array.isArray(channels)) { return; }
@@ -179,7 +179,7 @@ const dropUser = (args, _cb, extra) => {
 };
 
 const joinChannel = (args, cb, extra) => {
-    if (!isWsCmd(extra.from)) { return void cb('UNAUTHORIZED'); }
+    if (!isFrontCmd(extra.from)) { return void cb('UNAUTHORIZED'); }
 
     const { channel, userId } = args;
     if (!userId || !isValidChannel(channel)) {
@@ -201,7 +201,7 @@ const joinChannel = (args, cb, extra) => {
     });
 };
 const leaveChannel = (args, cb, extra) => {
-    if (!isWsCmd(extra.from)) { return void cb('UNAUTHORIZED'); }
+    if (!isFrontCmd(extra.from)) { return void cb('UNAUTHORIZED'); }
 
     const { channel, userId } = args;
     if (!userId || !isValidChannel(channel)) {
@@ -222,7 +222,7 @@ const leaveChannel = (args, cb, extra) => {
 
 // Message from user to storage to channel members
 const onChannelMessage = (args, cb, extra) => {
-    if (!isWsCmd(extra.from)) { return void cb('UNAUTHORIZED'); }
+    if (!isFrontCmd(extra.from)) { return void cb('UNAUTHORIZED'); }
 
     const { channel, msgStruct } = args;
     if (!Array.isArray(msgStruct) || !isValidChannel(channel)) {
@@ -279,8 +279,8 @@ const onChannelMessage = (args, cb, extra) => {
 // Message from history keeper to user
 const onHistoryMessage = (args, cb) => {
     const { userId } = args; // userId, message
-    const wsId = getWsId(userId);
-    Env.interface.sendQuery(wsId, 'SEND_USER_MESSAGE', args, res => {
+    const frontId = getFrontId(userId);
+    Env.interface.sendQuery(frontId, 'SEND_USER_MESSAGE', args, res => {
         cb(res?.error, res?.data);
     });
 };
@@ -292,8 +292,8 @@ const onHistoryChannelMessage = (args, cb) => {
         users.forEach(userId => {
             const msg = message.slice();
             msg[3] = userId;
-            const wsId = getWsId(userId);
-            Env.interface.sendQuery(wsId, 'SEND_USER_MESSAGE', {
+            const frontId = getFrontId(userId);
+            Env.interface.sendQuery(frontId, 'SEND_USER_MESSAGE', {
                 userId, message: msg
             }, w());
         });
@@ -311,7 +311,7 @@ const onSendChannelMessage = (args) => {
 
 // Message from user to user
 const onUserMessage = (args, cb) => {
-    Env.interface.broadcast('websocket', 'SEND_USER_MESSAGE', args, (err, values) => {
+    Env.interface.broadcast('front', 'SEND_USER_MESSAGE', args, (err, values) => {
         // If all responses return an error, message has failed
         if (!values.length) {
             return void cb('ERROR');
@@ -322,7 +322,7 @@ const onUserMessage = (args, cb) => {
 };
 
 const onAnonRpc = (args, cb, extra) => {
-    if (!isWsCmd(extra.from)) { return void cb('UNAUTHORIZED'); }
+    if (!isFrontCmd(extra.from)) { return void cb('UNAUTHORIZED'); }
     const {userId, /*txid, */data} = args;
 
     if (!Rpc.isUnauthenticateMessage(data)) {
@@ -337,7 +337,7 @@ const onAnonRpc = (args, cb, extra) => {
     });
 };
 const onAuthRpc = (args, cb, extra) => {
-    if (!isWsCmd(extra.from)) { return void cb('UNAUTHORIZED'); }
+    if (!isFrontCmd(extra.from)) { return void cb('UNAUTHORIZED'); }
     const {userId, /*txid, */data} = args;
 
 
@@ -427,23 +427,23 @@ const onGetChannelsTotalSize = (channels, cb, extra) => {
     StorageCommands.getChannelsTotalSize(Env, channels, cb);
 };
 
-const onStorageToWs = (args, cb, extra) => {
+const onStorageToFront = (args, cb, extra) => {
     if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
     const { cmd, data } = args;
-    Env.interface.broadcast('websocket', cmd, data, (errors, data) => {
+    Env.interface.broadcast('front', cmd, data, (errors, data) => {
         if (errors && errors.length) { return void cb(errors, data); }
         cb(void 0, data);
     });
 };
 
 const onHttpCommand = (args, cb, extra) => {
-    if (!isWsCmd(extra.from)) { return void cb('UNAUTHORIZED'); }
+    if (!isFrontCmd(extra.from)) { return void cb('UNAUTHORIZED'); }
     AuthCommands.handle(Env, args, cb);
 };
 
-const onWsCommand = command => {
+const onFrontCommand = command => {
     return (args, cb, extra) => {
-        if (!isWsCmd(extra.from)) { return void cb('UNAUTHORIZED'); }
+        if (!isFrontCmd(extra.from)) { return void cb('UNAUTHORIZED'); }
         const channel = args.channel;
         const storageId = Env.getStorageId(channel);
 
@@ -466,11 +466,11 @@ const onNewDecrees = (args, cb, extra) => {
     Env.getDecree(type).loadRemote(Env, decrees);
     Env.cacheDecrees(type, decrees);
 
-    // core:0 also has to broadcast to all the websocket and storage
+    // core:0 also has to broadcast to all the front and storage
     // nodes
     nThen(waitFor => {
         if (Env.myId !== 'core:0') { return; }
-        Env.interface.broadcast('websocket', 'NEW_DECREES', {
+        Env.interface.broadcast('front', 'NEW_DECREES', {
             freshKey, curveKeys, type, decrees
         }, waitFor((errors) => {
             errors.forEach(obj => {
@@ -567,10 +567,10 @@ const startServers = (mainConfig) => {
     Env.workers = WorkerModule(workerConfig);
 
     let queriesToStorage = [];
-    let queriesToWs = [];
+    let queriesToFront = [];
     let eventsToStorage = [];
     let COMMANDS = {
-        // From WS
+        // From Front
         'DROP_USER': dropUser,
         'JOIN_CHANNEL': joinChannel,
         'LEAVE_CHANNEL': leaveChannel,
@@ -579,9 +579,9 @@ const startServers = (mainConfig) => {
         'ANON_RPC': onAnonRpc,
         'AUTH_RPC': onAuthRpc,
         'HTTP_COMMAND': onHttpCommand,
-        'GET_HISTORY': onWsCommand('GET_HISTORY'),
-        'GET_FULL_HISTORY': onWsCommand('GET_FULL_HISTORY'),
-        'GET_HISTORY_RANGE': onWsCommand('GET_HISTORY_RANGE'),
+        'GET_HISTORY': onFrontCommand('GET_HISTORY'),
+        'GET_FULL_HISTORY': onFrontCommand('GET_FULL_HISTORY'),
+        'GET_HISTORY_RANGE': onFrontCommand('GET_HISTORY_RANGE'),
         // From Storage
         'VALIDATE_MESSAGE': validateMessageHandler,
         'DROP_CHANNEL': dropChannelHandler,
@@ -598,16 +598,16 @@ const startServers = (mainConfig) => {
         'GET_TOTAL_SIZE': onGetTotalSize,
         'GET_CHANNELS_TOTAL_SIZE': onGetChannelsTotalSize,
 
-        'STORAGE_WS': onStorageToWs,
+        'STORAGE_FRONT': onStorageToFront,
     };
     queriesToStorage.forEach(function(command) {
-        COMMANDS[command] = wsToStorage(command);
+        COMMANDS[command] = frontToStorage(command);
     });
-    queriesToWs.forEach(function(command) {
-        COMMANDS[command] = storageToWs(command);
+    queriesToFront.forEach(function(command) {
+        COMMANDS[command] = storageToFront(command);
     });
     eventsToStorage.forEach(function(command) {
-        COMMANDS[command] = wsToStorage(command, false, true);
+        COMMANDS[command] = frontToStorage(command, false, true);
     });
 
     initIntervals();

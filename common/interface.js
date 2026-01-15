@@ -261,7 +261,7 @@ const init = (config, cb, httpServer) => {
             storage: [],
             core: [],
             http: [],
-            websocket: []
+            front: []
         },
         commands: {},
         queue: [],
@@ -386,7 +386,7 @@ const init = (config, cb, httpServer) => {
             connectClient(`core:${id}`);
         });
     } else {
-        // Ws and http: connect to cores
+        // front and http connect to cores
         config?.infra?.core?.forEach((server, id) => {
             connectClient(`core:${id}`);
         });

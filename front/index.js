@@ -461,7 +461,7 @@ const start = (mainConfig) => {
         Log: Logger(),
         active: true,
         users: {},
-        public: infra?.websocket?.[index],
+        public: infra?.front?.[index],
     };
     Environment.init(Env, mainConfig);
 
@@ -522,9 +522,9 @@ const start = (mainConfig) => {
         Env.Log.info('WS started', Env.myId);
 
         if (process.send !== undefined) {
-            process.send({type: 'websocket', index, msg: 'READY'});
+            process.send({type: 'front', index, msg: 'READY'});
         } else {
-            Env.Log.info('websocket:' + index + ' started');
+            Env.Log.info('front:' + index + ' started');
         }
     });
 };

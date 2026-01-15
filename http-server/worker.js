@@ -60,8 +60,11 @@ const initProxy = (Env, app, infra) => {
         url.pathname = '/websocket';
         return url.href;
     };
-    const wsList = infra?.websocket?.map(getWs);
-    const httpList = infra?.websocket?.map(getURL);
+
+    // "Front" nodes
+    const wsList = infra?.front?.map(getWs);
+    const httpList = infra?.front?.map(getURL);
+    // "Storage" nodes
     const storageList = infra?.storage?.map(getURL);
 
     let i = 0;
@@ -78,7 +81,6 @@ const initProxy = (Env, app, infra) => {
     });
     const httpProxy = createProxyMiddleware({
         router: req => {
-            //return httpList[j++%httpList.length] + req.originalUrl.slice(1);
             return httpList[j++%httpList.length] + req.baseUrl.slice(1);
         },
         logger: Logger(['error'])
