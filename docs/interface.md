@@ -21,7 +21,7 @@ listening and update their known clients when they join or leave. Then the
 `connect` function starts a client and connects it to the different server
 specified in the `Config` variable to let them know that the client is alive.
 
-Thus, the servers (`core` nodes) should start before the clients starts (`ws`
+Thus, the servers (`core` nodes) should start before the clients starts (`front`
 and `storage` nodes).
 
 ## CommunicationManager
@@ -30,7 +30,7 @@ This manager provides the different nodes with a way to communicate with each
 others.
 
 The nodes are identified with an `id` that is formatted as follows:
-`type:index`, where the type is in `{ws, core, storage}` specifying the type of
+`type:index`, where the type is in `{front, core, storage}` specifying the type of
 node you are sending a message to.
 
 A manager provides the following functions:
@@ -70,7 +70,7 @@ let Config = {
             host: 'localhost',
             port: 3010
         }],
-        ws: [{
+        front: [{
             host: 'localhost',
             port: 3012
         }],
@@ -89,7 +89,7 @@ Config.myId = 'core:0';
 ```
 
 Then, start it with `Interface.init` for a `core` node or `Interface.connect`
-for a `ws` or `storage` node:
+for a `front` or `storage` node:
 ```javascript
 let interface = Interface.init(Config);
 ```
@@ -97,7 +97,7 @@ let interface = Interface.init(Config);
 Now you are able to use the `interface` variable to communicate with other
 nodes once connected:
 ```javascript
-interface.sendQuery('ws:0', 'HELLO', { whoami: 'core:0' }, function(response) {
+interface.sendQuery('front:0', 'HELLO', { whoami: 'core:0' }, function(response) {
     let error = response.error;
     if (error) {
         console.error(`HELLO error: ${error}`)

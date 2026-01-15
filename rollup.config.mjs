@@ -38,22 +38,22 @@ const getPlugins = () => {
 
 const list = [];
 
-if (!type || type === "ws") {
+if (!type || type === "front") {
     list.push({
-        input: "./websocket/websocket.ts",
+        input: "./front/front.ts",
         output: [{
-            name: 'cryptpad-server-websocket',
-            file: "./build/websocket.js",
+            name: 'cryptpad-server-front',
+            file: "./build/front.js",
             format: "cjs",
             plugins: [ getTerser() ]
         }],
         plugins: getPlugins()
     });
     list.push({
-        input: "./websocket/worker.js",
+        input: "./front/worker.js",
         output: [{
-            name: 'cryptpad-server-websocket-worker',
-            file: "./build/ws.worker.js",
+            name: 'cryptpad-server-front-worker',
+            file: "./build/front.worker.js",
             format: "cjs",
             plugins: [ getTerser() ]
         }],

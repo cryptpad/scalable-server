@@ -410,7 +410,7 @@ const onHttpCommand = (Env, data, cb) => {
 const initHttpCluster = (Env, mainConfig) => {
     return new Promise((resolve) => {
         Cluster.setupPrimary({
-            exec: './build/ws.worker.js',
+            exec: './build/front.worker.js',
             args: [],
         });
 

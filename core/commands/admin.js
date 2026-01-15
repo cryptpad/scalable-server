@@ -44,7 +44,7 @@ const deleteInvitation = (Env, _publicKey, data, cb) => {
 
 // CryptPad_AsyncStore.rpc.send('ADMIN', ['GET_ACTIVE_SESSIONS'], console.log)
 var getActiveSessions = function(Env, _publicKey, _data, cb) {
-    Env.interface.broadcast('websocket', 'ADMIN_CMD', { cmd: 'GET_ACTIVE_SESSIONS' }, (err, data) => {
+    Env.interface.broadcast('front', 'ADMIN_CMD', { cmd: 'GET_ACTIVE_SESSIONS' }, (err, data) => {
         if (err.length) { cb(err); };
         let unique = new Set();
         const total = data.reduce((acc, it) => {

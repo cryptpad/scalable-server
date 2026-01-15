@@ -45,7 +45,7 @@
   "scripts": {
     "lint": "eslint .",
     "build": "rollup -c",
-    "build:ws": "TYPE=ws rollup -c",
+    "build:front": "TYPE=front rollup -c",
     "build:core": "TYPE=core rollup -c",
     "build:storage": "TYPE=storage rollup -c",
     "build:http": "TYPE=http rollup -c",

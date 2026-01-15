@@ -96,9 +96,9 @@ module.exports = {
             wsURL.port = serv.port;
         }
 
-        let wsHref = wsURL.href;
-        if (type !== "core") { wsHref += '/websocket'; }
+        if (type !== "core") { wsURL.pathname = '/websocket'; }
 
+        let wsHref = wsURL.href;
         let ready = false;
         // Try to connect until the remote server is ready
         const again = () => {

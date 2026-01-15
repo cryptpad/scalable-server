@@ -55,9 +55,9 @@ const startNode = (type, index, forking, cb) => {
 
 const coresReady = () => {
     const promises = [];
-    infraConfig?.websocket?.forEach((_, index) => {
+    infraConfig?.front?.forEach((_, index) => {
         promises.push(new Promise(resolve => {
-            startNode('websocket', index, true, resolve);
+            startNode('front', index, true, resolve);
         }));
     });
     infraConfig?.storage?.forEach((_, index) => {

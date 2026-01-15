@@ -539,7 +539,7 @@ const onIsUserOnline = (safeKey, cb) => {
 const onFlushCache = Env.flushCache = (_args, cb) => {
     if (Env.myId !== 'core:0') { return void cb('EINVAL'); }
 
-    Env.interface.broadcast('websocket', 'ADMIN_CMD', {
+    Env.interface.broadcast('front', 'ADMIN_CMD', {
         cmd: 'FLUSH_CACHE',
         data: { freshKey: +new Date() }
     }, () => { cb(void 0, true); });

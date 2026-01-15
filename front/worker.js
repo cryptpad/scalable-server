@@ -482,7 +482,7 @@ const init = (config, cb) => {
     Environment.init(Env, config);
     servePlugins(Env);
 
-    const cfg = config?.infra?.websocket[config.index];
+    const cfg = config?.infra?.front[config.index];
     const server = Http.createServer(app);
     server.listen(cfg.port, cfg.host, () => {
         Env.Log.verbose('HTTP worker listening on port', cfg.port);

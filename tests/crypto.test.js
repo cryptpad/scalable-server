@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2025 XWiki CryptPad Team <contact@cryptpad.org> and contributors
 
 /* Integration test about basic channel usage:
- * Multiple users will connect to different websocket nodes and
+ * Multiple users will connect to different front nodes and
  * join the same pad. We'll make sure they all receive the correct
  * JOIN, MSG and LEAVE messages as weell as the pad history.
  */

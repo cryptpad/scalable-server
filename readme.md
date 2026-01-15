@@ -15,7 +15,7 @@ The new server architecture is composed of three types of nodes:
 
 - **Core:** these nodes take care of most of the computations and internal
 communication handling. They are connected to the other type of servers.
-- **Client WebSocket:** these nodes catch the different queries from the
+- **Front:** these nodes catch the different queries from the
 outside and forward them to the core nodes for processing.
 - **Storage:** these nodes are responsible for accessing and serving a fraction
 of the (encrypted) data for CryptPad. They are also doing light computation if
@@ -56,7 +56,7 @@ let Config = {
 ```
 
 The above configuration describes a network comprised of 4 nodes, having one
-websocket client node on port `3010`, 2 core servers on port `3011` and `3012`
+front node on port `3010`, 2 core servers on port `3011` and `3012`
 and a storage node accessible via port `3014`.
 
 In addition, launching a server requires setting the field `myId` with your
@@ -85,7 +85,7 @@ node core/index.js
 Then you can start a `ws` and `storage` nodes in any order:
 ```bash
 node storage/index.js
-node websocket/index.js
+node front/index.js
 ```
 
 ## Tests
