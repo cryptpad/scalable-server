@@ -516,7 +516,7 @@ const start = (mainConfig) => {
                 return;
             }
         }));
-        Env.plugins.call('addWebsocketCommands')(Env, CORE_COMMANDS);
+        Env.plugins.call('addFrontCommands')(Env, CORE_COMMANDS);
         Env.interface.handleCommands(CORE_COMMANDS);
     }).nThen(() => {
         Env.Log.info('WS started', Env.myId);
