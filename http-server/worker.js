@@ -42,14 +42,18 @@ const getStorageId = (Env, channel) => {
 
 const initProxy = (Env, app, infra) => {
     const getURL = obj => {
-        if (obj.href) { return obj.href; }
+        if (obj.url) { return obj.url; }
         let url = new URL('http://localhost');
         url.host = obj.host === '::' ? 'localhost' : obj.host;
         url.port = obj.port;
         return url.href;
     };
     const getWs = obj => { // same with ws protocol and /websocket
-        if (obj.href) { return obj.href; }
+        if (obj.url) {
+            let wsURL = new URL(obj.url);
+            wsURL.protocol = wsURL.protocol.replace(/^http/, 'ws');
+            return wsURL.href;
+        }
         let url = new URL('ws://localhost');
         url.host = obj.host === '::' ? 'localhost' : obj.host;
         url.port = obj.port;

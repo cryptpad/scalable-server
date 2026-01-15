@@ -86,14 +86,24 @@ module.exports = {
     initClient: (ctx, config, id, onConnected, cb) => {
         const [type, number] = id.split(':');
         const serv = config?.infra?.[type]?.[+number];
-        let wsURL = 'ws://' + serv.host + ':' + serv.port;
-        if (type !== "core") { wsURL += '/websocket'; }
+
+        let wsURL = new URL('ws://localhost');
+        if (serv.url) {
+            wsURL.href = serv.url;
+            wsURL.protocol = wsURL.protocol.replace(/^http/, 'ws');
+        } else if (serv.host && serv.port) {
+            wsURL.hostname = serv.host;
+            wsURL.port = serv.port;
+        }
+
+        let wsHref = wsURL.href;
+        if (type !== "core") { wsHref += '/websocket'; }
 
         let ready = false;
         // Try to connect until the remote server is ready
         const again = () => {
             if (ready) { return; }
-            let socket = new WebSocket(wsURL);
+            let socket = new WebSocket(wsHref);
             socket.on('error', () => {
                 ctx.Log.error('Remote server not ready', id, 'trying again in 1000ms');
                 setTimeout(again, 1000); // try again

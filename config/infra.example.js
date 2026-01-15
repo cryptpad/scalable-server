@@ -15,32 +15,40 @@ module.exports = {
     // Configure the topology here. Add or remove nodes on each level
     // depending on your instance usage.
     // "host" and "port" correspond to the nodejs HTTP server of each node
+    // "url" can be set if your nodes are on different machines. They must
+    // be able to reach each other from this URL
     "websocket": [
         {
+            url: "", // e.g. "https://node1.my-cryptpad-domain.net"
             host: "localhost",
             port: 3010,
         },
         {
+            url: "", // "https://node2.my-cryptpad-domain.net"
             host: "localhost",
             port: 3011,
         }
     ],
     "core": [
         {
+            url: "",
             host: "localhost",
             port: 3020
         },
         {
+            url: "",
             host: "localhost",
             port: 3021
         }
     ],
     "storage": [
         {
+            url: "",
             host: "localhost",
             port: 3030
         },
         {
+            url: "",
             host: "localhost",
             port: 3031
         }
