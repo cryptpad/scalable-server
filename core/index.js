@@ -532,9 +532,17 @@ const initIntervals = () => {
 const onIsUserOnline = (safeKey, cb) => {
     if (!Core.isValidPublicKey(safeKey)) { return void cb("EINVAL"); }
     const unsafeKey = Util.unescapeKeyCharacters(safeKey);
-    const onlineKeys = Object.values(Env.userCache)
-        .filter(v => v.authKeys && Object.keys(v.authKeys).includes(unsafeKey));
-    cb(void 0, onlineKeys);
+    cb(void 0, Object.values(Env.userCache)
+        .some(v => v.authKeys && Object.keys(v.authKeys).includes(unsafeKey)));
+};
+
+const onFlushCache = Env.flushCache = (_args, cb) => {
+    if (Env.myId !== 'core:0') { return void cb('EINVAL'); }
+
+    Env.interface.broadcast('websocket', 'ADMIN_CMD', {
+        cmd: 'FLUSH_CACHE',
+        data: { freshKey: +new Date() }
+    }, () => { cb(void 0, true); });
 };
 
 const startServers = (mainConfig) => {
@@ -593,6 +601,7 @@ const startServers = (mainConfig) => {
         'GET_AUTH_KEYS': onGetAuthKeys,
         // From Core
         'IS_USER_ONLINE': onIsUserOnline,
+        'FLUSH_CACHE': onFlushCache,
 
         'GET_MULTIPLE_FILE_SIZE': onGetMultipleFileSize,
         'GET_TOTAL_SIZE': onGetTotalSize,

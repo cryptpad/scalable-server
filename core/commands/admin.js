@@ -43,32 +43,34 @@ const deleteInvitation = (Env, _publicKey, data, cb) => {
 };
 
 // CryptPad_AsyncStore.rpc.send('ADMIN', ['GET_ACTIVE_SESSIONS'], console.log)
-var getActiveSessions = function(_Env, _publicKey, _data, cb) {
-    return cb('E_NOT_IMPLEMENTED');
-    // TODO: do the total (unique TBD)
-    // XXX to check later
-
-    // var stats = Server.getSessionStats();
-    // cb(void 0, [
-    //     stats.total,
-    //     stats.unique
-    // ]);
+var getActiveSessions = function(Env, _publicKey, _data, cb) {
+    Env.interface.broadcast('websocket', 'ADMIN_CMD', { cmd: 'GET_ACTIVE_SESSIONS' }, (err, data) => {
+        if (err.length) { cb(err); };
+        let unique = new Set();
+        const total = data.reduce((acc, it) => {
+            it.unique.forEach(u => unique.add(u));
+            return acc + it.total;
+        }, 0);
+        cb(void 0, [total, unique.size]);
+    });
 };
 
-var getActiveChannelCount = (_Env, _publicKey, _data, cb) => {
-    return cb('E_NOT_IMPLEMENTED');
-    // cb(void 0, Server.getActiveChannelCount());
-    // Env.channel_cache from storage
+const getActiveChannelCount = (Env, _publicKey, _data, cb) => {
+    Env.interface.broadcast('storage', 'ADMIN_CMD', {cmd: 'GET_ACTIVE_CHANNEL_COUNT'}, (err, data) => {
+        if (err.length) { return void cb(err); }
+        let activeChannelCount = data.reduce((acc, it) => acc + it, 0);
+        return void cb(void 0, activeChannelCount);
+    });
 };
 
-const flushCache = (Env, _publicKey, _data, cb) => {
-    Env.interface.broadcast('websocket', 'ADMIN_CMD', {
-        cmd: 'FLUSH_CACHE',
-        data: { freshKey: +new Date() }
-    }, () => { cb(void 0, true); });
-
-    // To sync with core:0 as well
-    // Send to websocket:0 (or storage:0, TBD) to be sent to core:0 to broadcast to every websocket
+const flushCache = (Env, _publicKey, args, cb) => {
+    if (Env.myId !== 'core:0') {
+        return void Env.interface.sendQuery('core:0', 'FLUSH_CACHE', {}, res => {
+            if (res.error) { return void cb(res.error); }
+            cb(void 0, res.data);
+        });
+    }
+    Env.flushCache(args, cb);
 };
 
 // To be removed (too costly)
@@ -280,13 +282,14 @@ const isUserOnline = (Env, _publicKey, data, cb) => {
     const safeKey = Array.isArray(data) && data[1];
     if (!Core.isValidPublicKey(safeKey)) { return void cb("EINVAL"); }
     const unsafeKey = Util.unescapeKeyCharacters(safeKey);
-    let onlineKeys = Object.values(Env.userCache)
-        .filter(v => v.authKeys && Object.keys(v.authKeys).includes(unsafeKey));
+    if (Object.values(Env.userCache)
+        .some(v => v.authKeys && Object.keys(v.authKeys).includes(unsafeKey))) {
+        return void cb(void 0, true);
+    }
     Env.interface.broadcast('core', 'IS_USER_ONLINE', safeKey, (err, data) => {
-        if(err.length !== 0) { return void cb(err); }
-        onlineKeys = onlineKeys.concat(data).flat();
-        cb(void 0, onlineKeys.length !== 0);
-    }, [ Env.myId ]);
+        if (err.length !== 0) { return void cb(err); }
+        cb(void 0, data.some(isOnline => isOnline));
+    });
 };
 
 const getKnownUsers = (Env, _publicKey, _data, cb) => {

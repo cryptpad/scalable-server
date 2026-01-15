@@ -445,6 +445,11 @@ const onClearCachedChannelMetadata = (Env, id, cb) => {
     cb();
 };
 
+const onGetActiveChannelCount = (Env, _id, cb) => {
+    if (!Env.channel_cache) { cb('ENOENT'); }
+    cb(void 0,Object.keys(Env.channel_cache).length);
+};
+
 const commands = {
     'GET_FILE_DESCRIPTOR_COUNT': onGetFileDescriptorCount,
     'GET_INVITATIONS': onGetInvitations,
@@ -475,6 +480,7 @@ const commands = {
     'GET_CACHED_CHANNEL_INDEX': onGetCachedChannelIndex ,
     'CLEAR_CACHED_CHANNEL_METADATA': onClearCachedChannelMetadata,
     'GET_CACHED_CHANNEL_METADATA': onGetCachedChannelMetadata,
+    'GET_ACTIVE_CHANNEL_COUNT': onGetActiveChannelCount,
 };
 
 module.exports = {
