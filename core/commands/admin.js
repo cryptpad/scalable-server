@@ -4,6 +4,7 @@ const Keys = require("../../common/keys");
 const StorageCommands = require('./storage');
 
 const Core = require("../../common/core");
+const nThen = require('nthen');
 
 const Admin = {};
 
@@ -410,6 +411,27 @@ const restoreArchivedDocument = (Env, _key, data, cb) => {
     Core.coreToStorage(Env, id, 'ADMIN_CMD', { cmd: 'RESTORE_ARCHIVED_DOCUMENT', data: { id, reason } }, cb);
 };
 
+// XXX: to optimize
+const archiveSupport = (Env, _key, _data, cb) => {
+    const supportPinKey = Env.supportPinKey;
+    Core.coreToStorage(Env, supportPinKey, 'ADMIN_CMD',
+        {
+            cmd: 'GET_PIN_LIST',
+            data: { key: supportPinKey }
+        }, (err, list) => {
+            if (err) { return void cb(err); }
+            let n = nThen;
+            list.forEach(id => {
+                n = n(waitFor => {
+                    archiveDocument(Env, _key, [null, { id, reason: 'DISABLE_SUPPORT' }], waitFor());
+                }).nThen;
+            });
+            n(() => {
+                cb();
+            });
+        });
+    cb(void 0, true);
+};
 
 // The following commands send data to corresponding storage with specific data
 // parsing and formats
@@ -507,6 +529,7 @@ const commands = {
     DELETE_KNOWN_USER: deleteKnownUser,
     UPDATE_KNOWN_USER: updateKnownUser,
 
+    ARCHIVE_SUPPORT: archiveSupport,
     GET_MODERATORS: getModerators,
     ADD_MODERATOR: addModerator,
     REMOVE_MODERATOR: removeModerator,
