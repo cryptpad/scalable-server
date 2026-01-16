@@ -17,9 +17,20 @@ const onGetActiveSessions = (Env, args, cb) => {
     cb(void 0, { total, unique });
 };
 
+const onSetModerators = (Env, args) => {
+    Env.moderators = args.moderators;
+    if (args.freshKey) {
+        onFlushCache(Env, args, () => { });
+    }
+    Env.workers.broadcast('SET_MODERATORS', Env.moderators, () => {
+        Env.Log.verbose('SET_MODERATORS_FRONT_WORKERS');
+    });
+};
+
 const commands = {
     'FLUSH_CACHE': onFlushCache,
     'GET_ACTIVE_SESSIONS': onGetActiveSessions,
+    'SET_MODERATORS': onSetModerators,
 };
 
 module.exports = {

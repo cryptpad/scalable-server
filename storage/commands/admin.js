@@ -8,6 +8,7 @@ const Users = require('./users');
 const Invitation = require('./invitation');
 const Pinning = require('./pin');
 const BlockStore = require("../storage/block");
+const Moderators = require("./moderators");
 const MFA = require("../storage/mfa");
 const Fs = require('node:fs');
 const getFolderSize = require("get-folder-size");
@@ -450,6 +451,23 @@ const onGetActiveChannelCount = (Env, _id, cb) => {
     cb(void 0,Object.keys(Env.channel_cache).length);
 };
 
+// Moderator commands are handled by storage:0
+const onGetModerators = (Env, _data, cb) => {
+    if (Env.myId !== 'storage:0') { cb('INVALID_STORAGE'); }
+    Moderators.getAll(Env, cb);
+};
+
+const onAddModerator = (Env, data, cb) => {
+    if (Env.myId !== 'storage:0') { cb('INVALID_STORAGE'); }
+    const { userData, unsafeKey } = data;
+    Moderators.add(Env, userData.edPublic, userData, unsafeKey, cb);
+};
+
+const onRemoveModerator = (Env, id, cb) => {
+    if (Env.myId !== 'storage:0') { cb('INVALID_STORAGE'); }
+    Moderators.delete(Env, id, cb);
+};
+
 const commands = {
     'GET_FILE_DESCRIPTOR_COUNT': onGetFileDescriptorCount,
     'GET_INVITATIONS': onGetInvitations,
@@ -481,6 +499,9 @@ const commands = {
     'CLEAR_CACHED_CHANNEL_METADATA': onClearCachedChannelMetadata,
     'GET_CACHED_CHANNEL_METADATA': onGetCachedChannelMetadata,
     'GET_ACTIVE_CHANNEL_COUNT': onGetActiveChannelCount,
+    'GET_MODERATORS': onGetModerators,
+    'ADD_MODERATOR': onAddModerator,
+    'REMOVE_MODERATOR': onRemoveModerator,
 };
 
 module.exports = {

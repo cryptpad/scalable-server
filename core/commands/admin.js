@@ -316,9 +316,31 @@ const updateKnownUser = (Env, _key, _data, cb) => {
     Core.coreToStorage(Env, data.edPublic, 'ADMIN_CMD', { cmd: 'UPDATE_KNOWN_USER', data }, cb);
 };
 
-// XXX: todo
+// Moderators are handled by storage:0
 const getModerators = (Env, _publicKey, _data, cb) => {
-    cb(void 0, Env.moderators);
+    Env.interface.sendQuery('storage:0', 'ADMIN_CMD', { cmd: 'GET_MODERATORS' }, res => { cb(res.error, res.data); });
+};
+
+const addModerator = (Env, unsafeKey, data, cb) => {
+    const obj = Array.isArray(data) && data[1];
+    const { name, edPublic, curvePublic, mailbox, profile } = obj;
+    const userData = {
+        name,
+        edPublic,
+        curvePublic,
+        mailbox,
+        profile
+    };
+    Env.interface.sendQuery('storage:0', 'ADMIN_CMD',
+        { cmd: 'ADD_MODERATOR', data: { userData, unsafeKey } },
+        res => { cb(res.error, res.data); });
+};
+
+const removeModerator = (Env, _publicKey, data, cb) => {
+    const id = Array.isArray(data) && data[1];
+    Env.interface.sendQuery('storage:0', 'ADMIN_CMD',
+        { cmd: 'REMOVE_MODERATOR', data: id },
+        res => { cb(res.error, res.data); });
 };
 
 // Not implemented in CryptPad server
@@ -486,6 +508,8 @@ const commands = {
     UPDATE_KNOWN_USER: updateKnownUser,
 
     GET_MODERATORS: getModerators,
+    ADD_MODERATOR: addModerator,
+    REMOVE_MODERATOR: removeModerator,
 };
 
 let pluginsInitialized = false;

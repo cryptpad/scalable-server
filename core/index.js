@@ -545,6 +545,20 @@ const onFlushCache = Env.flushCache = (_args, cb) => {
     }, () => { cb(void 0, true); });
 };
 
+// SET_MODERATORS triggers a FLUSH_CACHE to refresh the client cache
+const onSetModerators = (args) => {
+    if (Env.myId !== 'core:0') { return void Env.Log.error('INVALID_CORE'); }
+    Env.moderators = args;
+    Env.freshKey = +new Date();
+    // XXX: The following command should not be an ADMIN_CMD
+    Env.interface.broadcast('front', 'ADMIN_CMD', {
+        cmd: 'SET_MODERATORS', data: {
+            moderators: args,
+            freshKey: Env.freshKey
+        }
+    }, () => { });
+};
+
 const startServers = (mainConfig) => {
     let { myId, index, config, infra } = mainConfig;
     Environment.init(Env, mainConfig);
@@ -599,6 +613,7 @@ const startServers = (mainConfig) => {
         'ACCOUNTS_LIMITS': onAccountsLimits,
         'SEND_CHANNEL_MESSAGE': onSendChannelMessage,
         'GET_AUTH_KEYS': onGetAuthKeys,
+        'SET_MODERATORS': onSetModerators,
         // From Core
         'IS_USER_ONLINE': onIsUserOnline,
         'FLUSH_CACHE': onFlushCache,
@@ -646,6 +661,9 @@ const startServers = (mainConfig) => {
                 type, decrees
             });
         });
+        if (obj.type === 'front') {
+            Env.interface.sendEvent(id, 'ADMIN_CMD', { cmd: 'SET_MODERATORS', data: { moderators: Env.moderators, freshKey: Env.freshKey } });
+        }
     });
 };
 

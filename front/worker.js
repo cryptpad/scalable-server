@@ -473,6 +473,11 @@ COMMANDS.WS_SHUTDOWN = (args, cb) => {
     cb();
 };
 
+COMMANDS.SET_MODERATORS = (args, cb) => {
+    Env.Log.verbose('SET_MODERATORS_FRONT_WORKER');
+    Env.moderators = args;
+    cb();
+};
 
 // INIT Worker
 

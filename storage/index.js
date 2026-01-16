@@ -39,6 +39,7 @@ const Quota = require('./commands/quota.js');
 const Block = require('./commands/block.js');
 const Metadata = require('./commands/metadata.js');
 const Admin = require('./commands/admin.js');
+const Moderators = require('./commands/moderators.js');
 
 const {
     TEMPORARY_CHANNEL_LIFETIME,
@@ -772,9 +773,12 @@ const start = (mainConfig) => {
         Env.plugins.call('addStorageCommands')(Env, COMMANDS);
         Env.interface.handleCommands(COMMANDS);
     }).nThen(waitFor => {
-        // Only storage:0 can manage decrees and accounts
+        // Only storage:0 can manage decrees, moderators and accounts
         if (index !== 0) { return; }
         initAccountsIntervals();
+
+        Env.moderators = Moderators.getKeysSync(Env);
+        Env.interface.sendEvent('core:0', 'SET_MODERATORS', Env.moderators);
 
         Env.adminDecrees.load(Env, waitFor((err, toSend) => {
             if (err) {

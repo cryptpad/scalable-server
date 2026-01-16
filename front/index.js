@@ -449,6 +449,9 @@ const initHttpCluster = (Env, mainConfig) => {
                     Env.Log.verbose('UPDATE_DECREE_WS_WORKER');
                 });
             });
+            Env.workers.sendTo(state, 'SET_MODERATORS', Env.moderators, () => {
+                Env.Log.verbose('UPDATE_MODERATORS_FRONT_WORKER');
+            });
         });
     });
 };
