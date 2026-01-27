@@ -397,6 +397,17 @@ const onArchiveDocument = (Env, data, _cb) => {
 
 };
 
+const onArchiveDocuments = (Env, data, cb) => {
+    const { reason, list } = data;
+    let failed = [];
+    list.forEach(id => {
+        onArchiveDocument(Env, { id, reason }, (err) => {
+            if (err) { failed.push({ code: err, id }); }
+        });
+    });
+    cb(failed);
+};
+
 const onRestoreArchivedDocument = (Env, data, cb) => {
     const { id, reason } = data;
 
@@ -493,6 +504,7 @@ const commands = {
     'ARCHIVE_BLOCK': onArchiveBlock,
     'RESTORE_ARCHIVED_BLOCK': onRestoreArchivedBlock,
     'ARCHIVE_DOCUMENT': onArchiveDocument,
+    'ARCHIVE_DOCUMENTS': onArchiveDocuments,
     'RESTORE_ARCHIVED_DOCUMENT': onRestoreArchivedDocument,
     'CLEAR_CACHED_CHANNEL_INDEX': onClearCachedChannelIndex,
     'GET_CACHED_CHANNEL_INDEX': onGetCachedChannelIndex ,

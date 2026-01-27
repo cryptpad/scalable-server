@@ -378,17 +378,25 @@ const archiveDocuments = (Env, _key, data, cb) => {
     if (!Array.isArray(list)) { return void cb('EINVAL'); }
     let n = nThen;
     let failed = [];
-    // May be optimized by batching requests by storage id
+    let routing = {};
     list.forEach(id => {
-        n = n((w) => {
-            archiveDocument(Env,
-                _key,
-                [0, { id, reason }],
-                w(err => {
-                    console.log(err);
-                    if (err && err !== 'ENOENT') { failed.push(id); }
-                }));
-        }).nThen;
+        let target = Env.getStorageId(id);
+        if (!routing[target]) { routing[target] = []; };
+        routing[target].push(id);
+    });
+    Object.keys(routing).forEach(target => {
+        n = n((w) =>
+            Env.interface.sendQuery(target, 'ADMIN_CMD', {
+                cmd: 'ARCHIVE_DOCUMENTS',
+                data: { reason, list: routing[target]}
+            }, w(res => {
+                if (res.error) {
+                    res.error.filter(err => err.code !== 'ENOENT').forEach(err => {
+                        Env.Log.error(err);
+                        failed.push(err.id);
+                    });
+                }
+            }))).nThen;
     });
     n(() => {
         cb(void 0, { state: true, failed });
