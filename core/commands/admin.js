@@ -293,6 +293,12 @@ const isUserOnline = (Env, _publicKey, data, cb) => {
     });
 };
 
+const getDocumentStatus = (Env, _key, data, cb) => {
+    const id = Array.isArray(data) && data[1];
+    if (typeof(id) !== 'string') { return void cb("EINVAL"); }
+    Core.coreToStorage(Env, id, 'ADMIN_CMD', { cmd: 'GET_DOCUMENT_STATUS', data: { id } }, cb);
+};
+
 const getKnownUsers = (Env, _publicKey, _data, cb) => {
     Env.interface.broadcast('storage', 'ADMIN_CMD', { cmd: 'GET_USERS' }, (_err, data) => {
         const knownUsers = data.reduce((acc, it) => Object.assign(acc, it), {});
@@ -494,7 +500,7 @@ const commands = {
     GET_STORED_METADATA: channelCommand('GET_STORED_METADATA'),
     GET_DOCUMENT_SIZE: channelCommand('GET_DOCUMENT_SIZE'),
     GET_LAST_CHANNEL_TIME: channelCommand('GET_LAST_CHANNEL_TIME'),
-    GET_DOCUMENT_STATUS: channelCommand('GET_DOCUMENT_STATUS'),
+    GET_DOCUMENT_STATUS: getDocumentStatus,
 
     DISABLE_MFA: keyCommand('DISABLE_MFA'),
 
