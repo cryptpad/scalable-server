@@ -204,9 +204,11 @@ Core.getChannelsStorage = (Env, channels) => {
     const channelsByStorage = {};
     channels.forEach(channel => {
         const storageId = Env.getStorageId(channel);
-        const list = channelsByStorage[storageId] ||= [];
-        if (list.includes(channel)) { return; }
-        list.push(channel);
+        const list = channelsByStorage[storageId] ||= new Set();
+        list.add(channel);
+    });
+    Object.keys(channelsByStorage).forEach(storageId => {
+        channelsByStorage[storageId] = Array.from(channelsByStorage[storageId]);
     });
     return channelsByStorage;
 };
