@@ -384,12 +384,7 @@ const archiveDocuments = (Env, _key, data, cb) => {
     if (!Array.isArray(list)) { return void cb('EINVAL'); }
     let n = nThen;
     let failed = [];
-    let routing = {};
-    list.forEach(id => {
-        let target = Env.getStorageId(id);
-        if (!routing[target]) { routing[target] = []; };
-        routing[target].push(id);
-    });
+    let routing = Core.getChannelsStorage(Env, list);
     Object.keys(routing).forEach(target => {
         n = n((w) =>
             Env.interface.sendQuery(target, 'ADMIN_CMD', {
