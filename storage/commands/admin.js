@@ -340,7 +340,7 @@ const onArchiveBlock = (Env, data, cb) => {
         });
         cb(err);
     });
-    let SSOUtils = Env.plugins && Env.plugins.SSO && Env.plugins.SSO.utils;
+    let SSOUtils = Env.plugins?.SSO?.utils;
     if (SSOUtils) { SSOUtils.deleteAccount(Env, key, () => {}); }
 };
 
