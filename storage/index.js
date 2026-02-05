@@ -526,6 +526,15 @@ const initWorkerCommands = () => {
             }, Util.both(next, cb));
         });
     };
+    Env.worker.getPinInfo = (safeKey, cb) => {
+        Env.pinStore.getWeakLock(safeKey, (_next) => {
+            let avg = Env.plugins?.MONITORING?.average(`getPinState`);
+            const next = () => { _next(); avg?.time(); };
+            Env.workers.send('GET_PIN_INFO', {
+                key: safeKey
+            }, Util.both(next, cb));
+        });
+    };
 
     Env.worker.getDeletedPads = (channels, cb) => {
         let avg = Env.plugins?.MONITORING?.average(`getDeletedPads`);
@@ -578,6 +587,12 @@ const initWorkerCommands = () => {
         Env.workers.send('GET_LAST_CHANNEL_TIME', {
             channel
         }, cb);
+    };
+    Env.worker.readReport = (args, cb) => {
+        Env.workers.send('READ_REPORT', args, cb);
+    };
+    Env.worker.accountArchivalStart = (args, cb) => {
+        Env.workers.send('ACCOUNT_ARCHIVAL_START', args, cb);
     };
 };
 

@@ -10,7 +10,10 @@ const Pinning = require('./pin');
 const BlockStore = require("../storage/block");
 const Moderators = require("./moderators");
 const MFA = require("../storage/mfa");
+const Core = require("../../common/core");
 const Fs = require('node:fs');
+const Fse = require('fs-extra');
+const Path = require('node:path');
 const getFolderSize = require("get-folder-size");
 const nThen = require('nthen');
 
@@ -435,6 +438,126 @@ const onRestoreArchivedDocument = (Env, data, cb) => {
     }
 };
 
+const onGetPinInfo = (Env, args, cb) => {
+    Env.worker.getPinInfo(args.key, cb);
+};
+
+const onReadReport = (Env, args, cb) => {
+    const safeKey = Util.escapeKeyCharacters(args.key);
+    Env.worker.readReport(safeKey, cb);
+};
+
+/* Account Archive and Restore */
+const mkReportPath = function (Env, safeKey) {
+    return Path.join(Env.paths.archive, 'accounts', safeKey);
+};
+
+const storeReport = (Env, report, cb) => {
+    let path = mkReportPath(Env, report.key);
+    let s_data;
+    try {
+        s_data = JSON.stringify(report);
+        Fse.outputFile(path, s_data, cb);
+    } catch (err) {
+        return void cb(err);
+    }
+};
+
+const deleteReport = (Env, key, cb) => {
+    let path = mkReportPath(Env, key);
+    Fse.remove(path, cb);
+};
+const onAccountArchivalStart = (Env, args, cb) => {
+    Env.worker.accountArchivalStart(args, cb);
+};
+
+const onAccountArchivalBlock = (Env, args, cb) => {
+    let { block } = args;
+    const { archiveReason, safeKey } = args;
+
+    nThen((waitFor) => {
+        BlockStore.archive(Env, block, archiveReason, waitFor(function(err) {
+            if (err) {
+                block = undefined;
+                return Env.Log.error('MODERATION_ACCOUNT_BLOCK', err);
+            }
+            Env.Log.info('MODERATION_ACCOUNT_BLOCK', safeKey);
+        }));
+        const SSOUtils = Env.plugins?.SSO?.utils;
+        if (!SSOUtils) { return; }
+        SSOUtils.deleteAccount(Env, block, waitFor((err) => {
+            if (err) {
+                return Env.Log.error('MODERATION_ACCOUNT_BLOCK_SSO', err);
+            }
+        }));
+    }).nThen(() => cb(void 0, block));
+};
+
+const onAccountArchivalEnd = (Env, args, cb) => {
+    const { key, deletedBlobs, deletedChannels, archiveReason, reason } = args;
+    let { block } = args;
+    const safeKey = Util.escapeKeyCharacters(key);
+    nThen((waitFor) => {
+        // Archive the pin log
+        Env.pinStore.archiveChannel(safeKey, undefined, waitFor((err) => {
+            if (err) {
+                return Env.Log.error('MODERATION_ACCOUNT_PIN_LOG', err);
+            }
+            Env.Log.info('MODERATION_ACCOUNT_LOG', safeKey);
+        }));
+        if (!block) { return; }
+
+        const blockData = {block, safeKey, archiveReason};
+        if (!Core.checkStorage(Env, block, 'ADMIN_CMD', { cmd: 'ACCOUNT_ARCHIVAL_BLOCK', data: blockData  }, (err, res) => {
+            if (err) {
+                return Env.Log.error('MODERATION_ACCOUNT_BLOCK', err);
+            }
+            block = res;
+            waitFor();
+        })) {
+            return;
+        }
+        onAccountArchivalBlock(Env, blockData, waitFor((err, res) => {
+            if (err) {
+                return Env.Log.error('MODERATION_ACCOUNT_BLOCK', err);
+            }
+            block = res;
+        }));
+    }).nThen((waitFor) => {
+        const report = {
+            key: safeKey,
+            channels: deletedChannels,
+            blobs: deletedBlobs,
+            blockId: block,
+            reason: reason
+        };
+        storeReport(Env, report, waitFor((err) => {
+            if (err) {
+                return Env.Log.error('MODERATION_ACCOUNT_REPORT', report);
+            }
+        }));
+    }).nThen(() => {
+        const kickReason = `MODERATION_ACCOUNT:${reason}`;
+        let n = nThen;
+        deletedChannels
+        .filter(chanId => Env.getStorageId(chanId) === Env.myId)
+        .forEach((chanId) => {
+            n = n((w) => {
+                setTimeout(w(() => {
+                    Env.CM.disconnectChannelMembers(Env, chanId, 'EDELETED', kickReason, () => { });
+                }), 10);
+            }).nThen;
+        });
+        cb();
+    });;
+};
+const onGetAccountArchiveStatus = (Env, args, cb) => {
+    Env.worker.readReport(args.key, (err, report) => {
+        if (err) { return void cb(err); }
+        cb(void 0, report);
+    });
+};
+
 const onClearCachedChannelIndex = (Env, id, cb) => {
     delete Env.channel_cache?.[id];
     cb();
@@ -500,12 +623,18 @@ const commands = {
     'GET_LAST_CHANNEL_TIME': onGetLastChannelTime,
     'GET_DOCUMENT_STATUS': onGetDocumentStatus,
     'DISABLE_MFA': onDisableMFA,
+    'GET_PIN_INFO': onGetPinInfo,
     'GET_PIN_LIST': onGetPinList,
     'ARCHIVE_BLOCK': onArchiveBlock,
     'RESTORE_ARCHIVED_BLOCK': onRestoreArchivedBlock,
     'ARCHIVE_DOCUMENT': onArchiveDocument,
     'ARCHIVE_DOCUMENTS': onArchiveDocuments,
     'RESTORE_ARCHIVED_DOCUMENT': onRestoreArchivedDocument,
+    'READ_REPORT': onReadReport,
+    'ACCOUNT_ARCHIVAL_START': onAccountArchivalStart,
+    'ACCOUNT_ARCHIVAL_BLOCK': onAccountArchivalBlock,
+    'ACCOUNT_ARCHIVAL_END': onAccountArchivalEnd,
+    'GET_ACCOUNT_ARCHIVE_STATUS': onGetAccountArchiveStatus,
     'CLEAR_CACHED_CHANNEL_INDEX': onClearCachedChannelIndex,
     'GET_CACHED_CHANNEL_INDEX': onGetCachedChannelIndex ,
     'CLEAR_CACHED_CHANNEL_METADATA': onClearCachedChannelMetadata,

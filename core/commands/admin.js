@@ -362,6 +362,60 @@ const archiveOwnedDocuments = (Env, _key, data, cb) => {
     cb("NOT_IMPLEMENTED");
 };
 
+const archiveAccount = (Env, _key, data, _cb) => {
+    const cb = Util.once(_cb);
+    const args = Array.isArray(data) && data[1];
+    if (!args || typeof(args) !== 'object') { return void cb("EINVAL"); }
+    const { key, reason } = args;
+    args.archiveReason = {
+        code: 'MODERATION_ACCOUNT',
+        txt: reason
+    };
+
+    Core.coreToStorage(Env, key, 'ADMIN_CMD', {cmd: 'GET_PIN_INFO', data: args }, (err, ref) => {
+        if (err) { return void cb(err); }
+        const routing = Core.getChannelsStorage(Env, Object.keys(ref.pins || {}));
+        let archivalPromises = Object.keys(routing).map(storageId =>
+            new Promise((resolve, reject) => {
+                Env.interface.sendQuery(storageId, 'ADMIN_CMD', {
+                    cmd: 'ACCOUNT_ARCHIVAL_START',
+                    data: {
+                        list: routing[storageId],
+                        archiveReason: args.archiveReason,
+                        key
+                    }
+                }, res => {
+                    if (res.error) {
+                        return void reject(res.error);
+                    }
+                    resolve(res.data);
+                });
+            })
+        );
+        Promise.all(archivalPromises).then((archived) => {
+            const { deletedBlobs, deletedChannels } = archived.reduce((res, it) => {
+                let ret = {};
+                ret.deletedBlobs = res.deletedBlobs.concat(it.deletedBlobs);
+                ret.deletedChannels = res.deletedChannels.concat(it.deletedChannels);
+                return ret;
+            }, {deletedBlobs: [], deletedChannels: []});
+            Core.coreToStorage(Env, key, 'ADMIN_CMD', { cmd: 'ACCOUNT_ARCHIVAL_END', data: { key, block: args.block || ref.block, deletedBlobs, deletedChannels, archiveReason: args.archiveReason, reason } }, (err) => {
+                if (err) {
+                    Env.Log.error('ARCHIVE_ACCOUNT_ERROR', err);
+                };
+                cb(void 0, { state: true });
+            });
+        }).catch(e => { Env.Log.error(e); return void cb(e); });
+    });
+};
+const getAccountArchiveStatus = (Env, _key, data, _cb) => {
+    const cb = Util.once(_cb);
+    const args = Array.isArray(data) && data[1];
+    if (!args || typeof(args) !== 'object') { return void cb("EINVAL"); }
+    const { key } = args;
+    Core.coreToStorage(Env, key, 'ADMIN_CMD', {cmd: 'GET_ACCOUNT_ARCHIVE_STATUS', data: args }, cb);
+};
+
 const archiveDocument = (Env, _key, data, cb) => {
     const args = Array.isArray(data) && data[1];
     if (!args) { return void cb("EINVAL"); }
@@ -511,9 +565,9 @@ const commands = {
     RESTORE_ARCHIVED_DOCUMENT: restoreArchivedDocument,
 
     // XXX: todo: archive/restore accounts
-    // ARCHIVE_ACCOUNT: archiveAccount,
+    ARCHIVE_ACCOUNT: archiveAccount,
     // RESTORE_ACCOUNT: restoreAccount,
-    // GET_ACCOUNT_ARCHIVE_STATUS: getAccountArchiveStatus,
+    GET_ACCOUNT_ARCHIVE_STATUS: getAccountArchiveStatus,
 
     CLEAR_CACHED_CHANNEL_INDEX: channelIndexCommand('CLEAR_CACHED_CHANNEL_INDEX'),
     GET_CACHED_CHANNEL_INDEX: channelIndexCommand('GET_CACHED_CHANNEL_INDEX'),

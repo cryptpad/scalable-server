@@ -18,6 +18,9 @@ const HKUtil = require("./hk-util.js");
 const Meta = require('./metadata');
 const Pins = require('./pin-manager');
 
+const Path = require('node:path');
+const Fse = require("fs-extra");
+
 const Env = {
     isWorker: true,
     Log: Logger()
@@ -400,6 +403,26 @@ const getPinState = (data, cb) => {
     });
 };
 
+// Get full pin information
+const getPinInfo = (data, cb) => {
+    if (typeof(data.key) !== 'string') {
+        return void cb('INVALID_KEY');
+    }
+    const safeKey = Util.escapeKeyCharacters(data.key);
+    const ref = {};
+    // XXX Pins
+    const lineHandler = Pins.createLineHandler(ref, Env.Log.error);
+
+    // if channels aren't in memory. load them from disk
+    monitoringIncrement('getPin');
+    Env.pinStore.readMessagesBin(safeKey, 0, (msgObj, readMore) => {
+        lineHandler(msgObj.buff.toString('utf8'));
+        readMore();
+    }, () => {
+        cb(void 0, ref);
+    });
+};
+
 const getPinActivity = (data, cb) => {
     const { key } = data;
     if (typeof(key) !== 'string') { return void cb('INVALID_KEY'); }
@@ -644,6 +667,80 @@ const getLastChannelTime = (data, cb) => {
     });
 };
 
+const accountArchivalStart = (args, cb) => {
+    const {list, key, archiveReason} = args;
+    let channelsToArchive = [];
+    let blobsToArchive = [];
+    let deletedChannels = [];
+    let deletedBlobs = [];
+    Env.Log.info('MODERATION_ACCOUNT_ARCHIVAL_START', key);
+    nThen((waitFor) => {
+        let n = nThen;
+        list.forEach((channel) => {
+            n = n((w) => {
+                // Blobs
+                if (Env.blobStore.isFileId(channel)) {
+                    return computeMetadata({ channel }, w((e, md) => {
+                        if (e || !md) { return; }
+                        if (md?.owners?.includes(key)) {
+                            blobsToArchive.push(channel);
+                        }
+                    }));
+                }
+                // Pads
+                computeMetadata({ channel }, w((err, metadata) => {
+                    if (err) { return; } // Can't read metadata? Don't archive
+                    if (!Core.hasOwners(metadata)) { return; } // No owner, don't archive
+                    if (Core.isOwner(metadata, key) && metadata.owners?.length === 1) {
+                        channelsToArchive.push(channel); // Only owner: archive
+                    }
+                }));
+            }).nThen;
+        });
+        n(waitFor());
+    }).nThen((waitFor) => {
+        Env.Log.info('MODERATION_ACCOUNT_ARCHIVAL_LISTED', JSON.stringify({
+            pads: channelsToArchive.length,
+            blobs: blobsToArchive.length
+        }));
+        waitFor();
+
+        let n = nThen;
+        // Archive the pads
+        channelsToArchive.forEach((chanId) => {
+            n = n((w) => {
+                Env.store.archiveChannel(chanId, archiveReason, w(function (err) {
+                    if (err) {
+                        return Env.Log.error('MODERATION_CHANNEL_ARCHIVAL_ERROR', {
+                            error: err,
+                            channel: chanId,
+                        });
+                    }
+                    deletedChannels.push(chanId);
+                    Env.Log.info('MODERATION_CHANNEL_ARCHIVAL', chanId);
+                }));
+            }).nThen;
+        });
+        // Archive the blobs
+        blobsToArchive.forEach((blobId) => {
+            n = n((w) => {
+                Env.blobStore.archive.blob(blobId, archiveReason, w(function (err) {
+                    if (err) {
+                        return Env.Log.error('MODERATION_BLOB_ARCHIVAL_ERROR', {
+                            error: err,
+                            item: blobId,
+                        });
+                    }
+                    deletedBlobs.push(blobId);
+                    Env.Log.info('MODERATION_BLOB_ARCHIVAL', blobId);
+                }));
+            }).nThen;
+        });
+        n(waitFor(() => {
+            return void cb(void 0, { deletedBlobs, deletedChannels });
+        }));
+    });
+};
 const COMMANDS = {
     NEW_DECREES: onNewDecrees,
 
@@ -656,6 +753,7 @@ const COMMANDS = {
     GET_MULTIPLE_FILE_SIZE: getMultipleFileSize,
     GET_TOTAL_SIZE: getTotalSize,
     GET_PIN_STATE: getPinState,
+    GET_PIN_INFO: getPinInfo,
     GET_PIN_ACTIVITY: getPinActivity,
     GET_DELETED_PADS: getDeletedPads,
     HASH_CHANNEL_LIST: hashChannelList,
@@ -666,7 +764,10 @@ const COMMANDS = {
     COMPLETE_UPLOAD: completeUpload,
 
     RUN_TASKS: runTasks,
-    WRITE_TASK: writeTask
+    WRITE_TASK: writeTask,
+
+    READ_REPORT: readReport,
+    ACCOUNT_ARCHIVAL_START: accountArchivalStart,
 };
 
 let ready = false;
