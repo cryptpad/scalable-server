@@ -408,6 +408,55 @@ const archiveAccount = (Env, _key, data, _cb) => {
         }).catch(e => { Env.Log.error(e); return void cb(e); });
     });
 };
+
+const restoreAccount = (Env, _key, data, _cb) => {
+    const cb = Util.once(_cb);
+    const args = Array.isArray(data) && data[1];
+    if (!args || typeof(args) !== 'object') { return void cb("EINVAL"); }
+    const { key } = args;
+    let pads, blobs, blockId;
+    Core.coreToStorage(Env, key, 'ADMIN_CMD', { cmd: 'READ_REPORT', data: args }, (err, report) => {
+        if (err) { throw new Error(err); }
+        pads = report.channels;
+        blobs = report.blobs;
+        blockId = report.blockId;
+        let errors = [];
+
+        const routedPads = Core.getChannelsStorage(Env, pads);
+        const routedBlobs = Core.getChannelsStorage(Env, blobs);
+        const targets = Array.from(new Set(Object.keys(routedPads).concat(Object.keys(routedBlobs))));
+        const restorePromises = targets.map(storageId =>
+            new Promise((resolve, reject) => {
+                const data = {
+                    pads: routedPads[storageId] || [],
+                    blobs: routedBlobs[storageId] || [],
+                };
+                Env.interface.sendQuery(storageId, 'ADMIN_CMD', {cmd: 'ACCOUNT_RESTORE_START', data}, res => {
+                    if (res.error) { reject(res.error); }
+                    resolve(res.data);
+                });
+            })
+        );
+        Promise.all(restorePromises).then((errs) => {
+            errors = errors.concat(errs);
+            Core.coreToStorage(Env, key, 'ADMIN_CMD', { cmd: 'ACCOUNT_RESTORE_END', data: { key, blockId } }, (err) => {
+                if (err) {
+                    Env.Log.error('ARCHIVE_RESTORE_ERROR', err);
+                };
+
+                Env.Log.info('RESTORE_ACCOUNT_BY_ADMIN', {
+                    safeKey: Util.escapeKeyCharacters(args.key),
+                    reason: args.reason,
+                });
+                cb(void 0, {
+                    state: true,
+                    errors
+                });
+            });
+        }).catch(e => { Env.Log.error(e); return void cb(e); });
+    });
+};
+
 const getAccountArchiveStatus = (Env, _key, data, _cb) => {
     const cb = Util.once(_cb);
     const args = Array.isArray(data) && data[1];
@@ -566,7 +615,7 @@ const commands = {
 
     // XXX: todo: archive/restore accounts
     ARCHIVE_ACCOUNT: archiveAccount,
-    // RESTORE_ACCOUNT: restoreAccount,
+    RESTORE_ACCOUNT: restoreAccount,
     GET_ACCOUNT_ARCHIVE_STATUS: getAccountArchiveStatus,
 
     CLEAR_CACHED_CHANNEL_INDEX: channelIndexCommand('CLEAR_CACHED_CHANNEL_INDEX'),

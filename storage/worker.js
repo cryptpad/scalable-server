@@ -702,8 +702,7 @@ const accountArchivalStart = (args, cb) => {
         Env.Log.info('MODERATION_ACCOUNT_ARCHIVAL_LISTED', JSON.stringify({
             pads: channelsToArchive.length,
             blobs: blobsToArchive.length
-        }));
-        waitFor();
+        }), waitFor());
 
         let n = nThen;
         // Archive the pads
@@ -714,10 +713,10 @@ const accountArchivalStart = (args, cb) => {
                         return Env.Log.error('MODERATION_CHANNEL_ARCHIVAL_ERROR', {
                             error: err,
                             channel: chanId,
-                        });
+                        }, w());
                     }
                     deletedChannels.push(chanId);
-                    Env.Log.info('MODERATION_CHANNEL_ARCHIVAL', chanId);
+                    Env.Log.info('MODERATION_CHANNEL_ARCHIVAL', chanId, w());
                 }));
             }).nThen;
         });
@@ -729,10 +728,10 @@ const accountArchivalStart = (args, cb) => {
                         return Env.Log.error('MODERATION_BLOB_ARCHIVAL_ERROR', {
                             error: err,
                             item: blobId,
-                        });
+                        }, w());
                     }
                     deletedBlobs.push(blobId);
-                    Env.Log.info('MODERATION_BLOB_ARCHIVAL', blobId);
+                    Env.Log.info('MODERATION_BLOB_ARCHIVAL', blobId, w());
                 }));
             }).nThen;
         });
@@ -741,6 +740,58 @@ const accountArchivalStart = (args, cb) => {
         }));
     });
 };
+
+const mkReportPath = function (safeKey) {
+    return Path.join(Env.paths.archive, 'accounts', safeKey);
+};
+
+const readReport = (key, cb) => {
+    let path = mkReportPath(key);
+    Fse.readJson(path, cb);
+};
+const accountRestoreStart = (args, cb) => {
+    let errors = [];
+    const { pads, blobs } = args;
+    nThen((waitFor) => {
+        Env.Log.info('MODERATION_ACCOUNT_RESTORE_LISTED', JSON.stringify({
+            pads: pads.length,
+            blobs: blobs.length
+        }), waitFor());
+        var n = nThen;
+        pads.forEach((chanId) => {
+            n = n((w) => {
+                Env.store.restoreArchivedChannel(chanId, w(function (err) {
+                    if (err) {
+                        errors.push(chanId);
+                        return Env.Log.error('MODERATION_CHANNEL_RESTORE_ERROR', {
+                            error: err,
+                            channel: chanId,
+                        }, w());
+                    }
+                    Env.Log.info('MODERATION_CHANNEL_RESTORE', chanId, w());
+                }));
+            }).nThen;
+        });
+        blobs.forEach((blobId) => {
+            n = n((w) => {
+                Env.blobStore.restore.blob(blobId, w(function (err) {
+                    if (err) {
+                        errors.push(blobId);
+                        return Env.Log.error('MODERATION_BLOB_RESTORE_ERROR', {
+                            error: err,
+                            item: blobId,
+                        }, w());
+                    }
+                    Env.Log.info('MODERATION_BLOB_RESTORE', blobId, w());
+                }));
+            }).nThen;
+        });
+        n(waitFor());
+    }).nThen(() => {
+        cb(void 0, errors);
+    });;
+};
+
 const COMMANDS = {
     NEW_DECREES: onNewDecrees,
 
@@ -768,6 +819,7 @@ const COMMANDS = {
 
     READ_REPORT: readReport,
     ACCOUNT_ARCHIVAL_START: accountArchivalStart,
+    ACCOUNT_RESTORE_START: accountRestoreStart,
 };
 
 let ready = false;

@@ -558,6 +558,69 @@ const onAccountArchivalEnd = (Env, args, cb) => {
     cb();
 };
 
+const onAccountRestoreStart = (Env, args, cb) => {
+    Env.worker.accountRestoreStart(args, cb);
+};
+
+const onAccountRestoreBlock = (Env, args, cb) => {
+    const { safeKey } = args;
+    let { blockId } = args;
+
+    nThen((waitFor) => {
+        BlockStore.restore(Env, blockId, waitFor(function(err) {
+            if (err) {
+                blockId = undefined;
+                return Env.Log.error('MODERATION_ACCOUNT_BLOCK_RESTORE', err, waitFor());
+            }
+            Env.Log.info('MODERATION_ACCOUNT_BLOCK_RESTORE', safeKey, waitFor());
+        }));
+        const SSOUtils = Env.plugins?.SSO?.utils;
+        if (!SSOUtils) { return; }
+        SSOUtils.restoreAccount(Env, blockId, waitFor(function(err) {
+            if (err) {
+                return Env.Log.error('MODERATION_ACCOUNT_BLOCK_RESTORE_SSO', err, waitFor());
+            }
+        }
+        ));
+    }).nThen(() => { cb(void 0, blockId); });
+};
+
+const onAccountRestoreEnd = (Env, args, cb) => {
+    const { key } = args;
+    let { blockId } = args;
+    const safeKey = Util.escapeKeyCharacters(key);
+
+    nThen((waitFor) => {
+        Env.pinStore.restoreArchivedChannel(safeKey, waitFor(function(err) {
+            if (err) {
+                return Env.Log.error('MODERATION_ACCOUNT_PIN_LOG_RESTORE', err, waitFor());
+            }
+            Env.Log.info('MODERATION_ACCOUNT_LOG_RESTORE', safeKey, waitFor());
+        }));
+        if (!blockId) { return; }
+        if (!Core.checkStorage(Env, blockId, 'ADMIN_CMD', { cmd: 'ACCOUNT_RESTORE_BLOCK', data: { blockId, safeKey } }, waitFor((err, block) => {
+            if (err) {
+                Env.Log.error('MODERATION_ACCOUNT_BLOCK_RESTORE', err, waitFor());
+            }
+            blockId = block;
+        }))) {
+            return;
+        }
+        onAccountRestoreBlock(Env, { blockId, safeKey }, waitFor((err, block) => {
+            if (err) {
+                Env.Log.error('MODERATION_ACCOUNT_BLOCK_RESTORE', err, waitFor());
+            }
+            blockId = block;
+        }));
+    }).nThen((waitFor) => {
+        deleteReport(Env, safeKey, waitFor((err) => {
+            if (err) {
+                return Env.Log.error('MODERATION_ACCOUNT_REPORT_DELETE', safeKey, waitFor());
+            }
+        }));
+    }).nThen(() => cb());;
+};
+
 const onGetAccountArchiveStatus = (Env, args, cb) => {
     const safeKey = Util.escapeKeyCharacters(args.key);
     Env.worker.readReport(safeKey, (err, report) => {
@@ -642,6 +705,9 @@ const commands = {
     'ACCOUNT_ARCHIVAL_START': onAccountArchivalStart,
     'ACCOUNT_ARCHIVAL_BLOCK': onAccountArchivalBlock,
     'ACCOUNT_ARCHIVAL_END': onAccountArchivalEnd,
+    'ACCOUNT_RESTORE_START': onAccountRestoreStart,
+    'ACCOUNT_RESTORE_BLOCK': onAccountRestoreBlock,
+    'ACCOUNT_RESTORE_END': onAccountRestoreEnd,
     'GET_ACCOUNT_ARCHIVE_STATUS': onGetAccountArchiveStatus,
     'CLEAR_CACHED_CHANNEL_INDEX': onClearCachedChannelIndex,
     'GET_CACHED_CHANNEL_INDEX': onGetCachedChannelIndex ,

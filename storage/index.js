@@ -594,6 +594,9 @@ const initWorkerCommands = () => {
     Env.worker.accountArchivalStart = (args, cb) => {
         Env.workers.send('ACCOUNT_ARCHIVAL_START', args, cb);
     };
+    Env.worker.accountRestoreStart = (args, cb) => {
+        Env.workers.send('ACCOUNT_RESTORE_START', args, cb);
+    };
 };
 
 const initAccountsIntervals = () => {
