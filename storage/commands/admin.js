@@ -552,7 +552,8 @@ const onAccountArchivalEnd = (Env, args, cb) => {
     });;
 };
 const onGetAccountArchiveStatus = (Env, args, cb) => {
-    Env.worker.readReport(args.key, (err, report) => {
+    const safeKey = Util.escapeKeyCharacters(args.key);
+    Env.worker.readReport(safeKey, (err, report) => {
         if (err) { return void cb(err); }
         cb(void 0, report);
     });
