@@ -553,6 +553,7 @@ const onAccountArchivalEnd = (Env, args, cb) => {
                     }).nThen;
                 });
             }
+            // XXX: contact other storages to disconnect channels
         });
     });
     cb();
