@@ -493,6 +493,18 @@ const onAccountArchivalBlock = (Env, args, cb) => {
     }).nThen(() => { cb(void 0, block); });
 };
 
+const onDisconnectChannelMembers = (Env, args) => {
+    const {list, kickReason} = args;
+    let n = nThen;
+    list.forEach((chanId) => {
+        n = n((w) => {
+            setTimeout(w(() => {
+                Env.CM.disconnectChannelMembers(Env, chanId, 'EDELETED', kickReason, () => { });
+            }), 10);
+        }).nThen;
+    });
+};
+
 const onAccountArchivalEnd = (Env, args, cb) => {
     const { key, deletedBlobs, deletedChannels, archiveReason, reason } = args;
     let { block } = args;
@@ -540,22 +552,25 @@ const onAccountArchivalEnd = (Env, args, cb) => {
         }));
     }).nThen(() => {
         const kickReason = `MODERATION_ACCOUNT:${reason}`;
-        let n = nThen;
         const routing = Core.getChannelsStorage(Env, deletedChannels);
         Object.keys(routing).forEach((storageId) => {
-            if (storageId === Env.myID) {
-                routing[storageId]?.forEach((chanId) => {
-                    n = n((w) => {
-                        setTimeout(w(() => {
-                            Env.CM.disconnectChannelMembers(Env, chanId, 'EDELETED', kickReason, () => { });
-                        }), 10);
-                    }).nThen;
+            if (storageId === Env.myId) {
+                onDisconnectChannelMembers(Env, {
+                    list: routing[storageId],
+                    kickReason
+                });
+            } else {
+                Env.interface.sendEvent(storageId, 'ADMIN_CMD', {
+                    cmd: 'DISCONNECT_CHANNEL_MEMBERS',
+                    data: {
+                        list: routing[storageId],
+                        kickReason
+                    }
                 });
             }
-            // XXX: contact other storages to disconnect channels
         });
+        cb();
     });
-    cb();
 };
 
 const onAccountRestoreStart = (Env, args, cb) => {
@@ -610,7 +625,6 @@ const onAccountRestoreEnd = (Env, args, cb) => {
                 if (err) {
                     Env.Log.error('MODERATION_ACCOUNT_BLOCK_RESTORE', err, waitFor());
                 }
-                console.error('XXX: restored', blockId);
                 blockId = block;
             }));
         }
@@ -710,6 +724,7 @@ const commands = {
     'ACCOUNT_RESTORE_START': onAccountRestoreStart,
     'ACCOUNT_RESTORE_BLOCK': onAccountRestoreBlock,
     'ACCOUNT_RESTORE_END': onAccountRestoreEnd,
+    'DISCONNECT_CHANNEL_MEMBERS': onDisconnectChannelMembers,
     'GET_ACCOUNT_ARCHIVE_STATUS': onGetAccountArchiveStatus,
     'CLEAR_CACHED_CHANNEL_INDEX': onClearCachedChannelIndex,
     'GET_CACHED_CHANNEL_INDEX': onGetCachedChannelIndex ,
