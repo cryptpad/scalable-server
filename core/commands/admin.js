@@ -416,7 +416,12 @@ const restoreAccount = (Env, _key, data, _cb) => {
     const { key } = args;
     let pads, blobs, blockId;
     Core.coreToStorage(Env, key, 'ADMIN_CMD', { cmd: 'READ_REPORT', data: args }, (err, report) => {
-        if (err) { throw new Error(err); }
+        if (err) {
+            if (err === 'ENOENT') {
+                return cb(err);
+            }
+            throw new Error(err);
+        }
         pads = report.channels;
         blobs = report.blobs;
         blockId = report.blockId;

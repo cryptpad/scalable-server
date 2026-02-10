@@ -444,7 +444,11 @@ const onGetPinInfo = (Env, args, cb) => {
 
 const onReadReport = (Env, args, cb) => {
     const safeKey = Util.escapeKeyCharacters(args.key);
-    Env.worker.readReport(safeKey, cb);
+    Env.pinStore.isChannelArchived(safeKey, (err, exists) => {
+        if (err) { return cb(err); }
+        if (!exists) { return cb('ENOENT'); }
+        Env.worker.readReport(safeKey, cb);
+    });
 };
 
 /* Account Archive and Restore */

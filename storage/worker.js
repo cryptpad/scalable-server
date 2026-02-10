@@ -409,17 +409,22 @@ const getPinInfo = (data, cb) => {
         return void cb('INVALID_KEY');
     }
     const safeKey = Util.escapeKeyCharacters(data.key);
-    const ref = {};
     // XXX Pins
-    const lineHandler = Pins.createLineHandler(ref, Env.Log.error);
+    Env.pinStore.isChannelArchived(safeKey, (err, exists) => {
+        if (err) { return cb(err); }
+        if (exists) { return cb('ENOENT'); }
+        const ref = {};
 
-    // if channels aren't in memory. load them from disk
-    monitoringIncrement('getPin');
-    Env.pinStore.readMessagesBin(safeKey, 0, (msgObj, readMore) => {
-        lineHandler(msgObj.buff.toString('utf8'));
-        readMore();
-    }, () => {
-        cb(void 0, ref);
+        const lineHandler = Pins.createLineHandler(ref, Env.Log.error);
+
+        // if channels aren't in memory. load them from disk
+        monitoringIncrement('getPin');
+        Env.pinStore.readMessagesBin(safeKey, 0, (msgObj, readMore) => {
+            lineHandler(msgObj.buff.toString('utf8'));
+            readMore();
+        }, () => {
+            cb(void 0, ref);
+        });
     });
 };
 
