@@ -509,7 +509,6 @@ const onAccountArchivalEnd = (Env, args, cb) => {
 
         const blockData = { block, safeKey, archiveReason };
         if (Env.getStorageId(block) !== Env.myId) {
-
             Core.storageToStorage(Env, block, 'ADMIN_CMD', { cmd: 'ACCOUNT_ARCHIVAL_BLOCK', data: blockData }, waitFor((err, res) => {
                 if (err) {
                     return Env.Log.error('MODERATION_ACCOUNT_BLOCK', err, waitFor());
