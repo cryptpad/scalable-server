@@ -508,8 +508,8 @@ const onAccountArchivalEnd = (Env, args, cb) => {
         if (!block) { return; }
 
         const blockData = { block, safeKey, archiveReason };
-        if (Env.getStorageId(block) !== Env.myId ) { // XXX: change to checkstorage
-        
+        if (Env.getStorageId(block) !== Env.myId) {
+
             Core.storageToStorage(Env, block, 'ADMIN_CMD', { cmd: 'ACCOUNT_ARCHIVAL_BLOCK', data: blockData }, waitFor((err, res) => {
                 if (err) {
                     return Env.Log.error('MODERATION_ACCOUNT_BLOCK', err, waitFor());
@@ -599,20 +599,22 @@ const onAccountRestoreEnd = (Env, args, cb) => {
             Env.Log.info('MODERATION_ACCOUNT_LOG_RESTORE', safeKey, waitFor());
         }));
         if (!blockId) { return; }
-        if (!Core.checkStorage(Env, blockId, 'ADMIN_CMD', { cmd: 'ACCOUNT_RESTORE_BLOCK', data: { blockId, safeKey } }, waitFor((err, block) => {
-            if (err) {
-                Env.Log.error('MODERATION_ACCOUNT_BLOCK_RESTORE', err, waitFor());
-            }
-            blockId = block;
-        }))) {
-            return;
+        if (Env.getStorageId(blockId) !== Env.myId) {
+            Core.storageToStorage(Env, blockId, 'ADMIN_CMD', { cmd: 'ACCOUNT_RESTORE_BLOCK', data: { blockId, safeKey } }, waitFor((err, block) => {
+                if (err) {
+                    Env.Log.error('MODERATION_ACCOUNT_BLOCK_RESTORE', err, waitFor());
+                }
+                blockId = block;
+            }));
+        } else {
+            onAccountRestoreBlock(Env, { blockId, safeKey }, waitFor((err, block) => {
+                if (err) {
+                    Env.Log.error('MODERATION_ACCOUNT_BLOCK_RESTORE', err, waitFor());
+                }
+                console.error('XXX: restored', blockId);
+                blockId = block;
+            }));
         }
-        onAccountRestoreBlock(Env, { blockId, safeKey }, waitFor((err, block) => {
-            if (err) {
-                Env.Log.error('MODERATION_ACCOUNT_BLOCK_RESTORE', err, waitFor());
-            }
-            blockId = block;
-        }));
     }).nThen((waitFor) => {
         deleteReport(Env, safeKey, waitFor((err) => {
             if (err) {
