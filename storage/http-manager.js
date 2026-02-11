@@ -155,6 +155,25 @@ const create = (Env, app) => {
                 next();
             }
         }).nThen((w) => {
+            // Block is protected with 2FA or SSO, make sure it still exists
+            const url = req.url;
+            if (typeof(url) !== "string") { return; }
+            const s = url.split('/');
+            const id = s[2];
+            if (!(s[1]?.length === 2 && BlockStore.isValidKey(id))) { return; }
+            BlockStore.isAvailable(Env, id, w((err, val) => {
+                if (err) { return; }
+                if (val !== false) { return; }
+                // Block doesn't exist, send the placeholder
+                w.abort();
+                return BlockStore.readPlaceholder(Env, id, reason => {
+                    res.status(404).json({
+                        reason,
+                        code: 404
+                    });
+                });
+            }));
+        }).nThen((w) => {
             // We should only be able to reach this logic
             // if we successfully loaded and parsed some JSON
             // representing the user's MFA and/or SSO settings.

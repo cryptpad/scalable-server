@@ -487,6 +487,7 @@ const onAccountArchivalBlock = (Env, args, cb) => {
             }
             Env.Log.info('MODERATION_ACCOUNT_BLOCK', safeKey, waitFor());
         }));
+        MFA.delete(Env, block, waitFor());
         const SSOUtils = Env.plugins?.SSO?.utils;
         if (!SSOUtils) { return; }
         SSOUtils.deleteAccount(Env, block, waitFor((err) => {
