@@ -582,6 +582,23 @@ const argsCommand = (cmd) => (Env, _key, data, cb) => {
     Core.coreToStorage(Env, key, 'ADMIN_CMD', { cmd, data: args }, cb);
 };
 
+const changeColor = (Env, unsafeKey, data, cb) => {
+    const args = Array.isArray(data) && data[1];
+    if (!args || typeof(args) !== 'object') { return void cb("EINVAL"); }
+    let color = args.color;
+    Admin.sendDecree(Env, unsafeKey, ['CHANGE_COLOR', [
+        'SET_ACCENT_COLOR',
+        [color]
+    ]], (err) => {
+        if (err) { return void cb(err); }
+        flushCache(Env, unsafeKey, {}, (err) => {
+            if (err) {
+                Env.log.error('ADMIN_CHANGE_COLOR_FLUSH_CACHE', err);
+            }
+        });
+        cb(void 0, true);
+    });
+};
 
 const commands = {
     ACTIVE_SESSIONS: getActiveSessions,
@@ -650,6 +667,8 @@ const commands = {
     GET_MODERATORS: getModerators,
     ADD_MODERATOR: addModerator,
     REMOVE_MODERATOR: removeModerator,
+
+    CHANGE_COLOR: changeColor,
 };
 
 let pluginsInitialized = false;
