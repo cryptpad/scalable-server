@@ -7,7 +7,7 @@
     "body-parser": "^2.2.0",
     "connect-gzip-static": "^4.2.1",
     "cookie-parser": "^1.4.7",
-    "express": "~4.21.2",
+    "express": "~4.22.1",
     "fs-extra": "^7.0.0",
     "get-folder-size": "^2.0.1",
     "http-proxy-middleware": "^3.0.3",
