@@ -445,15 +445,21 @@ const restoreAccount = (Env, _key, data, _cb) => {
                     pads: routedPads[storageId] || [],
                     blobs: routedBlobs[storageId] || [],
                 };
-                Env.interface.sendQuery(storageId, 'ADMIN_CMD', {cmd: 'ACCOUNT_RESTORE_START', data}, res => {
+                Env.interface.sendQuery(storageId, 'ADMIN_CMD', {
+                    cmd: 'ACCOUNT_RESTORE_START',
+                    data
+                }, res => {
                     if (res.error) { reject(res.error); }
                     resolve(res.data);
                 });
             })
         );
         Promise.all(restorePromises).then((errs) => {
-            errors = errors.concat(errs);
-            Core.coreToStorage(Env, key, 'ADMIN_CMD', { cmd: 'ACCOUNT_RESTORE_END', data: { key, blockId } }, (err) => {
+            errors.push(...errs);
+            Core.coreToStorage(Env, key, 'ADMIN_CMD', {
+                cmd: 'ACCOUNT_RESTORE_END',
+                data: { key, blockId }
+            }, (err) => {
                 if (err) {
                     Env.Log.error('ARCHIVE_RESTORE_ERROR', err);
                 };
@@ -476,22 +482,31 @@ const getAccountArchiveStatus = (Env, _key, data, _cb) => {
     const args = Array.isArray(data) && data[1];
     if (!args || typeof(args) !== 'object') { return void cb("EINVAL"); }
     const { key } = args;
-    Core.coreToStorage(Env, key, 'ADMIN_CMD', {cmd: 'GET_ACCOUNT_ARCHIVE_STATUS', data: args }, cb);
+    Core.coreToStorage(Env, key, 'ADMIN_CMD', {
+        cmd: 'GET_ACCOUNT_ARCHIVE_STATUS',
+        data: args
+    }, cb);
 };
 
 const archiveDocument = (Env, _key, data, cb) => {
     const args = Array.isArray(data) && data[1];
     if (!args) { return void cb("EINVAL"); }
     let id, reason;
-    if (typeof(args) === 'string') {
+    if (typeof (args) === 'string') {
         id = args;
-    } else if (args && typeof(args) === 'object') {
+    } else if (args && typeof (args) === 'object') {
         id = args.id;
         reason = args.reason;
     }
-    if (typeof(id) !== 'string' || id.length < 32) { return void cb("EINVAL"); }
+    if (typeof (id) !== 'string' || id.length < 32) { return void cb("EINVAL"); }
 
-    Core.coreToStorage(Env, id, 'ADMIN_CMD', { cmd: 'ARCHIVE_DOCUMENT', data: { id, reason } }, cb);
+    Core.coreToStorage(Env, id, 'ADMIN_CMD', {
+        cmd: 'ARCHIVE_DOCUMENT',
+        data: {
+            id,
+            reason
+        }
+    }, cb);
 };
 
 const archiveDocuments = (Env, _key, data, cb) => {
