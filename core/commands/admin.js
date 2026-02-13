@@ -644,7 +644,6 @@ const commands = {
     ARCHIVE_DOCUMENTS: archiveDocuments,
     RESTORE_ARCHIVED_DOCUMENT: restoreArchivedDocument,
 
-    // XXX: todo: archive/restore accounts
     ARCHIVE_ACCOUNT: archiveAccount,
     RESTORE_ACCOUNT: restoreAccount,
     GET_ACCOUNT_ARCHIVE_STATUS: getAccountArchiveStatus,
