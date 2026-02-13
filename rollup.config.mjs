@@ -2,11 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import {nodeResolve} from "@rollup/plugin-node-resolve";
 import commonjs from '@rollup/plugin-commonjs';
 import typescript from '@rollup/plugin-typescript';
 import terser from '@rollup/plugin-terser';
 import json from '@rollup/plugin-json';
+//import {nodeResolve} from "@rollup/plugin-node-resolve";
+import nodeExternals from 'rollup-plugin-node-externals';
 
 const type = process.env.TYPE;
 
@@ -26,8 +27,9 @@ const getPlugins = () => {
     return [
         json(),
         typescript(),
-        nodeResolve({
-        }),
+        /*nodeResolve({
+        }),*/
+        nodeExternals(),
         commonjs({
             ignoreDynamicRequires: true,
             dynamicRequireTargets: ['../plugins/*.js'],

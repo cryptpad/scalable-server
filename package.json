@@ -3,6 +3,7 @@
   "description": "CryptPad server",
   "version": "0.0.1",
   "license": "AGPL-3.0+",
+  "main": "index.js",
   "dependencies": {
     "body-parser": "^2.2.0",
     "connect-gzip-static": "^4.2.1",
@@ -36,6 +37,7 @@
     "globals": "^16.3.0",
     "netflux-websocket": "cryptpad/netflux-websocket#scalable",
     "rollup": "^4.24.0",
+    "rollup-plugin-node-externals": "^8.1.2",
     "tslib": "^2.7.0",
     "typescript": "^5.6.2"
   },
