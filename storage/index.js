@@ -510,7 +510,7 @@ const initWorkerCommands = () => {
             channels: channels,
         }, cb);
     };
-    Env.getPinState = (safeKey, cb) => {
+    Env.worker.getPinState = (safeKey, cb) => {
         Env.pinStore.getWeakLock(safeKey, (_next) => {
             let avg = Env.plugins?.MONITORING?.average(`getPinState`);
             const next = () => { _next(); avg?.time(); };
@@ -543,13 +543,13 @@ const initWorkerCommands = () => {
             channels: channels,
         }, next);
     };
-    Env.hashChannelList = (channels, cb) => {
+    Env.worker.hashChannelList = (channels, cb) => {
         Env.workers.send('HASH_CHANNEL_LIST', {
             channels: channels,
         }, cb);
     };
 
-    Env.completeUpload = (safeKey, arg, owned, size, cb) => {
+    Env.worker.completeUpload = (safeKey, arg, owned, size, cb) => {
         Env.workers.send('COMPLETE_UPLOAD', {
             safeKey, arg, owned, size
         }, cb);

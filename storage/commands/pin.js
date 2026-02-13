@@ -86,7 +86,7 @@ const loadUserPins = (Env, safeKey, cb) => {
     }
 
     Env.batchUserPins(safeKey, cb, (done) => {
-        Env.getPinState(safeKey, (err, value) => {
+        Env.worker.getPinState(safeKey, (err, value) => {
             if (!err) {
                 // only put this into the cache if it completes
                 session.channels = value;
@@ -238,7 +238,7 @@ const getFreeSpace = Pinning.getFreeSpace = (Env, safeKey, cb) => {
 
 Pinning.getHash = (Env, safeKey, cb) => {
     getChannelList(Env, safeKey, (channels) => {
-        Env.hashChannelList(channels, cb);
+        Env.worker.hashChannelList(channels, cb);
     });
 };
 

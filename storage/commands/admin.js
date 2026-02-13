@@ -107,7 +107,7 @@ const onGetPinActivity = (Env, data, cb) => {
 const onGetUserStorageStats = (Env, data, cb) => {
     // Have been previously validated
     const { key } = data;
-    Env.getPinState(key, function (err, value) {
+    Env.worker.getPinState(key, function (err, value) {
         if (err) { return void cb(err); }
         try {
             const res = {
@@ -153,7 +153,7 @@ const onGetPinList = (Env, data, cb) => {
     const { key } = data;
     const safeKey = Util.escapeKeyCharacters(key);
 
-    Env.getPinState(safeKey, function (err, value) {
+    Env.worker.getPinState(safeKey, function (err, value) {
         if (err) { return void cb(err); }
         try {
             return void cb(void 0, Object.keys(value).filter(k => value[k]));
