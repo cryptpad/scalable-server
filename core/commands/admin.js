@@ -372,7 +372,7 @@ const archiveAccount = (Env, _key, data, _cb) => {
         txt: reason
     };
 
-    Core.coreToStorage(Env, key, 'ADMIN_CMD', {cmd: 'GET_PIN_INFO', data: args }, (err, ref) => {
+    Core.coreToStorage(Env, key, 'ADMIN_CMD', { cmd: 'GET_PIN_INFO', data: args }, (err, ref) => {
         if (err) { return void cb(err); }
         const routing = Core.getChannelsStorage(Env, Object.keys(ref.pins || {}));
         let archivalPromises = Object.keys(routing).map(storageId =>
@@ -394,12 +394,21 @@ const archiveAccount = (Env, _key, data, _cb) => {
         );
         Promise.all(archivalPromises).then((archived) => {
             const { deletedBlobs, deletedChannels } = archived.reduce((res, it) => {
-                let ret = {};
-                ret.deletedBlobs = res.deletedBlobs.concat(it.deletedBlobs);
-                ret.deletedChannels = res.deletedChannels.concat(it.deletedChannels);
-                return ret;
-            }, {deletedBlobs: [], deletedChannels: []});
-            Core.coreToStorage(Env, key, 'ADMIN_CMD', { cmd: 'ACCOUNT_ARCHIVAL_END', data: { key, block: args.block || ref.block, deletedBlobs, deletedChannels, archiveReason: args.archiveReason, reason } }, (err) => {
+                res.deletedBlobs.push(...(it.deletedBlobs || []));
+                res.deletedChannels.push(...(it.deletedChannels || []));
+                return res;
+            }, { deletedBlobs: [], deletedChannels: [] });
+            Core.coreToStorage(Env, key, 'ADMIN_CMD', {
+                cmd: 'ACCOUNT_ARCHIVAL_END',
+                data: {
+                    key,
+                    block: args.block || ref.block,
+                    deletedBlobs,
+                    deletedChannels,
+                    archiveReason: args.archiveReason,
+                    reason
+                }
+            }, (err) => {
                 if (err) {
                     Env.Log.error('ARCHIVE_ACCOUNT_ERROR', err);
                 };
