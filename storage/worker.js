@@ -410,9 +410,9 @@ const getPinInfo = (data, cb) => {
     }
     const safeKey = Util.escapeKeyCharacters(data.key);
     // XXX Pins
-    Env.pinStore.isChannelArchived(safeKey, (err, exists) => {
+    Env.pinStore.isChannelAvailable(safeKey, (err, exists) => {
         if (err) { return cb(err); }
-        if (exists) { return cb('ENOENT'); }
+        if (!exists) { return cb('ENOENT'); }
         const ref = {};
 
         const lineHandler = Pins.createLineHandler(ref, Env.Log.error);

@@ -372,7 +372,7 @@ const archiveAccount = (Env, _key, data, _cb) => {
         txt: reason
     };
 
-    Core.coreToStorage(Env, key, 'ADMIN_CMD', {cmd: 'GET_PIN_INFO', data: args }, (err, ref) => {
+    Core.coreToStorage(Env, key, 'ADMIN_CMD', { cmd: 'GET_PIN_INFO', data: args }, (err, ref) => {
         if (err) { return void cb(err); }
         const routing = Core.getChannelsStorage(Env, Object.keys(ref.pins || {}));
         let archivalPromises = Object.keys(routing).map(storageId =>
@@ -394,12 +394,21 @@ const archiveAccount = (Env, _key, data, _cb) => {
         );
         Promise.all(archivalPromises).then((archived) => {
             const { deletedBlobs, deletedChannels } = archived.reduce((res, it) => {
-                let ret = {};
-                ret.deletedBlobs = res.deletedBlobs.concat(it.deletedBlobs);
-                ret.deletedChannels = res.deletedChannels.concat(it.deletedChannels);
-                return ret;
-            }, {deletedBlobs: [], deletedChannels: []});
-            Core.coreToStorage(Env, key, 'ADMIN_CMD', { cmd: 'ACCOUNT_ARCHIVAL_END', data: { key, block: args.block || ref.block, deletedBlobs, deletedChannels, archiveReason: args.archiveReason, reason } }, (err) => {
+                res.deletedBlobs.push(...(it.deletedBlobs || []));
+                res.deletedChannels.push(...(it.deletedChannels || []));
+                return res;
+            }, { deletedBlobs: [], deletedChannels: [] });
+            Core.coreToStorage(Env, key, 'ADMIN_CMD', {
+                cmd: 'ACCOUNT_ARCHIVAL_END',
+                data: {
+                    key,
+                    block: args.block || ref.block,
+                    deletedBlobs,
+                    deletedChannels,
+                    archiveReason: args.archiveReason,
+                    reason
+                }
+            }, (err) => {
                 if (err) {
                     Env.Log.error('ARCHIVE_ACCOUNT_ERROR', err);
                 };
@@ -436,15 +445,21 @@ const restoreAccount = (Env, _key, data, _cb) => {
                     pads: routedPads[storageId] || [],
                     blobs: routedBlobs[storageId] || [],
                 };
-                Env.interface.sendQuery(storageId, 'ADMIN_CMD', {cmd: 'ACCOUNT_RESTORE_START', data}, res => {
+                Env.interface.sendQuery(storageId, 'ADMIN_CMD', {
+                    cmd: 'ACCOUNT_RESTORE_START',
+                    data
+                }, res => {
                     if (res.error) { reject(res.error); }
                     resolve(res.data);
                 });
             })
         );
         Promise.all(restorePromises).then((errs) => {
-            errors = errors.concat(errs);
-            Core.coreToStorage(Env, key, 'ADMIN_CMD', { cmd: 'ACCOUNT_RESTORE_END', data: { key, blockId } }, (err) => {
+            errors.push(...errs);
+            Core.coreToStorage(Env, key, 'ADMIN_CMD', {
+                cmd: 'ACCOUNT_RESTORE_END',
+                data: { key, blockId }
+            }, (err) => {
                 if (err) {
                     Env.Log.error('ARCHIVE_RESTORE_ERROR', err);
                 };
@@ -467,22 +482,31 @@ const getAccountArchiveStatus = (Env, _key, data, _cb) => {
     const args = Array.isArray(data) && data[1];
     if (!args || typeof(args) !== 'object') { return void cb("EINVAL"); }
     const { key } = args;
-    Core.coreToStorage(Env, key, 'ADMIN_CMD', {cmd: 'GET_ACCOUNT_ARCHIVE_STATUS', data: args }, cb);
+    Core.coreToStorage(Env, key, 'ADMIN_CMD', {
+        cmd: 'GET_ACCOUNT_ARCHIVE_STATUS',
+        data: args
+    }, cb);
 };
 
 const archiveDocument = (Env, _key, data, cb) => {
     const args = Array.isArray(data) && data[1];
     if (!args) { return void cb("EINVAL"); }
     let id, reason;
-    if (typeof(args) === 'string') {
+    if (typeof (args) === 'string') {
         id = args;
-    } else if (args && typeof(args) === 'object') {
+    } else if (args && typeof (args) === 'object') {
         id = args.id;
         reason = args.reason;
     }
-    if (typeof(id) !== 'string' || id.length < 32) { return void cb("EINVAL"); }
+    if (typeof (id) !== 'string' || id.length < 32) { return void cb("EINVAL"); }
 
-    Core.coreToStorage(Env, id, 'ADMIN_CMD', { cmd: 'ARCHIVE_DOCUMENT', data: { id, reason } }, cb);
+    Core.coreToStorage(Env, id, 'ADMIN_CMD', {
+        cmd: 'ARCHIVE_DOCUMENT',
+        data: {
+            id,
+            reason
+        }
+    }, cb);
 };
 
 const archiveDocuments = (Env, _key, data, cb) => {
@@ -635,7 +659,6 @@ const commands = {
     ARCHIVE_DOCUMENTS: archiveDocuments,
     RESTORE_ARCHIVED_DOCUMENT: restoreArchivedDocument,
 
-    // XXX: todo: archive/restore accounts
     ARCHIVE_ACCOUNT: archiveAccount,
     RESTORE_ACCOUNT: restoreAccount,
     GET_ACCOUNT_ARCHIVE_STATUS: getAccountArchiveStatus,

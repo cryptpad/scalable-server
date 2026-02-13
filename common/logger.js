@@ -21,8 +21,8 @@ const Logger = (toLog = [], verbose) => {
 
     if (!toLog.length) {
         return {
-            info: verbose ? writeLog(console.log) : noop,
-            verbose: verbose ? writeLog(console.info) : noop,
+            info: writeLog(verbose ? console.log : noop),
+            verbose: writeLog(verbose ? console.info : noop),
             error: writeLog(console.error),
             warn: writeLog(console.warn),
             debug: writeLog(console.debug),
@@ -31,12 +31,12 @@ const Logger = (toLog = [], verbose) => {
     }
 
     return {
-        info: toLog.includes('info') ? writeLog(console.log) : noop,
-        verbose: toLog.includes('verbose') ? writeLog(console.log) : noop,
-        error: toLog.includes('error') ? writeLog(console.error) : noop,
-        warn: toLog.includes('warn') ? writeLog(console.warn) : noop,
-        debug: toLog.includes('debug') ? writeLog(console.debug) : noop,
-        feedback: toLog.includes('feedback') ? writeLog(console.log) : noop,
+        info: writeLog(toLog.includes('info') ? console.log : noop),
+        verbose: writeLog(toLog.includes('verbose') ? console.log : noop),
+        error: writeLog(toLog.includes('error') ? console.error : noop),
+        warn: writeLog(toLog.includes('warn') ? console.warn : noop),
+        debug: writeLog(toLog.includes('debug') ? console.debug : noop),
+        feedback: writeLog(toLog.includes('feedback') ? console.log : noop),
     };
 };
 

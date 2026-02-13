@@ -176,7 +176,8 @@ let communicationManager = function(ctx) {
         let dest = findDestFromId(ctx, destId);
         if (!dest) {
             // XXX: handle this more properly: timeout?
-            ctx.Log.error("Error: dest", destId, "not found in ctx.", ctx.myId);
+            ctx.Log.error("INTERFACE_SENDQUERY_ERROR", "Error: dest", destId, "not found in ctx.", ctx.myId);
+            cb('EINVALDEST');
             return false;
         }
 
