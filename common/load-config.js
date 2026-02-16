@@ -29,7 +29,7 @@ try {
         console.error(e.stack.split("\n\n")[0]);
         process.exit(1);
     } else {
-        console.log("Config not found, loading the example config. You can customize the configuration by copying config/infra.example.js to " + configPath);
+        console.log("Config not found, loading the example config. You can customize the configuration by copying config/infra.example.js to " + infraPath);
     }
     infra = require("../config/infra.example");
 }
