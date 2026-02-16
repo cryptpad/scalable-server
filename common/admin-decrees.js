@@ -207,8 +207,8 @@ commands.REMOVE_DONATE_BUTTON = makeBooleanSetter('removeDonateButton');
 // CryptPad_AsyncStore.rpc.send('ADMIN', [ 'ADMIN_DECREE', ['BLOCK_DAILY_CHECK', [true]]], console.log)
 commands.BLOCK_DAILY_CHECK = makeBooleanSetter('blockDailyCheck');
 
-// CryptPad_AsyncStore.rpc.send('ADMIN', [ 'ADMIN_DECREE', ['SET_LOGO_MIME', ['image/png']]], console.log)
-commands.SET_LOGO_MIME = makeGenericSetter('logoMimeType', args_isString);
+// CryptPad_AsyncStore.rpc.send('ADMIN', [ 'ADMIN_DECREE', ['HAS_CUSTOM_LOGO', [true]]], console.log)
+commands.HAS_CUSTOM_LOGO = makeBooleanSetter('customLogo');
 
 // CryptPad_AsyncStore.rpc.send('ADMIN', [ 'ADMIN_DECREE', ['SET_ACCENT_COLOR', ['#ff0073']]], console.log)
 commands.SET_ACCENT_COLOR = makeGenericSetter('accentColor', args_isString);
@@ -245,6 +245,10 @@ commands.SET_SUPPORT_MAILBOX = makeGenericSetter('supportMailbox', function (arg
     return args_isString(args) && Core.isValidPublicKey(args[0]);
 });
 // CryptPad_AsyncStore.rpc.send('ADMIN', [ 'ADMIN_DECREE', ['SET_SUPPORT_KEYS', ["Tdz6+fE9N9XXBY93rW5qeNa/k27yd40c0vq7EJyt7jA=", "Tdz6+fE9N9XXBY93rW5qeNa/k27yd40c0vq7EJyt7jA="]]], console.log)
+
+// CryptPad_AsyncStore.rpc.send('ADMIN', [ 'ADMIN_DECREE', ['SET_LOGO_MIME', ['image/png']]], console.log)
+// DEPRECATED
+commands.SET_LOGO_MIME = makeGenericSetter('logoMimeType', args_isString);
 
 
 commands.DISABLE_APPS = function (Env, args) {

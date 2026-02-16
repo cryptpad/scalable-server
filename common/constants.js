@@ -23,7 +23,8 @@ Constants.paths = {
     archive: 'archive/',
     tasks: 'tasks/',
     decrees: 'decrees/',
-    challenges: 'challenges/'
+    challenges: 'challenges/',
+    logo: 'logo/'
 };
 Constants.adminDecree = 'decree.ndjson';
 

@@ -16,6 +16,7 @@ const Fse = require('fs-extra');
 const Path = require('node:path');
 const getFolderSize = require("get-folder-size");
 const nThen = require('nthen');
+const Decrees = require('./decrees.js');
 
 
 // XXX: Find a way to detect if it’s called from the same virtual machine?
@@ -694,6 +695,61 @@ const onRemoveModerator = (Env, id, cb) => {
     Moderators.delete(Env, id, cb);
 };
 
+const _removeLogo = (Env) => {
+    Env.apiLogoCache = undefined;
+    const path = Env.paths.logo;
+    const list = Fs.readdirSync(path);
+    list.forEach(file => {
+        if (!/^logo/.test(file)) { return; }
+        try {
+            Fs.rmSync(Path.join(path, file), { force: true });
+        } catch (err) {
+            Env.Log.error('REMOVE_LOGO', err);
+        }
+    });
+};
+
+// Logo commands (storage:0 only)
+const onUploadLogo = (Env, data, cb) => {
+    if (Env.myId !== 'storage:0') { return void cb('INVALID_STORAGE'); }
+    const { file, unsafeKey } = data;
+
+    // Remove "data:{mime};base64," and extract file extension
+    let ext = '';
+    const base64 = file.replace(/^(data:image\/([a-z+]+);base64,)(.+)/, (_str, _toRemove, format, b64) => {
+        if (format === 'svg+xml') { ext = 'svg'; }
+        else if (format === 'jpeg') { ext = 'jpg'; }
+        else { ext = format; }
+        return b64;
+    });
+    if (!ext) { return void cb('INVALID_FORMAT'); }
+
+    // Remove any existing logo
+    _removeLogo(Env);
+
+    // Write to disk
+    const buffer = Buffer.from(base64, "base64");
+    const path = Path.join(Env.paths.logo, `logo.${ext}`)
+    Fse.outputFile(path, buffer, err => {
+        if (err) { return void cb(err); }
+
+        // Add decree
+        const decree = ['HAS_CUSTOM_LOGO', [true], unsafeKey, +new Date()];
+        Decrees.onNewDecree(Env, decree, '', cb);
+    });
+};
+const onRemoveLogo = (Env, data, cb) => {
+    if (Env.myId !== 'storage:0') { cb('INVALID_STORAGE'); }
+    const { unsafeKey } = data;
+
+    // Delete file
+    _removeLogo(Env);
+
+    // Send decree
+    const decree = ['HAS_CUSTOM_LOGO', [false], unsafeKey, +new Date()];
+    Decrees.onNewDecree(Env, decree, '', cb);
+};
+
 const commands = {
     'GET_FILE_DESCRIPTOR_COUNT': onGetFileDescriptorCount,
     'GET_INVITATIONS': onGetInvitations,
@@ -739,6 +795,8 @@ const commands = {
     'GET_MODERATORS': onGetModerators,
     'ADD_MODERATOR': onAddModerator,
     'REMOVE_MODERATOR': onRemoveModerator,
+    'UPLOAD_LOGO': onUploadLogo,
+    'REMOVE_LOGO': onRemoveLogo
 };
 
 module.exports = {

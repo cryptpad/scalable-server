@@ -624,6 +624,34 @@ const changeColor = (Env, unsafeKey, data, cb) => {
     });
 };
 
+const MAX_LOGO_SIZE = 200*1024; // 200KB
+const removeLogo = (Env, unsafeKey, data, cb) => {
+    Env.interface.sendQuery('storage:0', 'ADMIN_CMD', {
+        cmd: 'REMOVE_LOGO',
+        data: { unsafeKey }
+    }, res => {
+        cb(res?.error);
+    });
+};
+const uploadLogo = (Env, unsafeKey, data, cb) => {
+    const args = Array.isArray(data) && data[1];
+    if (!args || typeof(args) !== 'object') { return void cb("EINVAL"); }
+    let dataURL = args.dataURL;
+
+    // (size*4/3) + 24 ==> base64 and dataURL overhead
+    if (!dataURL || dataURL.length > ((MAX_LOGO_SIZE*4/3)+24)) {
+        return void cb('E_TOO_LARGE');
+    }
+
+    Env.interface.sendQuery('storage:0', 'ADMIN_CMD', {
+        cmd: 'UPLOAD_LOGO',
+        data: { file: dataURL, unsafeKey }
+    }, res => {
+        if (res?.error) { return void cb(res.error); }
+        cb(void 0, true);
+    });
+};
+
 const commands = {
     ACTIVE_SESSIONS: getActiveSessions,
     ACTIVE_PADS: getActiveChannelCount,
@@ -691,6 +719,8 @@ const commands = {
     ADD_MODERATOR: addModerator,
     REMOVE_MODERATOR: removeModerator,
 
+    UPLOAD_LOGO: uploadLogo,
+    REMOVE_LOGO: removeLogo,
     CHANGE_COLOR: changeColor,
 };
 

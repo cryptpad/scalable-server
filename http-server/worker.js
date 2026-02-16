@@ -85,7 +85,7 @@ const initProxy = (Env, app, infra) => {
         },
         logger: Logger(['error'])
     });
-    const quotaProxy = createProxyMiddleware({
+    const storage0Proxy = createProxyMiddleware({
         router: req => {
             return storageList[0] + req.baseUrl.slice(1);
         },
@@ -93,7 +93,13 @@ const initProxy = (Env, app, infra) => {
     });
 
 
-    app.use('/api/updatequota', quotaProxy);
+    app.use('/api/updatequota', storage0Proxy);
+    app.use('/api/logo', (req, res, next) => {
+        if (!Env.customLogo) {
+            return res.redirect('/customize/CryptPad_logo_hero.svg');
+        }
+        storage0Proxy(req, res, next);
+    });
 
     app.use('/cryptpad_websocket', wsProxy);
     app.use('/extensions.js', httpProxy);

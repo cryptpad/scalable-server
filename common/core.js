@@ -180,6 +180,7 @@ Core.getPaths = (config, isEnv) => {
         archivePath: Path.join(paths.base, idx, paths.archive),
         taskPath: Path.join(paths.base, idx, paths.tasks),
         decreePath: Path.join(paths.base, "0", paths.decrees),
+        logoPath: Path.join(paths.base, "0", paths.logo),
         challengePath: Path.join(paths.base, idx, paths.challenges)
     };
     if (!isEnv) { return all; }
@@ -193,6 +194,7 @@ Core.getPaths = (config, isEnv) => {
         staging: all.blobStagingPath,
         pin: all.pinPath,
         decree: all.decreePath,
+        logo: all.logoPath,
         base: all.basePath,
         archive: all.archivePath,
         task: all.taskPath
