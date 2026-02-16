@@ -98,8 +98,8 @@ const onDeleteInvitation = (Env, id, cb) => {
 };
 
 const onGetPinActivity = (Env, data, cb) => {
-    if (!data) { return void cb("INVALID_ARGS"); }
-    if (typeof (data.key) !== 'string') { return void cb("INVALID_KEY"); }
+    if (!data) { return void cb('INVALID_ARGS'); }
+    if (typeof (data.key) !== 'string') { return void cb('INVALID_KEY'); }
     let safeKey = Util.escapeKeyCharacters(data.key);
     Env.worker.getPinActivity(safeKey, cb);
 };
@@ -122,7 +122,7 @@ const onGetUserStorageStats = (Env, data, cb) => {
             });
             return void cb(void 0, res);
         } catch (err2) { }
-        cb("UNEXPECTED_SERVER_ERROR");
+        cb('UNEXPECTED_SERVER_ERROR');
     });
 };
 
@@ -158,7 +158,7 @@ const onGetPinList = (Env, data, cb) => {
         try {
             return void cb(void 0, Object.keys(value).filter(k => value[k]));
         } catch (err2) { }
-        cb("UNEXPECTED_SERVER_ERROR");
+        cb('UNEXPECTED_SERVER_ERROR');
     });
 };
 
@@ -298,7 +298,7 @@ const onGetDocumentStatus = (Env, data, cb) => {
             cb(void 0, response);
         });
     }
-    if (id.length !== 32) { return void cb("EINVAL"); }
+    if (id.length !== 32) { return void cb('EINVAL'); }
     nThen(function (w) {
         Env.store.isChannelAvailable(id, w(function (err, result) {
             if (err) {
@@ -391,7 +391,7 @@ const onArchiveDocument = (Env, data, _cb) => {
                 });
             }));
         default:
-            return void cb("INVALID_ID_LENGTH");
+            return void cb('INVALID_ID_LENGTH');
     }
 
     // archival for blob proofs isn't automated, but evict-inactive.js will
@@ -434,7 +434,7 @@ const onRestoreArchivedDocument = (Env, data, cb) => {
                 });
             }));
         default:
-            return void cb("INVALID_ID_LENGTH");
+            return void cb('INVALID_ID_LENGTH');
     }
 };
 
@@ -657,13 +657,13 @@ const onClearCachedChannelIndex = (Env, id, cb) => {
 
 const onGetCachedChannelIndex = (Env, id, cb) => {
     const index = Env.channel_cache?.[id];
-    if (!index) { return void cb("ENOENT"); }
+    if (!index) { return void cb('ENOENT'); }
     cb(void 0, index);
 };
 
 const onGetCachedChannelMetadata = (Env, id, cb) => {
     const index = Env.metadata_cache?.[id];
-    if (!index) { return void cb("ENOENT"); }
+    if (!index) { return void cb('ENOENT'); }
     cb(void 0, index);
 };
 
@@ -674,7 +674,7 @@ const onClearCachedChannelMetadata = (Env, id, cb) => {
 
 const onGetActiveChannelCount = (Env, _id, cb) => {
     if (!Env.channel_cache) { return void cb('ENOENT'); }
-    cb(void 0,Object.keys(Env.channel_cache).length);
+    cb(void 0, Object.keys(Env.channel_cache).length);
 };
 
 // Moderator commands are handled by storage:0
