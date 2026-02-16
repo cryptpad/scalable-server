@@ -739,7 +739,7 @@ const onUploadLogo = (Env, data, cb) => {
     });
 };
 const onRemoveLogo = (Env, data, cb) => {
-    if (Env.myId !== 'storage:0') { cb('INVALID_STORAGE'); }
+    if (Env.myId !== 'storage:0') { return void cb('INVALID_STORAGE'); }
     const { unsafeKey } = data;
 
     // Delete file
