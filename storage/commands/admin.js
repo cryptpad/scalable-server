@@ -729,7 +729,7 @@ const onUploadLogo = (Env, data, cb) => {
 
     // Write to disk
     const buffer = Buffer.from(base64, "base64");
-    const path = Path.join(Env.paths.logo, `logo.${ext}`)
+    const path = Path.join(Env.paths.logo, `logo.${ext}`);
     Fse.outputFile(path, buffer, err => {
         if (err) { return void cb(err); }
 
