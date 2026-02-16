@@ -8,6 +8,7 @@ const Util = require('../common/common-util');
 const MFA = require("./storage/mfa");
 const Sessions = require("./storage/sessions");
 const bodyParser = require('body-parser');
+const Fs = require('node:fs');
 
 const create = (Env, app) => {
     app.use(bodyParser.urlencoded({
@@ -334,6 +335,21 @@ const create = (Env, app) => {
     app.use('/api/updatequota', (req, res) => {
         Env.updateLimits();
         res.status(200).send();
+    });
+
+    app.use('/api/logo', (req, res) => {
+        if (Env.apiLogoCache) {
+            return res.sendFile(Env.apiLogoCache);
+        }
+        const path = Env.paths.logo;
+        Fs.readdir(path, (err, files) => {
+            (files || []).some(file => {
+                if (!/^logo\./.test(file)) { return; }
+                Env.apiLogoCache = Path.resolve(Path.join(path, file));
+                res.sendFile(Env.apiLogoCache);
+                return true;
+            });
+        });
     });
 };
 
