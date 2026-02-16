@@ -673,24 +673,24 @@ const onClearCachedChannelMetadata = (Env, id, cb) => {
 };
 
 const onGetActiveChannelCount = (Env, _id, cb) => {
-    if (!Env.channel_cache) { cb('ENOENT'); }
+    if (!Env.channel_cache) { return void cb('ENOENT'); }
     cb(void 0,Object.keys(Env.channel_cache).length);
 };
 
 // Moderator commands are handled by storage:0
 const onGetModerators = (Env, _data, cb) => {
-    if (Env.myId !== 'storage:0') { cb('INVALID_STORAGE'); }
+    if (Env.myId !== 'storage:0') { return void cb('INVALID_STORAGE'); }
     Moderators.getAll(Env, cb);
 };
 
 const onAddModerator = (Env, data, cb) => {
-    if (Env.myId !== 'storage:0') { cb('INVALID_STORAGE'); }
+    if (Env.myId !== 'storage:0') { return void cb('INVALID_STORAGE'); }
     const { userData, unsafeKey } = data;
     Moderators.add(Env, userData.edPublic, userData, unsafeKey, cb);
 };
 
 const onRemoveModerator = (Env, id, cb) => {
-    if (Env.myId !== 'storage:0') { cb('INVALID_STORAGE'); }
+    if (Env.myId !== 'storage:0') { return void cb('INVALID_STORAGE'); }
     Moderators.delete(Env, id, cb);
 };
 
