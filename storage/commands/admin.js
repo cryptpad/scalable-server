@@ -697,7 +697,10 @@ const onRemoveModerator = (Env, id, cb) => {
 
 const _removeLogo = (Env) => {
     const path = Env.paths.logo;
-    const list = Fs.readdirSync(path);
+    let list = [];
+    try {
+        list = Fs.readdirSync(path);
+    } catch {}
     list.forEach(file => {
         if (!/^logo/.test(file)) { return; }
         try {
