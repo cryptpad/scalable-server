@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2024 XWiki CryptPad Team <contact@cryptpad.org> and contributors
-const Http = require('node:http');
 const Crypto = require('node:crypto');
 
 const Util = require("./common-util.js");
@@ -9,13 +8,11 @@ const Logger = require("../common/logger.js");
 const Core = require("../common/core.js");
 
 const Nacl = require('tweetnacl/nacl-fast'); // XXX
-const Express = require('express');
 const nThen = require("nthen");
 
 const HistoryManager = require("./history-manager.js");
 const ChannelManager = require("./channel-manager.js");
 const HKUtil = require("./hk-util.js");
-const HttpManager = require('./http-manager.js');
 const MFAManager = require('./mfa-manager.js');
 
 const Environment = require('../common/env.js');
@@ -26,6 +23,7 @@ const WSConnector = require("../common/ws-connector.js");
 const BatchRead = require("./batch-read.js");
 const WriteQueue = require("../common/write-queue.js");
 const WorkerModule = require("../common/worker-module.js");
+const Cluster = require("node:cluster");
 const File = require("./storage/file.js");
 const Blob = require("./storage/blob.js");
 const BlockStore = require("./storage/block.js");
@@ -619,16 +617,76 @@ const initAccountsIntervals = () => {
 
 const initHttpServer = (Env, mainConfig, _cb) => {
     const cb = Util.mkAsync(_cb);
-    const app = Express();
 
-    HttpManager.create(Env, app);
+    Cluster.setupPrimary({
+        exec: './build/storage.cluster.js',
+        args: [],
+    });
+    const WORKERS = 2;
+    const workerConfig = {
+        Log: Env.Log,
+        noTaskLimit: true,
+        customFork: () => {
+            return Cluster.fork({});
+        },
+        maxWorkers: WORKERS, // XXX
+        maxJobs: 10,
+        commandTimers: {}, // time spent on each command
+        config: mainConfig,
+        Env: { // Serialized Env (Environment.serialize)
+        }
+    };
 
-    const httpServer = Http.createServer(app);
-    Env.httpServer = httpServer;
-    const cfg = mainConfig?.infra?.storage[mainConfig.index];
-    httpServer.listen(cfg.port, cfg.host, () => {
+    let ready = 0;
+    Cluster.on('online', () => {
+        ready++;
+        if (ready === WORKERS) {
+            cb();
+        }
+    });
+
+    Env.clusters = WorkerModule(workerConfig);
+    Env.clusters.onNewWorker(state => {
+        Object.keys(Env.allDecrees).forEach(type => {
+            const decrees = Env.allDecrees[type];
+            Env.clusters.sendTo(state, 'NEW_DECREES', {
+                decrees, type
+            }, () => {
+                Env.Log.verbose('UPDATE_DECREE_STORAGE_WORKER');
+            });
+        });
+    });
+
+    Env.clusters.on('STORAGE_INTERFACE', (args, cb) => {
+        const { type, id, cmd, data, exclude } = args;
+        const f = Env.interface[type];
+        if (typeof(f) !== "function") { return void cb('EINVAL'); }
+        f(id, cmd, data, cb, exclude);
+    });
+    Env.clusters.on('UPLOAD_GET_SESSION', (args, cb) => {
+        const { safeKey } = args;
+        const session = Core.getSession(Env.blobstage, safeKey);
+        cb(void 0, {
+            currentUploadSize: session.currentUploadSize,
+            pendingUploadSize: session.pendingUploadSize
+        });
+    });
+    Env.clusters.on('UPLOAD_REPORT_SESSION', (args, cb) => {
+        const { safeKey, len } = args;
+        const session = Core.getSession(Env.blobstage, safeKey);
+        session.currentUploadSize += len;
         cb();
     });
+    Env.clusters.on('UPDATE_LIMITS', (args, cb) => {
+        Env.updateLimits();
+        cb();
+    });
+    Env.cluster = {};
+    Env.cluster.closeBlobstage = safeKey => {
+        Env.clusters.broadcast('CLOSE_BLOBSTAGE', { safeKey }, () => {
+            Env.Log.verbose('CLOSE_BLOBSTAGE');
+        });
+    };
 };
 
 const onInitialized = (Env, _cb) => {
@@ -654,6 +712,7 @@ const start = (mainConfig) => {
 
 
     Env.updateLimits = () => {
+        if (index !== 0) { return; }
         Quota.updateCachedLimits(Env, (e, limits) => {
             if (!Env.accounts_api) { return; }
             if (e) { return Env.Log.warn('LIMIT_UPDATE', e); }
@@ -750,6 +809,8 @@ const start = (mainConfig) => {
         }, Core.SESSION_EXPIRATION_TIME);
 
         Env.intervals.blobstageExpirationInterval = setInterval(() => {
+            // Contains currentUploadSize & pendingUploadSize
+            // The file stream is stored in the workers
             Core.expireSessions(Env.blobstage);
         }, Core.SESSION_EXPIRATION_TIME);
     }).nThen((waitFor) => {
@@ -785,7 +846,7 @@ const start = (mainConfig) => {
                 console.error(interfaceConfig.myId, ' error:', err);
                 return;
             }
-        }), Env.httpServer);
+        }));
 
         // List accepted commands
         Env.plugins.call('addStorageCommands')(Env, COMMANDS);

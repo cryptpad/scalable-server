@@ -207,9 +207,6 @@ commands.REMOVE_DONATE_BUTTON = makeBooleanSetter('removeDonateButton');
 // CryptPad_AsyncStore.rpc.send('ADMIN', [ 'ADMIN_DECREE', ['BLOCK_DAILY_CHECK', [true]]], console.log)
 commands.BLOCK_DAILY_CHECK = makeBooleanSetter('blockDailyCheck');
 
-// CryptPad_AsyncStore.rpc.send('ADMIN', [ 'ADMIN_DECREE', ['HAS_CUSTOM_LOGO', [true]]], console.log)
-commands.HAS_CUSTOM_LOGO = makeBooleanSetter('customLogo');
-
 // CryptPad_AsyncStore.rpc.send('ADMIN', [ 'ADMIN_DECREE', ['SET_ACCENT_COLOR', ['#ff0073']]], console.log)
 commands.SET_ACCENT_COLOR = makeGenericSetter('accentColor', args_isString);
 
@@ -424,6 +421,19 @@ commands.SET_BEARER_SECRET = function (Env, args) {
     Env.bearerSecret = secret;
     return true;
 };
+
+// CryptPad_AsyncStore.rpc.send('ADMIN', [ 'ADMIN_DECREE', ['HAS_CUSTOM_LOGO', [true]]], console.log)
+commands.HAS_CUSTOM_LOGO = function (Env, args) {
+    if (!args_isBoolean(args)) {
+        throw new Error('INVALID_ARGS');
+    }
+    var bool = args[0];
+    if (bool === Env.customLogo) { return false; }
+    Env.customLogo = bool;
+    Env.apiLogoCache = undefined; // Reset http cluster cache
+    return true;
+};
+
 
 commands.TEST_DECREE = (Env, args) => {
     if (typeof(args) !== "string") {

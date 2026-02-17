@@ -105,6 +105,16 @@ if (!type || type === "storage") {
         }],
         plugins: getPlugins()
     });
+    list.push({
+        input: "./storage/cluster.js",
+        output: [{
+            name: 'cryptpad-server-storage-cluster',
+            file: "./build/storage.cluster.js",
+            format: "cjs",
+            plugins: [ getTerser() ]
+        }],
+        plugins: getPlugins()
+    });
 }
 if (!type || type === "http") {
     list.push({

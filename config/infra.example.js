@@ -21,7 +21,7 @@ module.exports = {
         {
             url: "", // e.g. "https://node1.my-cryptpad-domain.net"
             host: "localhost",
-            port: 3010,
+            port: 3010, // Public http and websocket port
         },
         {
             url: "", // "https://node2.my-cryptpad-domain.net"
@@ -33,7 +33,7 @@ module.exports = {
         {
             url: "",
             host: "localhost",
-            port: 3020
+            port: 3020 // Internal websocket betwene all nodes
         },
         {
             url: "",
@@ -45,12 +45,14 @@ module.exports = {
         {
             url: "",
             host: "localhost",
-            port: 3030
+            port: 3030, // Public port to serve "blob", "block", etc.
+            wsPort: 3040 // Internal websocket between storage nodes
         },
         {
             url: "",
             host: "localhost",
-            port: 3031
+            port: 3031,
+            wsPort: 3041
         }
     ]
 };
