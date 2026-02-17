@@ -29,7 +29,7 @@ const newConnection = (ctx, other, txid, type, data, message) => {
         const coreId = ctx.pendingConnections?.[txid];
         const [acceptName, acceptIndex] = data.split(':'); // XXX: more robust code
         if (typeof (coreId) === 'undefined' || !['core','storage'].includes(acceptName) || Number(acceptIndex) !== coreId) {
-            return ctx.Log.error(ctx.myId, ': unknown connection accepted');
+            return ctx.Log.error('NEW_CONNECTION_ERROR', ctx.myId, ': unknown connection accepted');
         }
         // Connection accepted, add to others and resolve the promise
         ctx.others[acceptName][acceptIndex] = other;
@@ -48,13 +48,13 @@ const newConnection = (ctx, other, txid, type, data, message) => {
     // Check for reused challenges
     if (ctx.ChallengesCache[challengeBase64]) {
         other.disconnect();
-        return ctx.Log.error("Reused challenge");
+        return ctx.Log.error('INTERFACE_CHALLENGE_ERROR', "Reused challenge");
     }
     // Buffer.from is needed for compatibility with tweetnacl
     const msg = Buffer.from(Crypto.secretboxOpen(challenge, nonce, ctx.nodes_key));
     if (!msg) {
         other.disconnect();
-        return ctx.Log.error("Bad challenge answer");
+        return ctx.Log.error('INTERFACE_CHALLENGE_ERROR', "Bad challenge answer");
     }
     let [challType, challIndex, challTimestamp] = String(msg).split(':');
     // This requires servers to be time-synchronised to avoid “Challenge in
@@ -63,7 +63,7 @@ const newConnection = (ctx, other, txid, type, data, message) => {
     if (challengeLife < 0 || challengeLife > ctx.ChallengeLifetime ||
         rcvType !== challType || idx !== Number(challIndex)) {
         other.disconnect();
-        return ctx.Log.error("Bad challenge answer");
+        return ctx.Log.error('INTERFACE_CHALLENGE_ERROR', "Bad challenge answer");
     }
 
     // Challenge caching once it’s validated
@@ -108,7 +108,7 @@ let handleMessage = function(ctx, other, message) {
     }
 
     if (type !== 'MESSAGE') {
-        ctx.Log.error(ctx.myId, "Unexpected message type", type, ', message:', data);
+        ctx.Log.error('INTERFACE_SENDMESSAGE_ERROR', ctx.myId, "Unexpected message type", type, ', message:', data);
         return;
     }
 
@@ -157,7 +157,7 @@ let communicationManager = function(ctx) {
         let dest = findDestFromId(ctx, destId);
         if (!dest) {
             // XXX: handle this more properly: timeout?
-            ctx.Log.error("Error: dest", destId, "not found in ctx.", ctx.myId);
+            ctx.Log.error('INTERFACE_SENDEVENT_ERROR', "Error: dest", destId, "not found in ctx.", ctx.myId);
             return false;
         }
 
@@ -332,7 +332,7 @@ const init = (config, cb, httpServer) => {
 
         const myConfig = config.infra.core[ctx.myNumber];
         if (!myConfig) {
-            ctx.Log.error("Error: trying to create a non-existing server");
+            ctx.Log.error('INTERFACE_CONFIG_ERROR', "Error: trying to create a non-existing server");
             throw new Error('INVALID_SERVER_ID');
         }
 
@@ -359,7 +359,7 @@ const init = (config, cb, httpServer) => {
         // Storages: start a server and connect to other storages and cores
         const myConfig = config.infra.storage[ctx.myNumber];
         if (!myConfig) {
-            ctx.Log.error("Error: trying to create a non-existing server");
+            ctx.Log.error('INTERFACE_CONFIG_ERROR', "Error: trying to create a non-existing server");
             throw new Error('INVALID_SERVER_ID');
         }
 
@@ -402,7 +402,7 @@ const init = (config, cb, httpServer) => {
 
         return cb();
     }).catch(e => {
-        ctx.Log.error(e);
+        ctx.Log.error('INTERFACE_UNEXPECTED_ERROR', e);
         throw new Error(e);
     });
 

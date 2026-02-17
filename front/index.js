@@ -515,7 +515,7 @@ const start = (mainConfig) => {
         Env.interface = Interface.init(interfaceConfig, w(err => {
             if (err) {
                 w.abort();
-                Env.Log.error(interfaceConfig.myId, ' error:', err);
+                Env.Log.error('INTERFACE_INIT_ERROR', interfaceConfig.myId, ' error:', err);
                 return;
             }
         }));
