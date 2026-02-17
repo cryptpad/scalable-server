@@ -95,6 +95,7 @@ const initProxy = (Env, app, infra) => {
 
     app.use('/api/updatequota', storage0Proxy);
     app.use('/api/logo', (req, res, next) => {
+        setHeaders(Env, req, res);
         if (!Env.customLogo) {
             return res.redirect('/customize/CryptPad_logo_hero.svg');
         }
