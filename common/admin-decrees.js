@@ -237,6 +237,9 @@ commands.SET_ACCOUNT_RETENTION_TIME = makeIntegerSetter('accountRetentionTime');
 // CryptPad_AsyncStore.rpc.send('ADMIN', [ 'ADMIN_DECREE', ['SET_ADMIN_EMAIL', ['admin@website.tld']]], console.log)
 commands.SET_ADMIN_EMAIL = makeGenericSetter('adminEmail', args_isString);
 
+// CryptPad_AsyncStore.rpc.send('ADMIN', [ 'ADMIN_DECREE', ['HAS_CUSTOM_LOGO', [true]]], console.log)
+commands.HAS_CUSTOM_LOGO = makeBooleanSetter('customLogo');
+
 // CryptPad_AsyncStore.rpc.send('ADMIN', [ 'ADMIN_DECREE', ['SET_SUPPORT_MAILBOX', ["Tdz6+fE9N9XXBY93rW5qeNa/k27yd40c0vq7EJyt7jA="]]], console.log)
 commands.SET_SUPPORT_MAILBOX = makeGenericSetter('supportMailbox', function (args) {
     return args_isString(args) && Core.isValidPublicKey(args[0]);
@@ -419,18 +422,6 @@ commands.SET_BEARER_SECRET = function (Env, args) {
     var secret = args[0];
     if (secret === Env.bearerSecret) { return false; }
     Env.bearerSecret = secret;
-    return true;
-};
-
-// CryptPad_AsyncStore.rpc.send('ADMIN', [ 'ADMIN_DECREE', ['HAS_CUSTOM_LOGO', [true]]], console.log)
-commands.HAS_CUSTOM_LOGO = function (Env, args) {
-    if (!args_isBoolean(args)) {
-        throw new Error('INVALID_ARGS');
-    }
-    var bool = args[0];
-    if (bool === Env.customLogo) { return false; }
-    Env.customLogo = bool;
-    Env.apiLogoCache = undefined; // Reset http cluster cache
     return true;
 };
 

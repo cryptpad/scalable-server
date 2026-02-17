@@ -701,6 +701,7 @@ const _removeLogo = (Env) => {
     try {
         list = Fs.readdirSync(path);
     } catch {}
+    Env.clusters.broadcast('UPDATE_LOGO', {}, () => {});
     list.forEach(file => {
         if (!/^logo/.test(file)) { return; }
         try {

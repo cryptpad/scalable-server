@@ -38,6 +38,10 @@ COMMANDS.CLOSE_BLOBSTAGE = (data, cb) => {
     Env.blobStore.closeBlobstage(safeKey);
     cb();
 };
+COMMANDS.UPDATE_LOGO = (data, cb) => {
+    Env.apiLogoCache = undefined;
+    cb();
+};
 
 const response = Util.response((errLabel, info) => {
     Env.Log.error('WORKER__' + errLabel, info);
