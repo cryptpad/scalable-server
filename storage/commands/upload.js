@@ -92,7 +92,8 @@ const completeUpload = (owned) => {
     return (Env, data, cb) => {
         const { id, safeKey }  = data;
         Env.blobStore.closeBlobstage(safeKey);
-        const user = Core.getSession(Env.pin_cache, safeKey);
+        Env.cluster.closeBlobstage(safeKey); // close blobstage in workers
+        const user = Core.getSession(Env.blobstage, safeKey);
         const size = user.pendingUploadSize;
         Env.worker.completeUpload(safeKey, id, Boolean(owned), size, cb);
     };

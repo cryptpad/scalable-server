@@ -283,33 +283,41 @@ var upload = function (Env, safeKey, content, cb) {
 
     var session = Env.getSession(safeKey);
 
-    if (typeof(session.currentUploadSize) !== 'number' ||
-        typeof(session.pendingUploadSize) !== 'number') {
-        // improperly initialized... maybe they didn't check before uploading?
-        // reject it, just in case
-        return cb('NOT_READY');
-    }
+    const todo = () => {
+        if (session.currentUploadSize > session.pendingUploadSize) {
+            return cb('E_OVER_LIMIT');
+        }
 
-    if (session.currentUploadSize > session.pendingUploadSize) {
-        return cb('E_OVER_LIMIT');
-    }
+        var stagePath = makeStagePath(Env, safeKey);
 
-    var stagePath = makeStagePath(Env, safeKey);
+        if (!session.blobstage) {
+            makeFileStream(stagePath, function (e, stream) {
+                if (!stream) { return void cb(e); }
 
-    if (!session.blobstage) {
-        makeFileStream(stagePath, function (e, stream) {
-            if (!stream) { return void cb(e); }
-
-            var blobstage = session.blobstage = stream;
-            blobstage.write(dec);
-            session.currentUploadSize += len;
+                var blobstage = session.blobstage = stream;
+                blobstage.write(dec);
+            });
+        } else {
+            session.blobstage.write(dec);
+        }
+        Env.sendCommand('UPLOAD_REPORT_SESSION', { safeKey, len }, () => {
             cb(void 0, dec.length);
         });
-    } else {
-        session.blobstage.write(dec);
-        session.currentUploadSize += len;
-        cb(void 0, dec.length);
-    }
+    };
+
+
+    Env.sendCommand('UPLOAD_GET_SESSION', { safeKey }, (err, data) => {
+        if (typeof(data.currentUploadSize) !== 'number' ||
+            typeof(data.pendingUploadSize) !== 'number') {
+            // improperly initialized... maybe they didn't check before uploading?
+            // reject it, just in case
+            return cb('NOT_READY');
+        }
+        session.currentUploadSize = data.currentUploadSize;
+        session.pendingUploadSize = data.pendingUploadSize;
+        todo();
+    });
+
 };
 const getRandomCookie = function () {
     return Crypto.randomBytes(16).toString('hex');
@@ -740,6 +748,7 @@ BlobStore.create = function (config, _cb) {
         blobStagingPath: config.blobStagingPath || './blobstage',
         archivePath: config.archivePath || './data/archive',
         getSession: config.getSession,
+        sendCommand: config.sendCommand || function () {}
     };
 
     nThen(function (w) {

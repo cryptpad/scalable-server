@@ -1,7 +1,9 @@
 const Path = require('node:path');
 const Express = require('express');
 const nThen = require("nthen");
+const Core = require("../common/core");
 const BlockStore = require("./storage/block");
+const Blob = require("./storage/blob.js");
 const { setHeaders } = require('../http-server/headers.js');
 const CpCrypto = require("../common/crypto.js")('sodiumnative');
 const Util = require('../common/common-util');
@@ -9,8 +11,39 @@ const MFA = require("./storage/mfa");
 const Sessions = require("./storage/sessions");
 const bodyParser = require('body-parser');
 const Fs = require('node:fs');
+const Environment = require('../common/env');
+const Logger = require('../common/logger');
+const Http = require('node:http');
 
-const create = (Env, app) => {
+// Env.modules
+const File = require("./storage/file.js");
+const Basic = require("./storage/basic.js");
+const Pinning = require('./commands/pin.js');
+const Decrees = require('./commands/decrees.js');
+const Block = require('./commands/block.js');
+
+const COMMANDS = {};
+const Env = {
+    isWorker: true,
+    blobstage: {} // Store file streams to write blobs
+};
+
+COMMANDS.NEW_DECREES = (data, cb) => {
+    const { decrees, type } = data;
+    Env.getDecree(type).loadRemote(Env, decrees);
+    cb();
+};
+COMMANDS.CLOSE_BLOBSTAGE = (data, cb) => {
+    const { safeKey } = data;
+    Env.blobStore.closeBlobstage(safeKey);
+    cb();
+};
+
+const response = Util.response((errLabel, info) => {
+    Env.Log.error('WORKER__' + errLabel, info);
+});
+
+const initServerHandlers = (Env, app) => {
     app.use(bodyParser.urlencoded({
         extended: true
     }));
@@ -353,4 +386,129 @@ const create = (Env, app) => {
     });
 };
 
-module.exports = { create };
+const guid = () => {
+    let id = Util.uid();
+    return response.expected(id)? guid(): id;
+};
+Env.sendCommand = (cmd, data, cb) => {
+    cb ||= () => {};
+    const txid = guid();
+    response.expect(txid, (err, response) => {
+        cb(err, response);
+    }, 2*60000); // 2min timeout
+    process.send({
+        txid, cmd, data,
+        pid: Env.pid
+    });
+};
+Env.updateLimits = () => {
+    Env.sendCommand('UPDATE_LIMITS', {});
+};
+
+// Env.interface
+const onInterfaceCmd = (type) => {
+    return (id, cmd, data, cb, exclude) => {
+        cb ||= () => {};
+        Env.sendCommand('STORAGE_INTERFACE', {
+            type, id, cmd, data, exclude
+        }, cb);
+    };
+};
+Env.interface = {
+    'sendQuery': onInterfaceCmd('sendQuery'),
+    'sendEvent': onInterfaceCmd('sendEvent'),
+    'broadcast': onInterfaceCmd('broadcast'),
+};
+
+
+const init = (config, cb) => {
+    Env.Log = Logger();
+    Environment.init(Env, config, {
+        Block, Pinning, Decrees,
+        BlockStore, Blob, File, Sessions, Basic
+    });
+
+    const {
+        archivePath, blobPath, blobStagingPath
+    } = Core.getPaths(config);
+
+    nThen(waitFor => {
+        // Load blobStore
+        Blob.create({
+            blobPath,
+            blobStagingPath,
+            archivePath,
+            getSession: safeKey => {
+                return Core.getSession(Env.blobstage, safeKey);
+            },
+            sendCommand: Env.sendCommand
+        }, waitFor((err, store) => {
+            if (err) {
+                waitFor.abort();
+                return void cb(err);
+            }
+            Env.blobStore = store;
+        }));
+        setInterval(() => {
+            Core.expireSessions(Env.blobstage);
+        }, Core.SESSION_EXPIRATION_TIME);
+    }).nThen(() => {
+        // Init http server
+        const cfg = config?.infra?.storage[config.index];
+        const app = Express();
+        const server = Http.createServer(app);
+        server.listen(cfg.port, cfg.host, () => {
+            Env.Log.verbose('HTTP worker listening on port', cfg.port);
+            cb();
+        });
+
+        initServerHandlers(Env, app);
+    });
+};
+
+let ready = false;
+process.on('message', function(obj) {
+    if (!obj || !obj.txid || !obj.pid) {
+        return void process.send({
+            error: 'E_INVAL',
+            data: obj,
+        });
+    }
+
+    if (response.expected(obj.txid) && (obj.response || obj.error)) {
+        response.handle(obj.txid, [obj.error, obj.response]);
+        return;
+    }
+
+    const command = COMMANDS[obj.command];
+    const data = obj.data;
+    Env.pid = obj.pid;
+
+    const cb = function(err, value) {
+        process.send({
+            error: Util.serializeError(err),
+            txid: obj.txid,
+            pid: obj.pid,
+            value: value,
+        });
+    };
+
+    if (!ready) {
+        return void init(obj.config, (err) => {
+            if (err) { return void cb(Util.serializeError(err)); }
+            ready = true;
+            cb();
+        });
+    }
+
+    if (typeof (command) !== 'function') {
+        return void cb("E_BAD_COMMAND");
+    }
+    command(data, cb);
+});
+process.on('uncaughtException', function(err) {
+    console.error('[%s] UNCAUGHT EXCEPTION IN DB WORKER', new Date());
+    console.error(err);
+    console.error("TERMINATING");
+    process.exit(1);
+});

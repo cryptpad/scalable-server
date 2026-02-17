@@ -60,28 +60,23 @@ module.exports = {
     },
     initServer: function(ctx, config, onNewClient, cb) {
         if (!cb) { cb = () => { }; };
-        let httpServer = config.httpServer; // may be undefined
-        let path = config.wsPath || '';
+
+        const httpServer = Http.createServer();
+
         const onServerReady = () => {
-            let server = new WebSocket.Server({ server: httpServer, path });
+            let server = new WebSocket.Server({ server: httpServer });
             ctx.self = socketToClient(ctx, server);
             server.on('connection', ws => {
-                // TODO: get data from req to know who we are talking to and handle new connections
                 onNewClient(ctx, socketToClient(ctx, ws));
             });
-            ctx.self.onDisconnect(() => { httpServer.close(err => { cb(err); }); });
+            ctx.self.onDisconnect(() => {
+                httpServer.close(err => { cb(err); });
+            });
             cb(void 0, ctx.self);
         };
 
-        if (httpServer) { return onServerReady(); }
-
-        httpServer = Http.createServer();
-        if (!httpServer) {
-            ctx.Log.error('INIT_HTTP_SERVER_ERROR', 'Error: failed to create server');
-            cb('E_INITHTTPSERVER');
-        }
-
-        httpServer.listen(config.port, config.host, onServerReady);
+        const port = config.wsPort || config.port;
+        httpServer.listen(port, config.host, onServerReady);
     },
     initClient: (ctx, config, id, onConnected, cb) => {
         const [type, number] = id.split(':');
@@ -93,10 +88,8 @@ module.exports = {
             wsURL.protocol = wsURL.protocol.replace(/^http/, 'ws');
         } else if (serv.host && serv.port) {
             wsURL.hostname = serv.host;
-            wsURL.port = serv.port;
+            wsURL.port = serv.wsPort || serv.port;
         }
-
-        if (type !== "core") { wsURL.pathname = '/websocket'; }
 
         let wsHref = wsURL.href;
         let ready = false;

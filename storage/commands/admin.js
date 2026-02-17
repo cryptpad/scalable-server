@@ -696,7 +696,6 @@ const onRemoveModerator = (Env, id, cb) => {
 };
 
 const _removeLogo = (Env) => {
-    Env.apiLogoCache = undefined;
     const path = Env.paths.logo;
     const list = Fs.readdirSync(path);
     list.forEach(file => {

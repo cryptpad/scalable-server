@@ -252,7 +252,7 @@ let communicationManager = function(ctx) {
 };
 
 /* This function initializes the different nodes process and connect them to each other */
-const init = (config, cb, httpServer) => {
+const init = (config, cb) => {
     cb = Util.once(cb || function () {});
 
     const ctx = {
@@ -364,8 +364,6 @@ const init = (config, cb, httpServer) => {
         }
 
         // Start websocket server
-        myConfig.wsPath = '/websocket';
-        myConfig.httpServer = httpServer;
         const servP = new Promise((resolve, reject) => {
             connector.initServer(ctx, myConfig, createHandlers, (err, selfClient) => {
                 if (err) { return reject(err); }
