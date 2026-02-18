@@ -1,16 +1,22 @@
 {
-  "name": "cryptpad-server-proto",
-  "description": "CryptPad server",
+  "name": "cryptpad-scalable-server",
+  "description": "CryptPad Scalable Server",
   "version": "0.0.1",
   "license": "AGPL-3.0+",
-  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cryptpad/scalable-server.git"
+  },
+  "funding": {
+    "type": "opencollective",
+    "url": "https://opencollective.com/cryptpad"
+  },
   "dependencies": {
     "body-parser": "^2.2.0",
     "connect-gzip-static": "^4.2.1",
     "cookie-parser": "^1.4.7",
     "express": "~4.22.1",
     "fs-extra": "^7.0.0",
-    "get-folder-size": "^2.0.1",
     "http-proxy-middleware": "^3.0.3",
     "minimist": "^1.2.8",
     "nthen": "0.1.8",

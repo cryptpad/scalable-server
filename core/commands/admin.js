@@ -74,18 +74,9 @@ const flushCache = (Env, _publicKey, args, cb) => {
     Env.flushCache(args, cb);
 };
 
-// To be removed (too costly)
 const getDiskUsage = (Env, _publicKey, _data, cb) => {
-    const sumDiskUsage = (acc, it) => {
-        for (const key in it) {
-            if (!acc[key]) { acc[key] = 0; }
-            acc[key] += it[key];
-        }
-        return acc;
-    };
-    Env.interface.broadcast('storage', 'ADMIN_CMD', { cmd: 'GET_DISK_USAGE' }, (_err, data) => {
-        const totalDiskUsage = data.reduce(sumDiskUsage, {});
-        cb(void 0, totalDiskUsage);
+    cb(void 0, {
+        'DEPRECATED': 0
     });
 };
 

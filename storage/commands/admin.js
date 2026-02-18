@@ -14,7 +14,6 @@ const Core = require("../../common/core");
 const Fs = require('node:fs');
 const Fse = require('fs-extra');
 const Path = require('node:path');
-const getFolderSize = require("get-folder-size");
 const nThen = require('nthen');
 const Decrees = require('./decrees.js');
 
@@ -51,34 +50,6 @@ const onDeleteKnownUser = (Env, id, cb) => {
 const onUpdateKnownUser = (Env, args, cb) => {
     const {edPublic, changes} = args;
     Users.update(Env, edPublic, changes, cb);
-};
-
-const onGetDiskUsage = (Env, _args, cb) => {
-    Env.batchDiskUsage('', cb, function (done) {
-        var data = {};
-        nThen(function (waitFor) {
-            getFolderSize('./', waitFor(function(_err, info) {
-                data.total = info;
-            }));
-            getFolderSize(Env.paths.pin, waitFor(function(_err, info) {
-                data.pin = info;
-            }));
-            getFolderSize(Env.paths.blob, waitFor(function(_err, info) {
-                data.blob = info;
-            }));
-            getFolderSize(Env.paths.staging, waitFor(function(_err, info) {
-                data.blobstage = info;
-            }));
-            getFolderSize(Env.paths.block, waitFor(function(_err, info) {
-                data.block = info;
-            }));
-            getFolderSize(Env.paths.data, waitFor(function(_err, info) {
-                data.datastore = info;
-            }));
-        }).nThen(function () {
-            done(void 0, data);
-        });
-    });
 };
 
 const onGetUserQuota = (Env, args, cb) => {
@@ -762,7 +733,6 @@ const commands = {
     'ADD_KNOWN_USER': onAddKnownUser,
     'DELETE_KNOWN_USER': onDeleteKnownUser,
     'UPDATE_KNOWN_USER': onUpdateKnownUser,
-    'GET_DISK_USAGE': onGetDiskUsage,
     'GET_USER_QUOTA': onGetUserQuota,
     'GET_PIN_ACTIVITY': onGetPinActivity,
     'GET_USER_STORAGE_STATS': onGetUserStorageStats,
