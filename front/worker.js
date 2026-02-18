@@ -315,7 +315,6 @@ const dropUser = (user, reason) => {
 };
 
 const sendMsgPromise = (user, msg) => {
-    Env.Log.verbose('Sending', msg, 'to', user.id);
     return new Promise((resolve, reject) => {
         // don't bother trying to send if the user doesn't
         // exist anymore
@@ -324,6 +323,8 @@ const sendMsgPromise = (user, msg) => {
         if (!socketSendable(user.socket)) {
             return void reject("UNSENDABLE");
         }
+
+        Env.Log.verbose('Sending', msg, 'to', user.id);
 
         try {
             const strMsg = JSON.stringify(msg);

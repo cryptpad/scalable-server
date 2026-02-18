@@ -272,7 +272,6 @@ var readBlobMetadata = function (env, blobId, handler, _cb) {
 
 /**********  METHODS **************/
 
-// XXX test merged websocket and http uploads (we now have sessions)
 var upload = function (Env, safeKey, content, cb) {
     var dec;
 
@@ -300,12 +299,20 @@ var upload = function (Env, safeKey, content, cb) {
         } else {
             session.blobstage.write(dec);
         }
+        if (!Env.sendCommand) { // WebSocket upload
+            session.currentUploadSize += len;
+            return void cb(void 0, dec.length);
+        }
         Env.sendCommand('UPLOAD_REPORT_SESSION', { safeKey, len }, () => {
             cb(void 0, dec.length);
         });
     };
 
-
+    if (!Env.sendCommand && typeof(session.currentUploadSize) === 'number'
+                        && typeof(session.pendingUploadSize) === 'number') {
+        // WebSocket upload
+        return void todo();
+    }
     Env.sendCommand('UPLOAD_GET_SESSION', { safeKey }, (err, data) => {
         if (typeof(data.currentUploadSize) !== 'number' ||
             typeof(data.pendingUploadSize) !== 'number') {
@@ -748,7 +755,7 @@ BlobStore.create = function (config, _cb) {
         blobStagingPath: config.blobStagingPath || './blobstage',
         archivePath: config.archivePath || './data/archive',
         getSession: config.getSession,
-        sendCommand: config.sendCommand || function () {}
+        sendCommand: config.sendCommand
     };
 
     nThen(function (w) {

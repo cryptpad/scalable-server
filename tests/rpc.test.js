@@ -1,4 +1,5 @@
 const Crypto = require('node:crypto');
+const Util = require('../common/common-util');
 
 const padId = Crypto.randomBytes(16).toString('hex');
 const hk = '0123456789abcdef';
@@ -13,6 +14,8 @@ const {
 console.log('rpc', getChannelPath(padId));
 
 const Env = {};
+
+const isClearedEvt = Util.mkEvent(true);
 
 const sendMsg = wc => {
     Env.messages ||= [];
@@ -44,6 +47,7 @@ const initPad = (network) => {
             if (parsed?.error === "ECLEARED" &&
                 parsed?.channel === padId) {
                 Env.isCleared = true;
+                isClearedEvt.fire();
                 return;
             }
             if (parsed?.state === 1 && parsed?.channel === padId) {
@@ -174,10 +178,16 @@ const clearPad = (args) => {
     return new Promise((resolve, reject) => {
         Env.ownerRpc.send('CLEAR_OWNED_CHANNEL', padId, (e) => {
             if (e) { return reject(e); }
-            if (!Env.isCleared) {
-                return reject("MISSING_ECLEARED_MESSAGE");
-            }
-            resolve(args);
+            const to = setTimeout(() => {
+                if (!Env.isCleared) {
+                    return reject("MISSING_ECLEARED_MESSAGE");
+                }
+            }, 1000);
+
+            isClearedEvt.reg(() => {
+                clearTimeout(to);
+                resolve(args);
+            });
         });
     });
 };

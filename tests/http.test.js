@@ -4,15 +4,13 @@
 const Nacl = require('tweetnacl/nacl-fast');
 const ServerCommand = require('./common/http-command');
 
-const { infra } = require('../../common/load-config');
+const { infra } = require('../common/load-config');
 const origin = infra?.public?.origin;
 ServerCommand.setCustomize({
     ApiConfig: {
         httpUnsafeOrigin: origin
     }
 });
-
-console.log('DEPRECATED TEST:', 'http-commands are tested with HTTP upload and with blocks');
 
 const keys = Nacl.sign.keyPair();
 
