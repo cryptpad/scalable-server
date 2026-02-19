@@ -32,31 +32,6 @@ StorageCommands.getMultipleFileSize = (Env, channels, _cb) => {
     });
 };
 
-StorageCommands.getTotalSize = (Env, safeKey, cb) => {
-    Core.coreToStorage(Env, safeKey, 'GET_TOTAL_SIZE', { safeKey }, cb);
-};
-
-StorageCommands.getChannelsTotalSize = (Env, channels, cb) => {
-    let result = 0;
-    const channelsByStorage = Core.getChannelsStorage(Env, channels);
-
-    nThen(waitFor => {
-        Object.keys(channelsByStorage).forEach(storageId => {
-            const channels = channelsByStorage[storageId];
-            Env.interface.sendQuery(storageId,
-            'GET_CHANNELS_TOTAL_SIZE', channels, waitFor(res => {
-                if (res.error || typeof(res.data) !== "number") {
-                    waitFor.abort();
-                    return void cb(res.error);
-                }
-                result += res.data;
-            }));
-        });
-    }).nThen(() => {
-        cb(void 0, result);
-    });
-};
-
 StorageCommands.getLimit = Pinning.getLimit;
 
 module.exports = StorageCommands;

@@ -417,15 +417,6 @@ const onGetMultipleFileSize = (channels, cb, extra) => {
     if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
     StorageCommands.getMultipleFileSize(Env, channels, cb);
 };
-const onGetTotalSize = (args, cb, extra) => {
-    if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
-    const { safeKey } = args;
-    StorageCommands.getTotalSize(Env, safeKey, cb);
-};
-const onGetChannelsTotalSize = (channels, cb, extra) => {
-    if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
-    StorageCommands.getChannelsTotalSize(Env, channels, cb);
-};
 
 const onStorageToFront = (args, cb, extra) => {
     if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
@@ -619,8 +610,6 @@ const startServers = (mainConfig) => {
         'FLUSH_CACHE': onFlushCache,
 
         'GET_MULTIPLE_FILE_SIZE': onGetMultipleFileSize,
-        'GET_TOTAL_SIZE': onGetTotalSize,
-        'GET_CHANNELS_TOTAL_SIZE': onGetChannelsTotalSize,
 
         'STORAGE_FRONT': onStorageToFront,
     };

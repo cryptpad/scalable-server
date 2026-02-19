@@ -144,12 +144,7 @@ const getHash = (Env, safeKey, cb) => {
         { safeKey }, res => { cb(res.error, res.data); });
 };
 const getTotalSize = (Env, safeKey, cb) => {
-    const unsafeKey = Util.unescapeKeyCharacters(safeKey);
-    const limit = Env.limits[unsafeKey];
-    const batchKey = (limit && Array.isArray(limit.users)) ?
-                        limit.users.join('') : safeKey;
-
-    StorageCommands.getTotalSize(Env, batchKey, cb);
+    Core.coreToStorage(Env, safeKey, 'GET_TOTAL_SIZE', { safeKey }, cb);
 };
 const getLimit = StorageCommands.getLimit;
 
