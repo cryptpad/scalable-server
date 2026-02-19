@@ -308,12 +308,13 @@ const onWsMessage = (Env, args, cb) => {
     const { userId, cmd, seq, json, length } = args;
     if (typeof(commands[cmd]) !== 'function') { return void cb(); }
     const user = Env.users[userId];
+    Env.plugins?.MONITORING?.increment(`received`);
+    Env.plugins?.MONITORING?.increment(`receivedSize`, length);
+    if (!user) { return void cb(); }
     commands[cmd](Env, {
         user, json, seq,
         obj: json[1],
     });
-    Env.plugins?.MONITORING?.increment(`received`);
-    Env.plugins?.MONITORING?.increment(`receivedSize`, length);
     cb();
 };
 

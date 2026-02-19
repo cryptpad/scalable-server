@@ -362,6 +362,11 @@ const create = (Env) => {
                     return void cb(err);
                 }
 
+                if (!res) {
+                    // Duplicate checkpoint: callback without sending new messages to others
+                    return void cb(void 0, time);
+                }
+
                 const { /*users,*/ message } = res;
                 const time = message[message.length - 1];
 

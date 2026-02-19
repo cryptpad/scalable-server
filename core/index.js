@@ -237,9 +237,11 @@ const onChannelMessage = (args, cb, extra) => {
             if (res.error) {
                 return void cb(res.error);
             }
+            if (!res?.data?.message) {
+                // duplicate checkpoint: nothing to send
+                return void cb();
+            }
             const { users, message } = res.data;
-
-            if (!message) { return void cb(); }
 
             sendChannelMessage(users, message);
             cb();

@@ -294,13 +294,13 @@ const dropUser = (user, reason) => {
     if (Env.logIP &&
         !['SOCKET_CLOSED', 'INACTIVITY'].includes(reason)) {
         return void Env.Log.info('USER_DISCONNECTED_ERROR', {
-            userId: userId,
+            userId: user.id,
             reason: reason
         });
     }
     if (['BAD_MESSAGE', 'SEND_MESSAGE_FAIL_2'].includes(reason)) {
         return void Env.Log.error('SESSION_CLOSE_WITH_ERROR', {
-            userId: userId,
+            userId: user.id,
             reason: reason,
         });
     }
@@ -309,7 +309,7 @@ const dropUser = (user, reason) => {
         return;
     }
     Env.Log.verbose('SESSION_CLOSE_ROUTINE', {
-        userId: userId,
+        userId: user.id,
         reason: reason,
     });
 };
@@ -436,6 +436,7 @@ const initServerHandlers = () => {
 
 
         socket.on('message', message => {
+            if (!Env.users[user.id]) { return; } // websocket closing
             Env.Log.verbose('Receiving', JSON.parse(message), 'from', user.id);
             handleMessage(user, message, e => {
                 if (!e) { return; }
