@@ -21,6 +21,7 @@ export default defineConfig([
         "no-extra-boolean-cast": ["off"],
         "no-prototype-builtins": ["error"],
         "no-use-before-define": ["error"],
+        "no-undef": ["error"],
         "no-unused-vars": [
             "error",
             {
