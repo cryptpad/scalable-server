@@ -371,7 +371,7 @@ const onNewDecrees = (Env, args, cb) => {
     const { type, decrees, curveKeys, freshKey } = args;
     Env.cacheDecrees(type, decrees);
     Env.FRESH_KEY = freshKey;
-    Env.curveKeys = curveKeys;
+    Env.curveKeys ||= curveKeys;
     Env.getDecree(type).loadRemote(Env, decrees);
     Env.workers.broadcast('NEW_DECREES', {
         curveKeys: Env.curveKeys,

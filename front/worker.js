@@ -231,7 +231,7 @@ app.post('/api/auth', (req, res) => {
 COMMANDS.NEW_DECREES = (data, cb) => {
     const { decrees, type, curveKeys, freshKey } = data;
     Env.FRESH_KEY = freshKey;
-    Env.curveKeys = curveKeys;
+    Env.curveKeys ||= curveKeys;
     Env.getDecree(type).loadRemote(Env, decrees);
     [ 'configCache', 'broadcastCache', ].forEach(key => {
         Env[key] = {};
