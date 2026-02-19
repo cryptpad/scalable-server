@@ -542,13 +542,13 @@ const create = (Env) => {
             }));
         }).nThen((w) => {
             const cb = Util.both(w.abort, _cb);
-            HistoryManager.getMetadata(Env, channel, (err, metadata) => {
+            HistoryManager.getMetadata(Env, channel, w((err, metadata) => {
                 if (err) { return void cb(err); }
                 if (!Core.hasOwners(metadata)) { return void cb('E_NO_OWNERS'); }
                 if (!Core.isOwner(metadata, unsafeKey)) {
                     return void cb('INSUFFICIENT_PERMISSIONS');
                 }
-            });
+            }));
         }).nThen(function () {
             const cb = _cb;
             // temporarily archive the file
