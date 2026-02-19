@@ -113,8 +113,8 @@ const getChannelList = Pinning.getChannelList =
     const id = safeKey;
     if (!noRedirect && !Core.checkStorage(Env, id, 'GET_CHANNEL_LIST', {
         safeKey
-    }, res => {
-        cb(res.data || []);
+    }, (err, channels) => {
+        cb(channels || []);
     })) { return; }
 
     loadUserPins(Env, safeKey, (pins) => {
