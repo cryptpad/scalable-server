@@ -104,8 +104,6 @@ const joinPad = () => {
         rej = reject;
     });
 
-    padId = secret.channel;
-
     const all = Object.values(users).map(({ network }) => {
         return network.join(secret.channel);
     });

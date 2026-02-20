@@ -2,8 +2,6 @@ const Core = require("./core");
 const Keys = require("./keys");
 const DecreesCore = require("./decrees-core");
 
-const Quota = require("../storage/commands/quota");
-
 const {
     args_isBoolean,
     args_isString,
@@ -316,7 +314,7 @@ commands.SET_QUOTA = function (Env, args) {
     //if (Env.customLimits[unsafeKey]) { throw new Error("EEXISTS"); }
 
     var limit = args[1];
-    if (!Quota.isValidLimit(limit)) { // do we really want this?
+    if (!Core.isValidLimit(limit)) { // do we really want this?
         throw new Error("INVALID_ARGS");
     }
 
@@ -389,7 +387,7 @@ commands.RM_ADMIN_KEY = function (Env, args) {
     }
 
     // NOTE prevent removing config.js hardcoded admin keys
-    if (Array.isArray(config?.adminKeys) && config.adminKeys.includes(key)) {
+    if (Array.isArray(Env?.config?.adminKeys) && Env.config.adminKeys.includes(key)) {
         throw new Error("CANT_REMOVE_CONFIG");
     }
 

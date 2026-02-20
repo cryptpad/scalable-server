@@ -71,7 +71,7 @@ const getUploadCmd = (rpc) => {
 };
 
 const uploadBlob = args => {
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
         const { network, rpc } = args;
         const rpcCmd = getUploadCmd(rpc);
 
@@ -128,7 +128,7 @@ const checkBlob = (args) => {
 };
 
 const uploadBlobHttp = args => {
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
         const { network, rpc } = args;
         const rpcCmd = getUploadCmd(rpc);
 

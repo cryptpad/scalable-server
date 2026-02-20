@@ -68,7 +68,7 @@ const getMultipleFileSize = Pinning.getMultipleFileSize = (Env, channels, cb, no
             Env.worker.getMultipleFileSize(toKeep, w((err, value) => {
                 if (err) {
                     w.abort();
-                    return void cb(res.error);
+                    return void cb(err);
                 }
                 Util.extend(result, value);
             }));
@@ -147,7 +147,7 @@ Pinning.getChannelsTotalSize = (Env, channels, cb, noRedirect) => {
                 Env.worker.getTotalSize(myChannels, w((err, value) => {
                     if (err) {
                         w.abort();
-                        return void cb(res.error);
+                        return void cb(err);
                     }
                     result += value;
                 }));

@@ -12,23 +12,6 @@ const Stats = require("../stats");
 const Pinning = require("./pin.js");
 const nThen = require('nthen');
 
-const validLimitFields = ['limit', 'plan', 'note', 'users', 'origin'];
-
-Quota.isValidLimit = function (o) {
-    var valid = o && typeof(o) === 'object' &&
-        typeof(o.limit) === 'number' &&
-        typeof(o.plan) === 'string' &&
-        typeof(o.note) === 'string' &&
-        // optionally contains a 'users' array
-        (Array.isArray(o.users) || typeof(o.users) === 'undefined') &&
-        // check that the object contains only the expected fields
-        !Object.keys(o).some(function (k) {
-            return validLimitFields.indexOf(k) === -1;
-        });
-
-    return valid;
-};
-
 Quota.applyCustomLimits = function (Env) {
     Core.applyLimits(Env);
 };

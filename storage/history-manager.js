@@ -244,7 +244,6 @@ const checkHistoryRights = (Env, channel, userId, _cb) => {
         // Expired? abort
         // NOTE: checkExpired has side effects (bcast, archive)
         if (checkExpired(Env, channel)) {
-            waitFor.abort();
             return void cb('EXPIRED');
         }
 

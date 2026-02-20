@@ -33,6 +33,7 @@ const setExpire = () => {
 
         //let expire = 5*60;
         let expire = 30;
+        let network;
         connectUser(0)
         .then(_network => {
             network = _network;

@@ -300,6 +300,10 @@ const handleFile = (data, cb) => {
         });
     };
 
+    const onError = (err) => {
+        console.error('UPLOAD_ERROR', id, err);
+    };
+
     var actual = 0;
     var encryptedArr = [];
     var again = function (err, box) {

@@ -215,6 +215,22 @@ Core.getChannelsStorage = (Env, channels) => {
     return channelsByStorage;
 };
 
+const validLimitFields = ['limit', 'plan', 'note', 'users', 'origin'];
+Core.isValidLimit = (o) => {
+    var valid = o && typeof(o) === 'object' &&
+        typeof(o.limit) === 'number' &&
+        typeof(o.plan) === 'string' &&
+        typeof(o.note) === 'string' &&
+        // optionally contains a 'users' array
+        (Array.isArray(o.users) || typeof(o.users) === 'undefined') &&
+        // check that the object contains only the expected fields
+        !Object.keys(o).some(function (k) {
+            return validLimitFields.indexOf(k) === -1;
+        });
+
+    return valid;
+};
+
 Core.applyLimits = (Env) => {
     // DecreedLimits > customLimits > serverLimits;
 
@@ -231,7 +247,7 @@ Core.applyLimits = (Env) => {
 
     Env.limits = Env.limits || {};
     Object.keys(customLimits).forEach(k => {
-        if (!Quota.isValidLimit(customLimits[k])) { return; }
+        if (!Core.isValidLimit(customLimits[k])) { return; }
         Env.limits[k] = customLimits[k];
     });
 };

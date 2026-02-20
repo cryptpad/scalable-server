@@ -28,19 +28,19 @@ export default defineConfig([{
     files: ["**/*.{js,mjs,cjs}"],
     ignores: [
         "scripts/**", "build/**",
-        "plugins/*/client/**", "common/common-util.js"
+        "plugins/*/client/**", "common/common-util.js",
+        "common/keys.js"
     ],
     languageOptions: { globals: globals.node },
     rules
 }, {
     files: ["plugins/*/client/**.{js,mjs,cjs}"],
-    ignores: ["common/common-util.js"],
     languageOptions: {
         globals: { ...globals.browser, ...globals.amd }
     },
     rules
 }, {
-    files: ["common/common-util.js"],
+    files: ["common/common-util.js", "common/keys.js"],
     languageOptions: {
         globals: { ...globals.node, ...globals.browser, ...globals.amd }
     },
