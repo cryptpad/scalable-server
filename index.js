@@ -56,16 +56,21 @@ const startNode = (type, index, forking, cb) => {
 const coresReady = () => {
     const promises = [];
     infraConfig?.front?.forEach((_, index) => {
+        // hosted on another machine?
+        if (data.url && !data.host) { return resolve(); }
         promises.push(new Promise(resolve => {
             startNode('front', index, true, resolve);
         }));
     });
     infraConfig?.storage?.forEach((_, index) => {
+        // hosted on another machine?
+        if (data.url && !data.host) { return resolve(); }
         promises.push(new Promise(resolve => {
             startNode('storage', index, true, resolve);
         }));
     });
     promises.push(new Promise(resolve => {
+        if (!infraConfig?.public?.origin) { return resolve(); }
         startNode('http', 0, true, resolve);
     }));
     Promise.all(promises).then(() => {
@@ -79,9 +84,11 @@ const startCores = () => {
         if (!serverConfig?.private) {
             serverConfig.private = { };
         }
-        serverConfig.private.nodes_key = Buffer.from(Crypto.randomBytes(32), 'base64');
+        serverConfig.private.nodes_key = Crypto.randomBytes(32).toString('base64');
     }
-    const corePromises = infraConfig?.core.map((_, index) => new Promise((resolve, reject) => {
+    const corePromises = infraConfig?.core.map((data, index) => new Promise((resolve, reject) => {
+        // hosted on another machine?
+        if (data.url && !data.host) { return resolve(); }
         startNode('core', index, true, (err) => {
             if (err) {
                 Log.error(err);
