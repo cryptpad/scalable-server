@@ -55,17 +55,17 @@ const startNode = (type, index, forking, cb) => {
 
 const coresReady = () => {
     const promises = [];
-    infraConfig?.front?.forEach((_, index) => {
+    infraConfig?.front?.forEach((data, index) => {
         // hosted on another machine?
-        if (data.url && !data.host) { return resolve(); }
         promises.push(new Promise(resolve => {
+            if (data.url && !data.host) { return resolve(); }
             startNode('front', index, true, resolve);
         }));
     });
-    infraConfig?.storage?.forEach((_, index) => {
+    infraConfig?.storage?.forEach((data, index) => {
         // hosted on another machine?
-        if (data.url && !data.host) { return resolve(); }
         promises.push(new Promise(resolve => {
+            if (data.url && !data.host) { return resolve(); }
             startNode('storage', index, true, resolve);
         }));
     });
