@@ -60,7 +60,8 @@ const newConnection = (ctx, other, txid, type, data, message) => {
     // This requires servers to be time-synchronised to avoid “Challenge in
     // the future” issue.
     let challengeLife = Number(Date.now()) - Number(challTimestamp);
-    if (challengeLife < 0 || challengeLife > ctx.ChallengeLifetime ||
+    // FIXME: allow configurable negative challengeLife if machine are not time-sync
+    if (challengeLife < -5000 || challengeLife > ctx.ChallengeLifetime ||
         rcvType !== challType || idx !== Number(challIndex)) {
         other.disconnect();
         return ctx.Log.error("Bad challenge answer");
