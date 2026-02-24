@@ -70,7 +70,7 @@ const coresReady = () => {
         }));
     });
     promises.push(new Promise(resolve => {
-        if (!infraConfig?.public?.origin) { return resolve(); }
+        if (!infraConfig?.public?.httpHost) { return resolve(); }
         startNode('http', 0, true, resolve);
     }));
     Promise.all(promises).then(() => {
