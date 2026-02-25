@@ -13,33 +13,21 @@ const messageTemplate = (type, time, tag, info, nodeId) => {
     return JSON.stringify([type.toUpperCase(), time, nodeId, tag, info]);
 };
 
-const noop = () => {};
-
 const getDateString = () => {
     const now = new Date();
-    const year = String(now.getFullYear());
-    const month = String((now.getMonth() + 1)).padStart(2, 0);
-    const day = String(now.getDate()).padStart(2,0);
-    return `${month}${year}-${month}-${day}`;
+    return now.toLocaleDateString(void 0, { month: "2-digit" }) + now.toLocaleDateString('en-CA');
 };
 
-const wrapCb = (f) => function() {
+const noop = function() {
     const args = Array.prototype.slice.call(arguments);
-    if (!args.length) { return f(''); }
+    if (!args.length) { return; }
     let cb = args.pop();
-    if (typeof(cb) !== 'function') {
-        args.push(cb);
-        cb = undefined;
-    }
-    f.apply(console, args);
-    if (cb) { Util.mkAsync(cb)(); }
+    if (typeof(cb) !== 'function') { return; }
+    if (cb) { setTimeout(cb); }
 };
 
 const write = function (ctx, content, cb) {
-    if (!ctx.store) {
-        cb = Util.mkAsync(cb);
-        return void cb();
-    }
+    if (!ctx.store) { return setTimeout(cb); }
     ctx.store.log(`${getDateString()}-${ctx.logId}`, content, cb);
 };
 
@@ -51,7 +39,7 @@ handlers['error'] = console.error;
 
 const createLogType = function (ctx, type) {
     if (logLevels.indexOf(type) < logLevels.indexOf(ctx.logLevel)) {
-        return wrapCb(noop);
+        return noop;
     }
     // arguments: tag, info1, info2, ..., cb
     return function () {
@@ -60,23 +48,11 @@ const createLogType = function (ctx, type) {
         let cb = args.pop();
         if (typeof (cb) !== 'function') {
             args.push(cb);
-            cb = noop;
+            cb = () => {};
         }
-        let info = args.shift() || "";
-        if (args.length !== 0) { // Otherwise an issue with objects (and can’t double-stringify)
-            // To take into account console.log("send from %s to %s", sender, recv)
-            // from external libraries
-            if (info.includes('%s')) {
-                info = info.replace(/%s/g, () => args.shift());
-            } else {
-                args.unshift(info);
-                info = args;
-            }
-        }
-        if (ctx.shutdown) {
-            throw new Error("Logger has been shut down!");
-        }
+        if (ctx.shutdown) { return; }
         const time = new Date().toISOString();
+        const info = args.length === 1 ? args[0] : args;
         let content;
         try {
             content = messageTemplate(type, time, tag, info, ctx.myId);
@@ -88,7 +64,7 @@ const createLogType = function (ctx, type) {
         }
         ctx.onReady?.reg(() => {
             write(ctx, content, cb);
-        }); 
+        });
     };
 };
 
@@ -98,25 +74,6 @@ const createMethods = function (ctx) {
         log[type] = createLogType(ctx, type);
     });
 
-    // Generate a sublogger that reuses the original logger with different
-    // logLevel < current logLevel and custom tag
-    log.subLogger = (logLevel, tag) => {
-        const subLog = {};
-        const newctx = ctx;
-        ctx.logLevel = logLevel;
-        logLevels.forEach(function(level) {
-            if (logLevels.indexOf(level) < logLevels.indexOf(newctx.logLevel)) {
-                subLog[level] = wrapCb(noop);
-            } else {
-                subLog[level] = function() {
-                    const args = Array.prototype.slice.call(arguments);
-                    if (tag) { args.unshift(tag); }
-                    log[level].apply(console, args);
-                };
-            }
-        });
-        return subLog;
-    };
     return log;
 };
 
@@ -140,7 +97,7 @@ const Logger = (loggerConfig, myId) => {
     if (!loggerConfig.logPath) {
         console.log(`${myId}: No logPath configured. Logging to file disabled`);
         const logger = createMethods(ctx);
-        logger.shutdown = noop;
+        logger.shutdown = () => {};
         return logger;
     }
 
