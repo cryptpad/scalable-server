@@ -101,7 +101,7 @@ const startCores = () => {
         if (serverId && data.serverId !== serverId) { return resolve(); }
         startNode('core', index, true, (err) => {
             if (err) {
-                Log.error(err);
+                Log.error('START_CORE_ERROR', err);
                 return reject(err);
             }
             return resolve();
@@ -110,7 +110,7 @@ const startCores = () => {
 
     Promise.all(corePromises)
         .then(() => { coresReady(); })
-        .catch((e) => { return Log.error(e); });
+        .catch((e) => { return Log.error('START_CORE_ERROR', e); });
 };
 
 // Start process
@@ -122,7 +122,7 @@ if (cliArgs.type || cliArgs.t) {
         throw Error('E_MISSINGKEY');
     }
     startNode(type, index, false, (err) => {
-        if (err) { return Log.error(err); }
+        if (err) { return Log.error('START_NODE_ERROR', err); }
     });
 } else {
     serverId = cliArgs.server || cliArgs.s;

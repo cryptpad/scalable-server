@@ -462,7 +462,7 @@ const start = (mainConfig) => {
     const Env = {
         openConnections: {},
         user_channel_cache: {},
-        Log: Logger(),
+        Log: Logger(config, myId),
         active: true,
         users: {},
         public: infra?.front?.[index],
@@ -516,19 +516,19 @@ const start = (mainConfig) => {
         Env.interface = Interface.init(interfaceConfig, w(err => {
             if (err) {
                 w.abort();
-                Env.Log.error(interfaceConfig.myId, ' error:', err);
+                Env.Log.error('INTERFACE_INIT_ERROR', interfaceConfig.myId, ' error:', err);
                 return;
             }
         }));
         Env.plugins.call('addFrontCommands')(Env, CORE_COMMANDS);
         Env.interface.handleCommands(CORE_COMMANDS);
     }).nThen(() => {
-        Env.Log.info('WS started', Env.myId);
+        Env.Log.info('FRONT_STARTED', Env.myId);
 
         if (process.send !== undefined) {
             process.send({type: 'front', index, msg: 'READY'});
         } else {
-            Env.Log.info('front:' + index + ' started');
+            Env.Log.info('SINGLE_FRONT_STARTED', Env.myId);
         }
     });
 };

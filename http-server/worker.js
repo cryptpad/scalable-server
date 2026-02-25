@@ -77,19 +77,19 @@ const initProxy = (Env, app, infra) => {
         onProxyReqWs: function (proxyReq, req) {
             proxyReq.setHeader('X-Real-Ip', req.socket.remoteAddress);
         },
-        logger: Logger(['error'])
+        logger: Env.Log.subLogger('error', 'HTTP_PROXY_MIDDLEWARE'),
     });
     const httpProxy = createProxyMiddleware({
         router: req => {
             return httpList[j++%httpList.length] + req.baseUrl.slice(1);
         },
-        logger: Logger(['error'])
+        logger: Env.Log.subLogger('error', 'HTTP_PROXY_MIDDLEWARE'),
     });
     const storage0Proxy = createProxyMiddleware({
         router: req => {
             return storageList[0] + req.baseUrl.slice(1);
         },
-        logger: Logger(['error'])
+        logger: Env.Log.subLogger('error', 'HTTP_PROXY_MIDDLEWARE'),
     });
 
 
@@ -114,7 +114,7 @@ const initProxy = (Env, app, infra) => {
             const id = getStorageId(Env, dataId).slice(8); // remove "storage:"
             return storageList[id] + req.baseUrl.slice(1);
         },
-        logger: Logger(['error'])
+        logger: Env.Log.subLogger('error', 'HTTP_PROXY_MIDDLEWARE'),
     });
     app.use('/blob', storeProxy);
     app.use('/datastore', storeProxy);
@@ -139,7 +139,7 @@ const initProxy = (Env, app, infra) => {
                             + req.baseUrl.slice(1);
                 }
             },
-            logger: Logger(['error'])
+            logger: Env.Log.subLogger('error', 'HTTP_PROXY_MIDDLEWARE'),
         });
         app.use(proxyCfg.url, proxy);
     });
@@ -238,8 +238,8 @@ COMMANDS.NEW_DECREES = (data, cb) => {
 const init = (mainConfig, cb) => {
     const { infra } = mainConfig;
 
-    Env.Log = Logger();
     Environment.init(Env, mainConfig);
+    Env.Log = Logger(mainConfig.config, Env.myId);
 
     const app = Express();
 

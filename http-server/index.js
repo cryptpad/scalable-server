@@ -68,7 +68,7 @@ const start = (mainConfig) => {
     const index = 0;
     const myId = 'http:0';
     const Env = {
-        Log: Logger()
+        Log: Logger(config, myId)
     };
 
     Environment.init(Env, mainConfig);
@@ -95,7 +95,7 @@ const start = (mainConfig) => {
         Env.interface = Interface.init(interfaceConfig, w(err => {
             if (err) {
                 w.abort();
-                Env.Log.error(interfaceConfig.myId, ' error:', err);
+                Env.Log.error('INIT_INTERFACE_ERROR', interfaceConfig.myId, ' error:', err);
                 return;
             }
         }));

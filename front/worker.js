@@ -484,7 +484,7 @@ COMMANDS.SET_MODERATORS = (args, cb) => {
 // INIT Worker
 
 const init = (config, cb) => {
-    Env.Log = Logger();
+    Env.Log = Logger(config.config, config.myId);
 
     Environment.init(Env, config);
     servePlugins(Env);

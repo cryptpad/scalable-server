@@ -21,7 +21,6 @@ const {
 } = Constants;
 
 let Env = {
-    Log: Logger(),
     userCache: {}, // Front associated to each user
     channelKeyCache: {}, // Validate key of each channel
     queueValidation: WriteQueue(),
@@ -49,7 +48,7 @@ let frontToStorage = function(command, validated, isEvent) {
         if (!validated) {
             let s = extra.from.split(':');
             if (s[0] !== 'front') {
-                console.error('Error:', command, 'received from unauthorized server:', args, extra);
+                Env.Log.error('UNAUTHORIZED_USER_ERROR', command, 'received from unauthorized server:', args, extra);
                 cb('UNAUTHORIZED_USER', void 0);
                 return;
             }
@@ -73,7 +72,7 @@ let storageToFront = function(command) {
     return function(args, cb, extra) {
         let s = extra.from.split(':');
         if (s[0] !== 'storage') {
-            console.error('Error:', command, 'received from unauthorized server:', args, extra);
+            Env.Log.error('UNAUTHORIZED_USER_ERROR', command, 'received from unauthorized server:', args, extra);
             cb('UNAUTHORIZED_USER', void 0);
             return;
         }
@@ -540,7 +539,7 @@ const onFlushCache = Env.flushCache = (_args, cb) => {
 
 // SET_MODERATORS triggers a FLUSH_CACHE to refresh the client cache
 const onSetModerators = (args) => {
-    if (Env.myId !== 'core:0') { return void Env.Log.error('INVALID_CORE'); }
+    if (Env.myId !== 'core:0') { return void Env.Log.error('INVALID_CORE_ERROR'); }
     Env.moderators = args;
     Env.freshKey = +new Date();
     // XXX: The following command should not be an ADMIN_CMD
@@ -555,6 +554,7 @@ const onSetModerators = (args) => {
 const startServers = (mainConfig) => {
     let { myId, index, config, infra } = mainConfig;
     Environment.init(Env, mainConfig);
+    Env.Log = Logger(config, myId);
 
     const interfaceConfig = {
         connector: WSConnector,
@@ -629,7 +629,7 @@ const startServers = (mainConfig) => {
 
     Env.interface = Interface.init(interfaceConfig, err => {
         if (err) {
-            console.error('E: interface initialisation error', err);
+            Env.Log.error('INTERFACE_INIT_ERROR', err);
             return;
         }
         if (process.send !== undefined) {
