@@ -46,7 +46,7 @@ const deleteInvitation = (Env, _publicKey, data, cb) => {
 // CryptPad_AsyncStore.rpc.send('ADMIN', ['GET_ACTIVE_SESSIONS'], console.log)
 var getActiveSessions = function(Env, _publicKey, _data, cb) {
     Env.interface.broadcast('front', 'ADMIN_CMD', { cmd: 'GET_ACTIVE_SESSIONS' }, (err, data) => {
-        if (err.length) { cb(err); };
+        if (err.length) { return cb(err); };
         let unique = new Set();
         const total = data.reduce((acc, it) => {
             it.unique.forEach(u => unique.add(u));
@@ -440,7 +440,7 @@ const restoreAccount = (Env, _key, data, _cb) => {
                     cmd: 'ACCOUNT_RESTORE_START',
                     data
                 }, res => {
-                    if (res.error) { reject(res.error); }
+                    if (res.error) { return reject(res.error); }
                     resolve(res.data);
                 });
             })
