@@ -522,12 +522,12 @@ const start = (mainConfig) => {
         Env.plugins.call('addFrontCommands')(Env, CORE_COMMANDS);
         Env.interface.handleCommands(CORE_COMMANDS);
     }).nThen(() => {
-        Env.Log.info('WS started', Env.myId);
+        Env.Log.info('FRONT_STARTED', Env.myId);
 
         if (process.send !== undefined) {
             process.send({type: 'front', index, msg: 'READY'});
         } else {
-            Env.Log.info('front:' + index + ' started');
+            Env.Log.info('SINGLE_FRONT_STARTED', Env.myId);
         }
     });
 };
