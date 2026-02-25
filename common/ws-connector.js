@@ -98,7 +98,7 @@ module.exports = {
             if (ready) { return; }
             let socket = new WebSocket(wsHref);
             socket.on('error', () => {
-                ctx.Log.error('INIT_CLIENT_ERROR', 'Remote server not ready', id, 'trying again in 1000ms');
+                ctx.Log.debug('INIT_CLIENT', 'Remote server not ready', id, 'trying again in 1000ms');
                 setTimeout(again, 1000); // try again
             }).on('open', () => {
                 ready = true;
