@@ -70,7 +70,7 @@ const createLogType = function (ctx, type) {
                 info = info.replace(/%s/g, () => args.shift());
             } else {
                 args.unshift(info);
-                info = args.join(' ');
+                info = args;
             }
         }
         if (ctx.shutdown) {
