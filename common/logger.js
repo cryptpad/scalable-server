@@ -61,7 +61,7 @@ const createLogType = function (ctx, type) {
             args.push(cb);
             cb = noop;
         }
-        let info = args.shift();
+        let info = args.shift() || "";
         if (args.length !== 0) { // Otherwise an issue with objects (and can’t double-stringify)
             // To take into account console.log("send from %s to %s", sender, recv)
             // from external libraries
