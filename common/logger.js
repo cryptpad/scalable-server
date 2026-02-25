@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2026 XWiki CryptPad Team <contact@cryptpad.org> and contributors
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
-var Store = require("../storage/storage/file");
-var Util = require("./common-util");
+const Store = require("../storage/storage/file");
+const Util = require("./common-util");
 
 // various degrees of logging
 const logLevels = ['silly', 'verbose', 'debug', 'feedback', 'info', 'warn', 'error'];
@@ -34,7 +34,7 @@ const wrapCb = (f) => function() {
     if (cb) { Util.mkAsync(cb)(); }
 };
 
-var write = function (ctx, content, cb) {
+const write = function (ctx, content, cb) {
     if (!ctx.store) {
         cb = Util.mkAsync(cb);
         return void cb();
@@ -127,7 +127,7 @@ const Logger = (loggerConfig, myId) => {
         loggerConfig.logLevel = 'info';
     }
 
-    var ctx = {
+    const ctx = {
         logFeedback: Boolean(loggerConfig.logFeedback),
         logLevel: loggerConfig.logLevel,
         logToStdout: loggerConfig.logToStdout,
@@ -157,10 +157,10 @@ const Logger = (loggerConfig, myId) => {
     });
 
     const logger = createMethods(ctx);
-    logger.shutdown = function () {
-            delete ctx.store;
-            ctx.shutdown = true;
-            ctx.store.shutdown();
+    logger.shutdown = () => {
+        delete ctx.store;
+        ctx.shutdown = true;
+        ctx.store.shutdown();
     };
     return Object.freeze(logger);
 };
