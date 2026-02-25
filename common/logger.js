@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 const Store = require("../storage/storage/file");
 const Util = require("./common-util");
+const Path = require("node:path");
 
 // various degrees of logging
 const logLevels = ['silly', 'verbose', 'debug', 'feedback', 'info', 'warn', 'error'];
@@ -16,10 +17,10 @@ const noop = () => {};
 
 const getDateString = () => {
     const now = new Date();
-    const year = String(now.getFullYear()).slice(-2);
+    const year = String(now.getFullYear());
     const month = String((now.getMonth() + 1)).padStart(2, 0);
     const day = String(now.getDate()).padStart(2,0);
-    return `${year}-${month}-${day}`;
+    return `${month}${year}-${month}-${day}`;
 };
 
 const wrapCb = (f) => function() {
@@ -144,9 +145,12 @@ const Logger = (loggerConfig, myId) => {
     }
 
     ctx.onReady = Util.mkEvent(true);
+    // XXX: there can be a bit of an overlap during year changes before
+    // restarting the service
+    const year = (new Date()).getFullYear().toString();
 
     Store.create({
-        filePath: loggerConfig.logPath,
+        filePath: Path.join(loggerConfig.logPath, year),
         archivePath: loggerConfig.archivePath,
     }, function (err, store) {
         if (err) {
