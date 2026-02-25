@@ -165,23 +165,23 @@ Core.haveACookie = function (Env, safeKey, cb) {
     cb();
 };
 
-Core.getPaths = (config, isEnv) => {
-    const { index } = config;
+Core.getPaths = (mainConfig, isEnv) => {
+    const { index, config } = mainConfig;
     const paths = Constants.paths; // XXX use config
 
     const idx = String(index);
     const all = {
-        basePath: Path.join(paths.base, idx),
-        filePath: Path.join(paths.base, idx, paths.channel),
-        blobPath: Path.join(paths.base, idx, paths.blob),
-        blobStagingPath: Path.join(paths.base, idx, paths.blobstage),
-        blockPath: Path.join(paths.base, idx, paths.block),
-        pinPath: Path.join(paths.base, idx, paths.pin),
-        archivePath: Path.join(paths.base, idx, paths.archive),
-        taskPath: Path.join(paths.base, idx, paths.tasks),
-        decreePath: Path.join(paths.base, "0", paths.decrees),
-        logoPath: Path.join(paths.base, "0", paths.logo),
-        challengePath: Path.join(paths.base, idx, paths.challenges)
+        basePath: config.basePath || Path.join(paths.base, idx),
+        filePath: config.filePath || Path.join(paths.base, idx, paths.channel),
+        blobPath: config.blobPath || Path.join(paths.base, idx, paths.blob),
+        blobStagingPath: config.blobStagingPath || Path.join(paths.base, idx, paths.blobstage),
+        blockPath: config.blockPath || Path.join(paths.base, idx, paths.block),
+        pinPath: config.pinPath || Path.join(paths.base, idx, paths.pin),
+        archivePath: config.archivePath || Path.join(paths.base, idx, paths.archive),
+        taskPath: config.taskPath || Path.join(paths.base, idx, paths.tasks),
+        decreePath: config.decreePath || Path.join(paths.base, "0", paths.decrees),
+        logoPath: config.logoPath || Path.join(paths.base, "0", paths.logo),
+        challengePath: config.challengePath || Path.join(paths.base, idx, paths.challenges)
     };
     if (!isEnv) { return all; }
 
