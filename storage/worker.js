@@ -23,7 +23,6 @@ const Fse = require("fs-extra");
 
 const Env = {
     isWorker: true,
-    Log: Logger()
 };
 
 const {
@@ -32,6 +31,8 @@ const {
 
 const init = (config, cb) => {
     Environment.init(Env, config);
+    Env.Log = Logger(config.config, config.myId);
+
     const {
         filePath, archivePath, pinPath, taskPath,
         blobPath, blobStagingPath

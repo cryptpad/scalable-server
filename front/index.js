@@ -461,7 +461,7 @@ const start = (mainConfig) => {
     const Env = {
         openConnections: {},
         user_channel_cache: {},
-        Log: Logger(),
+        Log: Logger(config, myId),
         active: true,
         users: {},
         public: infra?.front?.[index],

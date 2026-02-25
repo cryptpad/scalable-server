@@ -21,7 +21,6 @@ const {
 } = Constants;
 
 let Env = {
-    Log: Logger(),
     userCache: {}, // Front associated to each user
     channelKeyCache: {}, // Validate key of each channel
     queueValidation: WriteQueue(),
@@ -562,6 +561,7 @@ const onSetModerators = (args) => {
 const startServers = (mainConfig) => {
     let { myId, index, config, infra } = mainConfig;
     Environment.init(Env, mainConfig);
+    Env.Log = Logger(config, myId);
 
     const interfaceConfig = {
         connector: WSConnector,
