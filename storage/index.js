@@ -47,7 +47,6 @@ const {
 
 const Env = {
     id: Util.uid(),
-    Log: Logger(),
     metadata_cache: {},
     channel_cache: {},
     pin_cache: {},
@@ -722,6 +721,7 @@ const start = (mainConfig) => {
         HKUtil
     });
 
+    Env.Log = Logger(config, myId);
 
     Env.updateLimits = () => {
         if (index !== 0) { return; }

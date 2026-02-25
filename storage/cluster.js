@@ -426,11 +426,11 @@ Env.interface = {
 
 
 const init = (config, cb) => {
-    Env.Log = Logger();
     Environment.init(Env, config, {
         Block, Pinning, Decrees,
         BlockStore, Blob, File, Sessions, Basic
     });
+    Env.Log = Logger(config.config, Env.myId);
 
     const {
         archivePath, blobPath, blobStagingPath

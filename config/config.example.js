@@ -50,6 +50,33 @@ module.exports = {
         "[decrees-test-admin@test.local/9MESY9hRN6s7T8M94+vxhS69Z9Hu+uQaXtlKFuxxFY0=]"
     ],
 
+    /* =====================
+     *          Log
+     * ===================== */
+
+    /* CryptPad supports logging events directly to the disk in a 'logs' directory
+     * Set its location here, or set it to false (or nothing) if you'd rather not log
+     */
+    logPath: './data/logs',
+
+    /*  CryptPad can log activity to stdout
+     *  This may be useful for debugging
+     */
+    logToStdout: false,
+
+    /* CryptPad can be configured to log more or less
+     * the various settings are listed below by order of importance
+     *
+     * silly, verbose, debug, feedback, info, warn, error
+     *
+     * Choose the least important level of logging you wish to see.
+     * For example, a 'silly' logLevel will display everything,
+     * while 'info' will display 'info', 'warn', and 'error' logs
+     *
+     * This will affect both logging to the console and the disk.
+     */
+    logLevel: 'info',
+
     /*  clients can use the /settings/ app to opt out of usage feedback
      *  which informs the server of things like how much each app is being
      *  used, and whether certain clientside features are supported by
@@ -61,5 +88,10 @@ module.exports = {
      *  to false if you'd like to exclude feedback from your logs.
      */
     logFeedback: false,
+
+    /*  CryptPad supports verbose logging
+     *  (false by default)
+     */
+    verbose: false,
 
 };
