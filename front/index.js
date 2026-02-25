@@ -50,7 +50,7 @@ const onSessionOpen = function(Env, userId) {
     if (!user) { return; }
 
     if (!Env.logIP || !user.ip) { return; }
-    Env.Log.verbose('USER_CONNECTION', {
+    Env.Log.info('USER_CONNECTION', {
         userId: userId,
         ip: user.ip,
     });
@@ -383,7 +383,7 @@ const onNewDecrees = (Env, args, cb) => {
         freshKey: Env.FRESH_KEY,
         type, decrees
     }, () => {
-        Env.Log.verbose('UPDATE_DECREE_WS_WORKER');
+        Env.Log.silly('UPDATE_DECREE_WS_WORKER');
     });
     cb();
 };
@@ -451,11 +451,11 @@ const initHttpCluster = (Env, mainConfig) => {
                     freshKey: Env.FRESH_KEY,
                     decrees, type
                 }, () => {
-                    Env.Log.verbose('UPDATE_DECREE_WS_WORKER');
+                    Env.Log.silly('UPDATE_DECREE_WS_WORKER');
                 });
             });
             Env.workers.sendTo(state, 'SET_MODERATORS', Env.moderators, () => {
-                Env.Log.verbose('UPDATE_MODERATORS_FRONT_WORKER');
+                Env.Log.silly('UPDATE_MODERATORS_FRONT_WORKER');
             });
         });
     });

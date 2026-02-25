@@ -28,7 +28,7 @@ const onSetModerators = (Env, args) => {
         onFlushCache(Env, args, () => { });
     }
     Env.workers.broadcast('SET_MODERATORS', Env.moderators, () => {
-        Env.Log.verbose('SET_MODERATORS_FRONT_WORKERS');
+        Env.Log.silly('SET_MODERATORS_FRONT_WORKERS');
     });
 };
 

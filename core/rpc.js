@@ -220,7 +220,7 @@ Rpc.isAuthenticatedCall = (call) => {
 Rpc.handleUnauthenticated = (Env, data, userId, cb) => {
     const [command, content] = data;
 
-    Env.Log.verbose('LOG_RPC', command);
+    Env.Log.silly('LOG_RPC', command);
 
     const method = UNAUTHENTICATED_CALLS[command];
     method(Env, content, (err, value) => {
@@ -254,7 +254,7 @@ Rpc.handleAuthenticated = (Env, publicKey, data, cb) => {
 
     const TYPE = data[0];
 
-    Env.Log.verbose('LOG_RPC', TYPE);
+    Env.Log.silly('LOG_RPC', TYPE);
 
     if (typeof(AUTHENTICATED_USER_TARGETED[TYPE]) === 'function') {
         return void AUTHENTICATED_USER_TARGETED[TYPE](Env, safeKey, data[1], (e, value) => {

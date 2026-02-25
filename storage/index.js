@@ -275,7 +275,7 @@ const newDecreeHandler = (args, cb) => { // bcast from core:0
     Env.workers.broadcast('NEW_DECREES', {
         type, decrees
     }, () => {
-        Env.Log.verbose('UPDATE_DECREE_STORAGE_WORKER');
+        Env.Log.silly('UPDATE_DECREE_STORAGE_WORKER');
     });
     cb();
 };
@@ -663,7 +663,7 @@ const initHttpServer = (Env, mainConfig, _cb) => {
             Env.clusters.sendTo(state, 'NEW_DECREES', {
                 decrees, type
             }, () => {
-                Env.Log.verbose('UPDATE_DECREE_STORAGE_WORKER');
+                Env.Log.silly('UPDATE_DECREE_STORAGE_WORKER');
             });
         });
     });
@@ -755,7 +755,7 @@ const start = (mainConfig) => {
                 decrees,
                 type
             }, waitFor(() => {
-                Env.Log.verbose('UPDATE_DECREE_STORAGE_WORKER');
+                Env.Log.silly('UPDATE_DECREE_STORAGE_WORKER');
             }));
             curveKeys = undefined;
         }).nThen(() => {
@@ -843,7 +843,7 @@ const start = (mainConfig) => {
                 Env.workers.sendTo(state, 'NEW_DECREES', {
                     decrees, type
                 }, () => {
-                    Env.Log.verbose('UPDATE_DECREE_STORAGE_WORKER');
+                    Env.Log.silly('UPDATE_DECREE_STORAGE_WORKER');
                 });
             });
         });

@@ -462,7 +462,7 @@ const init = (config, cb) => {
         const app = Express();
         const server = Http.createServer(app);
         server.listen(cfg.port, cfg.host, () => {
-            Env.Log.verbose('HTTP worker listening on port', cfg.port);
+            Env.Log.debug('HTTP worker listening on port', cfg.port);
             cb();
         });
 

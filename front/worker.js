@@ -308,7 +308,7 @@ const dropUser = (user, reason) => {
     if (['SOCKET_CLOSED', 'SOCKET_ERROR'].includes(reason)) {
         return;
     }
-    Env.Log.verbose('SESSION_CLOSE_ROUTINE', {
+    Env.Log.silly('SESSION_CLOSE_ROUTINE', {
         userId: user.id,
         reason: reason,
     });
@@ -324,7 +324,7 @@ const sendMsgPromise = (user, msg) => {
             return void reject("UNSENDABLE");
         }
 
-        Env.Log.verbose('Sending', msg, 'to', user.id);
+        Env.Log.silly('Sending', msg, 'to', user.id);
 
         try {
             const strMsg = JSON.stringify(msg);
@@ -437,7 +437,7 @@ const initServerHandlers = () => {
 
         socket.on('message', message => {
             if (!Env.users[user.id]) { return; } // websocket closing
-            Env.Log.verbose('Receiving', JSON.parse(message), 'from', user.id);
+            Env.Log.silly('Receiving', JSON.parse(message), 'from', user.id);
             handleMessage(user, message, e => {
                 if (!e) { return; }
                 Env.Log.error(e, 'NETFLUX_BAD_MESSAGE', {
@@ -476,7 +476,7 @@ COMMANDS.WS_SHUTDOWN = (args, cb) => {
 };
 
 COMMANDS.SET_MODERATORS = (args, cb) => {
-    Env.Log.verbose('SET_MODERATORS_FRONT_WORKER');
+    Env.Log.silly('SET_MODERATORS_FRONT_WORKER');
     Env.moderators = args;
     cb();
 };
@@ -492,7 +492,7 @@ const init = (config, cb) => {
     const cfg = config?.infra?.front[config.index];
     const server = Http.createServer(app);
     server.listen(cfg.port, cfg.host, () => {
-        Env.Log.verbose('HTTP worker listening on port', cfg.port);
+        Env.Log.debug('HTTP worker listening on port', cfg.port);
         cb();
     });
 

@@ -14,7 +14,7 @@ const onNewDecrees = (Env, args, cb) => {
     Env.workers.broadcast('NEW_DECREES', {
         type, decrees
     }, () => {
-        Env.Log.verbose('UPDATE_DECREE_WS_WORKER');
+        Env.Log.silly('UPDATE_DECREE_WS_WORKER');
     });
     cb();
 };
@@ -56,7 +56,7 @@ const initHttpCluster = (Env, mainConfig) => {
                 Env.workers.sendTo(state, 'NEW_DECREES', {
                     decrees, type
                 }, () => {
-                    Env.Log.verbose('UPDATE_DECREE_HTTP_WORKER');
+                    Env.Log.silly('UPDATE_DECREE_HTTP_WORKER');
                 });
             });
         });
