@@ -590,7 +590,7 @@ const checkCacheInterval = Util.once(() => {
             // Make sure channels from our cache are in the matching Set
             Object.keys(Env.channelKeyCache).forEach(channel => {
                 if (allKeys.some(storageId => {
-                    return allKeys[storageId].has(channel);
+                    return all[storageId].has(channel);
                 })) { return; }
 
                 // This channel is not in any storage's list
