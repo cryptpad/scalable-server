@@ -426,7 +426,7 @@ const init = (config, cb) => {
         Block, Pinning, Decrees,
         BlockStore, Blob, File, Sessions, Basic
     });
-    Env.Log = Logger(config.config, 'cluster');
+    Env.Log = Logger(config.config, Env.myId);
 
     const {
         archivePath, blobPath, blobStagingPath
