@@ -52,6 +52,7 @@ const createLogType = function (ctx, type) {
     if (logLevels.indexOf(type) < logLevels.indexOf(ctx.logLevel)) {
         return wrapCb(noop);
     }
+    // arguments: tag, info1, info2, ..., cb
     return function () {
         const args = Array.prototype.slice.call(arguments);
         const tag = args.shift();
@@ -90,13 +91,25 @@ const createMethods = function (ctx) {
     logLevels.forEach(function (type) {
         log[type] = createLogType(ctx, type);
     });
-    log.getConfig = (override) => {
-        return {
-            logPath: override.logPath || ctx.logPath,
-            logFeedback: override.logFeedback || ctx.logFeedback,
-            logLevel: override.logLevel || ctx.logLevel,
-            logToStdout: override.logToStdout || ctx.logToStdout
-        };
+
+    // Generate a sublogger that reuses the original logger with different
+    // logLevel < current logLevel and custom tag
+    log.subLogger = (logLevel, tag) => {
+        const subLog = {};
+        const newctx = ctx;
+        ctx.logLevel = logLevel;
+        logLevels.forEach(function(level) {
+            if (logLevels.indexOf(level) < logLevels.indexOf(newctx.logLevel)) {
+                subLog[level] = wrapCb(noop);
+            } else {
+                subLog[level] = function() {
+                    const args = Array.prototype.slice.call(arguments);
+                    if (tag) { args.unshift(tag); }
+                    log[level].apply(console, args);
+                };
+            }
+        });
+        return subLog;
     };
     return log;
 };
