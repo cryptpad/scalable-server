@@ -293,6 +293,15 @@ const accountsLimitsHandler = (args, cb) => { // sent from UI
     cb();
 };
 
+// Internal cleanup commands
+
+const getActiveChannels = (args, cb) => {
+    cb(void 0, {
+        myId: Env.myId,
+        channels: Object.keys(Env.channel_cache)
+    });
+};
+
 /* RPC commands */
 
 const adminDecreeHandler = (decree, cb) => { // sent from UI
@@ -454,6 +463,9 @@ let COMMANDS = {
 
     // Admin commands
     'ADMIN_CMD': callWithEnv(Admin.command),
+
+    // Internal commands
+    'GET_ACTIVE_CHANNELS': getActiveChannels
 };
 
 const initWorkerCommands = () => {

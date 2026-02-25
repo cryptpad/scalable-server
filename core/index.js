@@ -22,7 +22,7 @@ const {
 
 let Env = {
     Log: Logger(),
-    userCache: {}, // Front associated to each user
+    userCache: {}, // user.from, user.authKeys
     channelKeyCache: {}, // Validate key of each channel
     queueValidation: WriteQueue(),
     Sessions: {},
@@ -552,6 +552,55 @@ const onSetModerators = (args) => {
     }, () => { });
 };
 
+const checkCacheInterval = Util.once(() => {
+    const interval = 5*60*1000; // 5min
+    Env.intervals.checkCacheInterval = setInterval(() => {
+        Env.interface.broadcast('front', 'ADMIN_CMD', {
+            cmd: 'GET_ACTIVE_USERS'
+        }, (err, data) => {
+            // Convert each front userlist into a Set
+            const all = {};
+            data.forEach(obj => { // for each "front" node
+                const { myId, users } = obj;
+                const set = new Set(users);
+                all[myId] = set;
+            });
+            // Make sure users from our cache are in the matching Set
+            Object.keys(Env.userCache).forEach(userId => {
+                let from = Env.userCache[userId].from;
+                if (!from || !all[from]) { // disconnected front?
+                    delete Env.userCache[userId];
+                    return;
+                }
+                if (!all[from].has(userId)) { // disconnected user
+                    delete Env.userCache[userId];
+                }
+            });
+        });
+        Env.interface.broadcast('storage', 'GET_ACTIVE_CHANNELS', {
+        }, (err, data) => {
+            // Convert each storage channel list into a Set
+            const all = {};
+            data.forEach(obj => { // for each "front" node
+                const { myId, channels } = obj;
+                const set = new Set(channels);
+                all[myId] = set;
+            });
+
+            const allKeys = Object.keys(all);
+            // Make sure channels from our cache are in the matching Set
+            Object.keys(Env.channelKeyCache).forEach(channel => {
+                if (allKeys.some(storageId => {
+                    return allKeys[storageId].has(channel);
+                })) { return; }
+
+                // This channel is not in any storage's list
+                delete Env.channelKeyCache[channel];
+            });
+        });
+    }, interval);
+});
+
 const startServers = (mainConfig) => {
     let { myId, index, config, infra } = mainConfig;
     Environment.init(Env, mainConfig);
@@ -635,6 +684,7 @@ const startServers = (mainConfig) => {
         if (process.send !== undefined) {
             process.send({ type: 'core', index, msg: 'READY' });
         }
+        checkCacheInterval();
     });
     Env.plugins.call('addCoreCommands')(Env, COMMANDS);
     Env.interface.handleCommands(COMMANDS);

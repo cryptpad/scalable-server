@@ -27,6 +27,7 @@ const dropUserChannels = (Env, userId) => {
     const user = Env.users[userId];
     if (!user) { return; }
     const sent = [];
+    // XXX only send matching channels to each node instead of all channels
     user.channels.forEach(channel => {
         const coreId = getCoreId(Env, channel);
         if (sent.includes(coreId)) { return; }
@@ -290,6 +291,9 @@ const handleLeave = (Env, args) => {
         if (error) {
             return sendMsg(Env, user, [seq, 'ERROR', error, channel]);
         }
+        const channels = user.channels || [];
+        const channelIdx = channels.indexOf(channel);
+        if (channelIdx >= 0) { channels.splice(channelIdx, 1); }
         sendMsg(Env, user, [seq, 'ACK']);
     });
 };

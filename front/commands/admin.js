@@ -17,6 +17,11 @@ const onGetActiveSessions = (Env, args, cb) => {
     cb(void 0, { total, unique });
 };
 
+const onGetActiveUsers = (Env, args, cb) => {
+    const users = Object.keys(Env.users);
+    cb(void 0, { myId: Env.myId, users });
+};
+
 const onSetModerators = (Env, args) => {
     Env.moderators = args.moderators;
     if (args.freshKey) {
@@ -30,6 +35,7 @@ const onSetModerators = (Env, args) => {
 const commands = {
     'FLUSH_CACHE': onFlushCache,
     'GET_ACTIVE_SESSIONS': onGetActiveSessions,
+    'GET_ACTIVE_USERS': onGetActiveUsers,
     'SET_MODERATORS': onSetModerators,
 };
 
