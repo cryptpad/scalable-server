@@ -61,11 +61,16 @@ const createLogType = function (ctx, type) {
             args.push(cb);
             cb = noop;
         }
-        let info;
-        if (args.length === 1) { // Otherwise an issue with objects (and can’t double-stringify)
-            info = args[0];
-        } else {
-            info = args.join(' ');
+        let info = args.shift();
+        if (args.length !== 0) { // Otherwise an issue with objects (and can’t double-stringify)
+            // To take into account console.log("send from %s to %s", sender, recv)
+            // from external libraries
+            if (info.includes('%s')) {
+                info = info.replace(/%s/g, () => args.shift());
+            } else {
+                args.unshift(info);
+                info = args.join(' ');
+            }
         }
         if (ctx.shutdown) {
             throw new Error("Logger has been shut down!");
