@@ -49,6 +49,17 @@ const startNode = (type, index, forking, cb) => {
                 cb();
             }
         });
+        // FIXME
+        nodeProcess.on('error', (err) => {
+            Log.error('Child process stopped due to error.');
+            Log.error(err);
+            process.exit(1);
+        });
+        nodeProcess.on('exit', (err) => {
+            Log.error('Child process stopped due to error.');
+            Log.error(err);
+            process.exit(1);
+        });
     } else {
         require(nodeFile).start(initConfig);
     }

@@ -129,9 +129,12 @@ let createHandlers = function(ctx, other) {
     other.onMessage(function(message) {
         handleMessage(ctx, other, message);
     });
-    other.onDisconnect(function(_code, _reason) { // XXX: to handle properly in the future
+    other.onDisconnect(function(_code, _reason) {
         ctx.Log.warn(`Interface disconnected: ${other} from ${ctx.myId}. ${_code}, ${_reason}`);
-        // TODO disconnect all? or reconnect
+        // XXX FIXME Depending on the type of node, we should be able
+        // to reconnect without restarting everything. Crash everything for now
+        console.error('WebSocket Disconnected', ctx.myId, findIdFromDest(ctx, other));
+        process.exit(1);
     });
 };
 
