@@ -1,5 +1,6 @@
 const { existsSync, readdirSync } = require('node:fs');
 const Path = require('node:path');
+const OS = require('node:os');
 const Package = require("../package.json");
 const Util = require('./common-util');
 const Keys = require('./keys');
@@ -82,6 +83,11 @@ const init = (Env, mainConfig, pluginModules) => {
         const id = jumpConsistentHash(key, Env.numberCores);
         return 'core:' + id;
     };
+
+    // XXX: in the scalable server, taking the max possible number of CPU cores
+    // is not a good idea.
+    // TODO: Find a better way to automatically spread worker load
+    Env.maxWorkers = typeof(config.maxWorkers) === 'number' ? config.maxWorkers : Object.keys(OS.cpus()).length;
 
     Env.getDecree = type => {
         return Env.plugins[type]?.getDecree(Env) || Env.adminDecrees;

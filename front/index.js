@@ -419,14 +419,13 @@ const initHttpCluster = (Env, mainConfig) => {
             args: [],
         });
 
-        const WORKERS = 2;
         const workerConfig = {
             Log: Env.Log,
             noTaskLimit: true,
             customFork: () => {
                 return Cluster.fork({});
             },
-            maxWorkers: WORKERS, // XXX
+            maxWorkers: Env.maxWorkers,
             maxJobs: 10,
             commandTimers: {}, // time spent on each command
             config: mainConfig,
@@ -437,7 +436,7 @@ const initHttpCluster = (Env, mainConfig) => {
         let ready = 0;
         Cluster.on('online', () => {
             ready++;
-            if (ready === WORKERS) {
+            if (ready === Env.maxWorkers) {
                 resolve();
             }
         });

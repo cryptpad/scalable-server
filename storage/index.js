@@ -633,14 +633,13 @@ const initHttpServer = (Env, mainConfig, _cb) => {
         exec: './build/storage.cluster.js',
         args: [],
     });
-    const WORKERS = 2;
     const workerConfig = {
         Log: Env.Log,
         noTaskLimit: true,
         customFork: () => {
             return Cluster.fork({});
         },
-        maxWorkers: WORKERS, // XXX
+        maxWorkers: Env.maxWorkers,
         maxJobs: 10,
         commandTimers: {}, // time spent on each command
         config: mainConfig,
@@ -651,7 +650,7 @@ const initHttpServer = (Env, mainConfig, _cb) => {
     let ready = 0;
     Cluster.on('online', () => {
         ready++;
-        if (ready === WORKERS) {
+        if (ready === Env.maxWorkers) {
             cb();
         }
     });
@@ -829,7 +828,7 @@ const start = (mainConfig) => {
         const workerConfig = {
             Log: Env.Log,
             workerPath: './build/storage.worker.js',
-            maxWorkers: 1,
+            maxWorkers: Env.maxWorkers,
             maxJobs: 15,
             commandTimers: {}, // time spent on each command
             config: mainConfig,
