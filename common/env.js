@@ -84,6 +84,7 @@ const init = (Env, mainConfig, pluginModules) => {
         return 'core:' + id;
     };
 
+    // Set Env.maxWorkers and Env.maxJobs
     (() => {
         const nodeTypes = ['front', 'core', 'storage', 'http'];
         const maxCpus = Object.keys(OS.cpus()).length;

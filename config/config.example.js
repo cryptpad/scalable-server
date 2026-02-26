@@ -1,5 +1,5 @@
 module.exports = {
-    /*  CryptPad nodes will launch a child process for every core available
+    /*  CryptPad's nodes will launch a child process for every core available
      *  in order to perform CPU-intensive tasks in parallel.
      *  Some host environments may have a very large number of cores available
      *  or you may want to limit how much computing power CryptPad can take.
@@ -12,8 +12,9 @@ module.exports = {
         http: 2,
     },
 
-    /* Set the max queue size for those workers, the syntax is the same as above.
-    * The default value for unset node type is 10 */
+    /* The following option sets the max queue size for those workers, the
+     * syntax is the same as above. The default value for unset node type is 10
+     */
     maxJobs: {
         front: 10,
         core: 15,
@@ -146,9 +147,9 @@ module.exports = {
      * ===================== */
 
     /*
-    * By default, CryptPad will fetch data in `basePath/idx/` where idx
+    * By default, CryptPad fetches data in `basePath/idx/...` where idx
     * corresponds to the index of the storage node in charge of it.
-    * In this section, you can override these values to use a path of your
+    * In this section, these values can be overriden to use a path of your
     * choosing.
     */
     // basePath: './data',
