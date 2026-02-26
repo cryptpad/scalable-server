@@ -1,11 +1,16 @@
 module.exports = {
-    /*  CryptPad will launch a child process for every core available
+    /*  CryptPad nodes will launch a child process for every core available
      *  in order to perform CPU-intensive tasks in parallel.
      *  Some host environments may have a very large number of cores available
      *  or you may want to limit how much computing power CryptPad can take.
-     *  If so, set 'maxWorkers' to a positive integer.
+     *  If so, set 'maxWorkers.{type}' to a positive integer.
      */
-    maxWorkers: false,
+    maxWorkers: {
+        front: 2,
+        core: 2,
+        storage: 4,
+        http: 2,
+    },
 
     /* =====================
      *       Sessions

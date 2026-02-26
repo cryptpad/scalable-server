@@ -84,10 +84,18 @@ const init = (Env, mainConfig, pluginModules) => {
         return 'core:' + id;
     };
 
-    // XXX: in the scalable server, taking the max possible number of CPU cores
-    // is not a good idea.
-    // TODO: Find a better way to automatically spread worker load
-    Env.maxWorkers = typeof(config.maxWorkers) === 'number' ? config.maxWorkers : Object.keys(OS.cpus()).length;
+    (() => {
+        const nodeTypes = ['front', 'core', 'storage', 'http'];
+        const maxCpus = Object.keys(OS.cpus()).length;
+        const maxWorkersPerNode = Math.floor(maxCpus / nodeTypes.length) || 1;
+
+        Env.maxWorkers = typeof(config.maxWorkers) === 'object' ? config.maxWorkers : {};
+        nodeTypes.forEach((type) => {
+            if (typeof (Env.maxWorkers[type]) !== 'number' || Env.maxWorkers[type] <= 0) {
+                Env.maxWorkers[type] = maxWorkersPerNode;
+            }
+        });
+    })();
 
     Env.getDecree = type => {
         return Env.plugins[type]?.getDecree(Env) || Env.adminDecrees;
