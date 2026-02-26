@@ -33,7 +33,7 @@ const initHttpCluster = (Env, mainConfig) => {
                 return Cluster.fork({});
             },
             maxWorkers: Env.maxWorkers['http'],
-            maxJobs: 10,
+            maxJobs: Env.maxJobs['http'],
             commandTimers: {}, // time spent on each command
             config: mainConfig,
             Env: { // Serialized Env (Environment.serialize)

@@ -7,9 +7,18 @@ module.exports = {
      */
     maxWorkers: {
         front: 2,
-        core: 2,
-        storage: 4,
+        core: 1,
+        storage: 1,
         http: 2,
+    },
+
+    /* Set the max queue size for those workers, the syntax is the same as above.
+    * The default value for unset node type is 10 */
+    maxJobs: {
+        front: 10,
+        core: 15,
+        storage: 15,
+        http: 10,
     },
 
     /* =====================

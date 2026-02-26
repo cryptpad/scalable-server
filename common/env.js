@@ -88,11 +88,16 @@ const init = (Env, mainConfig, pluginModules) => {
         const nodeTypes = ['front', 'core', 'storage', 'http'];
         const maxCpus = Object.keys(OS.cpus()).length;
         const maxWorkersPerNode = Math.floor(maxCpus / nodeTypes.length) || 1;
+        const defaultMaxJobs = 10;
 
         Env.maxWorkers = typeof(config.maxWorkers) === 'object' ? config.maxWorkers : {};
+        Env.maxJobs = typeof(config.maxJobs) === 'object' ? config.maxJobs : {};
         nodeTypes.forEach((type) => {
             if (typeof (Env.maxWorkers[type]) !== 'number' || Env.maxWorkers[type] <= 0) {
                 Env.maxWorkers[type] = maxWorkersPerNode;
+            }
+            if (typeof (Env.maxJobs[type]) !== 'number' || Env.maxJobs[type] <= 0) {
+                Env.maxJobs[type] = defaultMaxJobs;
             }
         });
     })();
