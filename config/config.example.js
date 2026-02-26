@@ -35,6 +35,21 @@ module.exports = {
     enforceMFA: false,
 
     /* =====================
+     *       Privacy
+     * ===================== */
+
+    /*  Depending on where your instance is hosted, you may be required to log IP
+     *  addresses of the users who make a change to a document. This setting allows you
+     *  to do so. You can configure the logging system below in this config file.
+     *  Setting this value to true will include a log for each websocket connection
+     *  including this connection's unique ID, the user public key and the IP.
+     *  NOTE: this option requires a log level of "info" or below.
+     *
+     *  defaults to false
+     */
+    //logIP: false,
+
+    /* =====================
      *         Admin
      * ===================== */
 
@@ -116,6 +131,68 @@ module.exports = {
      *
      */
     //premiumUploadSize: 100 * 1024 * 1024,
+
+    /* =====================
+     *   DATABASE VOLUMES
+     * ===================== */
+
+    /*
+    * By default, CryptPad will fetch data in `basePath/idx/` where idx
+    * corresponds to the index of the storage node in charge of it.
+    * In this section, you can override these values to use a path of your
+    * choosing.
+    */
+    // basePath: './data',
+
+    /*
+     *  CryptPad stores each document in an individual file on your hard drive.
+     *  Specify a directory where files should be stored.
+     *  It will be created automatically if it does not already exist.
+     */
+    // filePath: './datastore/',
+
+    /*  CryptPad offers the ability to archive data for a configurable period
+     *  before deleting it, allowing a means of recovering data in the event
+     *  that it was deleted accidentally.
+     *
+     *  To set the location of this archive directory to a custom value, change
+     *  the path below:
+     */
+    // archivePath: './data/archive',
+
+    /*  CryptPad allows logged in users to request that the server 
+     *  store particular documents indefinitely. This is called 'pinning'.
+     *  Pin requests are stored in a pin-store. The location of this store is
+     *  defined here.
+     */
+    // pinPath: './data/pins',
+
+    /*  if you would like the list of scheduled tasks to be stored in
+        a custom location, change the path below:
+    */
+    // taskPath: './data/tasks',
+
+    /*  if you would like users' authenticated blocks to be stored in
+        a custom location, change the path below:
+    */
+    // blockPath: './block',
+
+    /*  CryptPad allows logged in users to upload encrypted files. Files/blobs
+     *  are stored in a 'blob-store'. Set its location here.
+     */
+    // blobPath: './blob',
+
+    /*  CryptPad stores incomplete blobs in a 'staging' area until they are
+     *  fully uploaded. Set its location here.
+     */
+    // blobStagingPath: './data/blobstage',
+
+    // decreePath: './data/decrees',
+
+    /* CryptPad supports logging events directly to the disk in a 'logs' directory
+     * Set its location here, or set it to false (or nothing) if you'd rather not log
+     */
+    // logPath: './data/logs',
     /* =====================
      *          Log
      * ===================== */
