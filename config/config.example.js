@@ -51,6 +51,67 @@ module.exports = {
     ],
 
     /* =====================
+     *        STORAGE
+     * ===================== */
+
+    /*  Pads that are not 'pinned' by any registered user can be set to expire
+     *  after a configurable number of days of inactivity (default 90 days).
+     *  The value can be changed or set to false to remove expiration.
+     *  Expired pads can then be removed using a cron job calling the
+     *  `evict-inactive.js` script with node
+     *
+     *  defaults to 90 days if nothing is provided
+     */
+    //inactiveTime: 90, // days
+
+    /*  CryptPad archives some data instead of deleting it outright.
+     *  This archived data still takes up space and so you'll probably still want to
+     *  remove these files after a brief period.
+     *
+     *  cryptpad/scripts/evict-archived.js is intended to be run daily
+     *  from a crontab or similar scheduling service.
+     *
+     *  The intent with this feature is to provide a safety net in case of accidental
+     *  deletion. Set this value to the number of days you'd like to retain
+     *  archived data before it's removed permanently.
+     *
+     *  defaults to 15 days if nothing is provided
+     */
+    //archiveRetentionTime: 15,
+
+    /*  It's possible to configure your instance to remove data
+     *  stored on behalf of inactive accounts. Set 'accountRetentionTime'
+     *  to the number of days an account can remain idle before its
+     *  documents and other account data is removed.
+     *
+     *  Leave this value commented out to preserve all data stored
+     *  by user accounts regardless of inactivity.
+     */
+     //accountRetentionTime: 365,
+
+    /*  Starting with CryptPad 3.23.0, the server automatically runs
+     *  the script responsible for removing inactive data according to
+     *  your configured definition of inactivity. Set this value to `true`
+     *  if you prefer not to remove inactive data, or if you prefer to
+     *  do so manually using `scripts/evict-inactive.js`.
+     */
+    //disableIntegratedEviction: true,
+
+
+    /*  Max Upload Size (bytes)
+     *  this sets the maximum size of any one file uploaded to the server.
+     *  anything larger than this size will be rejected
+     *  defaults to 20MB if no value is provided
+     */
+    //maxUploadSize: 20 * 1024 * 1024,
+
+    /*  Users with premium accounts (those with a plan included in their customLimit)
+     *  can benefit from an increased upload size limit. By default they are restricted to the same
+     *  upload size as any other registered user.
+     *
+     */
+    //premiumUploadSize: 100 * 1024 * 1024,
+    /* =====================
      *          Log
      * ===================== */
 
