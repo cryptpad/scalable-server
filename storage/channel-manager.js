@@ -58,6 +58,7 @@ const create = (Env) => {
 
         Env.queueStorage(channel, next => {
             const msgBin = Buffer.from(msg + '\n', 'utf8');
+            Env.plugins?.MONITORING?.increment(`storeMessage`);
             // Store the message first, and update the index only once it's stored.
             // store.messageBin can be async so updating the index first may
             // result in a wrong cpIndex

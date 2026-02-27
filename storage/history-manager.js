@@ -115,7 +115,7 @@ const getHistoryOffset = (Env, channel, lastKnownHash, _cb) => {
 
 const getHistoryAsync = HistoryManager.getHistoryAsync = (Env, channel, lastKnownHash, beforeHash, handler, cb) => {
     let offset = -1;
-    //Env.plugins?.MONITORING?.increment(`getHistoryAsync`); // XXX MONITORING
+    Env.plugins?.MONITORING?.increment(`getHistoryAsync`);
     nThen((waitFor) => {
         getHistoryOffset(Env, channel, lastKnownHash, waitFor((err, os) => {
             if (err) {
