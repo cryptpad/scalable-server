@@ -7,7 +7,7 @@ const Constants = require("../common/constants.js");
 const Logger = require("../common/logger.js");
 const Core = require("../common/core.js");
 
-const Nacl = require('tweetnacl/nacl-fast'); // XXX
+const Nacl = require('tweetnacl/nacl-fast');
 const nThen = require("nthen");
 
 const HistoryManager = require("./history-manager.js");

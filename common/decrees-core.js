@@ -39,10 +39,6 @@ Decrees.create = (name, commands) => {
         }
 
         let outcome = commands[command](Env, args);
-        if (outcome) {
-            // trigger Env change event...
-            //Env.envUpdated.fire(); // XXX send to other processes
-        }
         return outcome;
     };
 

@@ -5,7 +5,6 @@ const { fork } = require('child_process');
 const Crypto = require('crypto');
 const cliArgs = require("minimist")(process.argv.slice(2));
 
-// XXX:  add some process to start nodes individually
 if (cliArgs.h || cliArgs.help) {
     console.log(`Usage ${process.argv[1]}:`);
     console.log("\t--help, -h\tDisplay this help");
@@ -89,7 +88,6 @@ const coresReady = () => {
 };
 
 const startCores = () => {
-    // XXX: add a better way to generate the node shared key
     if (!serverConfig?.private?.nodes_key) {
         if (!serverConfig?.private) {
             serverConfig.private = { };

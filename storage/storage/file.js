@@ -190,7 +190,7 @@ in the meantime. Used to prevent file descriptor leaks in the case of
 abandoned streams while closing streams which are being read very very
 slowly.
 
-XXX inform the stream consumer when it has been closed prematurely
+TODO inform the stream consumer when it has been closed prematurely
 by calling back with a TIMEOUT error or something
 
 */

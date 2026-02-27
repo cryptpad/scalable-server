@@ -45,7 +45,7 @@ const init = (Env, mainConfig, pluginModules) => {
     const { config, infra } = mainConfig;
     const publicConfig = infra?.public || {};
 
-    Env.config = config; // XXX
+    Env.config = config;
     Env.adminDecrees = DecreesCore.create(Constants.adminDecree,
                                           AdminDecrees);
 
@@ -157,7 +157,7 @@ const init = (Env, mainConfig, pluginModules) => {
     Env.adminEmail = config.adminEmail;
     Env.adminsData = (config.adminKeys || []).slice();
 
-    Env.moderators = []; // XXX moderators
+    Env.moderators = [];
     Env.supportMailbox = undefined;
     Env.supportMailboxKey = undefined;
 

@@ -38,7 +38,6 @@ const init = workerConfig => {
 
     if (customFork) { fork = customFork; }
 
-    // XXX: this check seems to be useless now (taken into account before)
     const limit = typeof(maxWorkers) === "number" ?
                     maxWorkers : OS.cpus().length;
 
@@ -196,9 +195,8 @@ const init = workerConfig => {
             return void handleLog(res.log, res.label, res.info);
         }
 
-        // handle plugins
+        // XXX handle plugins
         if (res.plugin) {
-            // XXX
             return;
         }
 

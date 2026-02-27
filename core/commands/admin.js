@@ -543,7 +543,7 @@ const restoreArchivedDocument = (Env, _key, data, cb) => {
     Core.coreToStorage(Env, id, 'ADMIN_CMD', { cmd: 'RESTORE_ARCHIVED_DOCUMENT', data: { id, reason } }, cb);
 };
 
-// XXX: to optimize
+// FIXME: to optimize
 const archiveSupport = (Env, _key, _data, cb) => {
     const supportPinKey = Env.supportPinKey;
     Core.coreToStorage(Env, supportPinKey, 'ADMIN_CMD',
@@ -735,22 +735,6 @@ Admin.command = (Env, safeKey, data, _cb) => {
     initPlugins(Env);
 
     const command = commands[data[0]];
-
-    /*
-    // XXX plugins
-    Object.keys(Env.plugins || {}).forEach(name => {
-        let plugin = Env.plugins[name];
-        if (!plugin.addAdminCommands) { return; }
-        try {
-            let c = plugin.addAdminCommands(Env);
-            Object.keys(c || {}).forEach(cmd => {
-                if (typeof(c[cmd]) !== "function") { return; }
-                if (commands[cmd]) { return; }
-                commands[cmd] = c[cmd];
-            });
-        } catch (e) {}
-    });
-    */
 
     if (typeof (command) === 'function') {
         return void command(Env, unsafeKey, data, cb);

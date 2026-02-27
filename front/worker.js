@@ -202,7 +202,6 @@ define(paths, function () {
 };
 
 app.get('/api/profiling', (/*req, res*/) => {
-    // XXX
     // XXX Env.enableProfiling, Env.profilingWindow
     throw new Error('NOT_IMPLEMENTED');
 });

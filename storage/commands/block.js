@@ -4,7 +4,7 @@
 
 const Block = module.exports;
 const nThen = require("nthen");
-const Nacl = require("tweetnacl/nacl-fast"); // XXX Nacl.hash
+const Nacl = require("tweetnacl/nacl-fast");
 
 const BlockStore = require("../storage/block");
 const Invitation = require("./invitation");
@@ -246,7 +246,6 @@ Block.removeLoginBlock = (Env, args, _cb) => {
     // is already deleted anyway.
 
     // If this is NOT a password change, also delete sso user.
-    // XXX plugins
     let SSOUtils = Env.plugins && Env.plugins.SSO && Env.plugins.SSO.utils;
 
     if (!SSOUtils) { return; }

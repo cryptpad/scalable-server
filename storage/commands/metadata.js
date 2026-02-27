@@ -47,22 +47,6 @@ Data.getMetadataRaw = (Env, channel, _cb) => {
     });
 };
 
-Data.getMetadata = (Env, channel, cb, /*Server, netfluxId*/) => {
-    throw new Error("MAYBE_NOT_USED"); // XXX
-    Data.getMetadataRaw(Env, channel, function (err, metadata) {
-        if (err) { return void cb(err); }
-
-        if (!metadata?.restricted) {
-            // if it's not restricted then just call back
-            return void cb(void 0, metadata);
-        }
-
-        // XXX allow list not implemented yet
-        throw new Error("NOT_IMPLEMENTED");
-    });
-};
-
-
 /* setMetadata
     - write a new line to the metadata log if a valid command is provided
     - data is an object: {

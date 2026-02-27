@@ -93,7 +93,6 @@ removeBlock.complete = (Env, body, cb) => {
 
 
 // Test command that does nothing
-// XXX TO REMOVE
 const testCommand = Commands.TEST = function (Env, body, cb) {
     const { publicKey } = body;
 

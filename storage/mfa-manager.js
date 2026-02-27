@@ -57,8 +57,6 @@ const makeSession = (Env, publicKey, oldKey, ssoSession, cb) => {
     nThen(function (w) {
         if (!ssoSession || !SSOUtils) { return; }
         // If we have an session token, confirm this is an sso account
-        // XXX plugins
-        // XXX plugins be careful oldKey amy be in other storage
         SSOUtils.readBlock(Env, oldKey, w((err) => {
             if (err === 'ENOENT') { return; } // No sso block, no need to update the session
             if (err) {

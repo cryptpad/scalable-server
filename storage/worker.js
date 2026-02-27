@@ -391,7 +391,6 @@ const getPinState = (data, cb) => {
     }
     const safeKey = Util.escapeKeyCharacters(data.key);
     const ref = {};
-    // XXX Pins
     const lineHandler = Pins.createLineHandler(ref, Env.Log.error);
 
     // if channels aren't in memory. load them from disk
@@ -410,7 +409,6 @@ const getPinInfo = (data, cb) => {
         return void cb('INVALID_KEY');
     }
     const safeKey = Util.escapeKeyCharacters(data.key);
-    // XXX Pins
     Env.pinStore.isChannelAvailable(safeKey, (err, exists) => {
         if (err) { return cb(err); }
         if (!exists) { return cb('ENOENT'); }
@@ -551,7 +549,6 @@ const hashChannelList = (data, cb) => {
     const uniques = Util.deduplicateString(channels);
     uniques.sort();
 
-    // XXX Nacl.hash?
     const hash = Util.encodeBase64(Nacl.hash(Util.decodeUTF8(JSON.stringify(uniques))));
 
     cb(void 0, hash);
@@ -573,17 +570,6 @@ const removeOwnedBlob = (data, cb) => {
                 return void cb("INSUFFICIENT_PERMISSIONS");
             }
             let owners = meta.owners;
-            // XXX remove proof mogration?
-            if (!owners && !Env.proofsMigrated) {
-                // Check old proofs during migration
-                Env.blobStore.isOwnedBy(safeKey, blobId, w((e, owned) => {
-                    if (e || !owned) {
-                        w.abort();
-                        return void cb("INSUFFICIENT_PERMISSIONS");
-                    }
-                }));
-                return;
-            }
             if (!owners || !owners.includes(unsafeKey)) {
                 w.abort();
                 return void cb("INSUFFICIENT_PERMISSIONS");

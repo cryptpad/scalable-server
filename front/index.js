@@ -224,8 +224,6 @@ const handleMsg = (Env, args) => {
         });
     };
 
-    // XXX handle invalid "obj" format (channel or ephemeral)
-
     if (user.channels.has(obj)) {
         return void onChannelMessage();
     }

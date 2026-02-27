@@ -27,7 +27,7 @@ const onNewConnection = Util.mkEvent();
 const newConnection = (ctx, other, txid, type, data, message) => {
     if (type === 'ACCEPT') {
         const coreId = ctx.pendingConnections?.[txid];
-        const [acceptName, acceptIndex] = data.split(':'); // XXX: more robust code
+        const [acceptName, acceptIndex] = data.split(':');
         if (typeof (coreId) === 'undefined' || !['core','storage'].includes(acceptName) || Number(acceptIndex) !== coreId) {
             return ctx.Log.error('NEW_CONNECTION_ERROR', ctx.myId, ': unknown connection accepted');
         }
@@ -139,7 +139,7 @@ let createHandlers = function(ctx, other) {
 };
 
 const onConnected = (ctx, other, coreId) => {
-    let uid = Util.uid(); // XXX: replace with guid
+    let uid = Util.guid(ctx.pendingConnections);
     ctx.pendingConnections[uid] = coreId;
 
     // Identify with challenge
@@ -160,7 +160,6 @@ let communicationManager = function(ctx) {
     let sendEvent = function(destId, command, args) {
         let dest = findDestFromId(ctx, destId);
         if (!dest) {
-            // XXX: handle this more properly: timeout?
             ctx.Log.error('INTERFACE_SENDEVENT_ERROR', "Error: dest", destId, "not found in ctx.", ctx.myId);
             return false;
         }
@@ -179,7 +178,6 @@ let communicationManager = function(ctx) {
     let sendQuery = function(destId, command, args, cb) {
         let dest = findDestFromId(ctx, destId);
         if (!dest) {
-            // XXX: handle this more properly: timeout?
             ctx.Log.error("INTERFACE_SENDQUERY_ERROR", "Error: dest", destId, "not found in ctx.", ctx.myId);
             cb('EINVALDEST');
             return false;
@@ -193,7 +191,6 @@ let communicationManager = function(ctx) {
             args: args
         }];
         ctx.response.expect(txid, function(data) {
-            // XXX: log, cleanup, etc
             cb(data);
         });
 

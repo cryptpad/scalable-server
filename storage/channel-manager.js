@@ -144,7 +144,6 @@ const create = (Env) => {
         const channelData = Env.channel_cache[channel] || {};
 
         if (channel.length === EPHEMERAL_CHANNEL_LENGTH) {
-            // XXX
             return void cb(void 0, {
                 users: Array.from(channelData.users || []),
                 message: msgStruct

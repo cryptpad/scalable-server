@@ -33,8 +33,6 @@ const socketToClient = (ctx, ws) => {
         return ws.readyState !== WebSocket.CLOSED;
     };
 
-    // XXX: maybe add an uid for connections?
-    // add onAuthenticated
     return {
         _ws: ws,
         send: (msg) => {
