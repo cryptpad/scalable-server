@@ -32,8 +32,8 @@ const initHttpCluster = (Env, mainConfig) => {
             customFork: () => {
                 return Cluster.fork({});
             },
-            maxWorkers: Env.maxWorkers['http'],
-            maxJobs: Env.maxJobs['http'],
+            maxWorkers: Env.maxWorkers['http'] || 2,
+            maxJobs: Env.maxJobs['http'] || 10,
             commandTimers: {}, // time spent on each command
             config: mainConfig,
             Env: { // Serialized Env (Environment.serialize)

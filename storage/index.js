@@ -639,8 +639,8 @@ const initHttpServer = (Env, mainConfig, _cb) => {
         customFork: () => {
             return Cluster.fork({});
         },
-        maxWorkers: Env.maxWorkers['http'],
-        maxJobs: Env.maxJobs['http'],
+        maxWorkers: Env.maxWorkers['storage-http'] || 2,
+        maxJobs: Env.maxJobs['storage-http'] || 10,
         commandTimers: {}, // time spent on each command
         config: mainConfig,
         Env: { // Serialized Env (Environment.serialize)
@@ -828,8 +828,8 @@ const start = (mainConfig) => {
         const workerConfig = {
             Log: Env.Log,
             workerPath: './build/storage.worker.js',
-            maxWorkers: Env.maxWorkers['storage'],
-            maxJobs: Env.maxJobs['storage'],
+            maxWorkers: Env.maxWorkers['storage'] || 2,
+            maxJobs: Env.maxJobs['storage'] || 10,
             commandTimers: {}, // time spent on each command
             config: mainConfig,
             Env: { // Serialized Env (Environment.serialize)

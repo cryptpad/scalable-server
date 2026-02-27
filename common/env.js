@@ -1,6 +1,6 @@
 const { existsSync, readdirSync } = require('node:fs');
 const Path = require('node:path');
-const OS = require('node:os');
+//const OS = require('node:os');
 const Package = require("../package.json");
 const Util = require('./common-util');
 const Keys = require('./keys');
@@ -86,13 +86,16 @@ const init = (Env, mainConfig, pluginModules) => {
 
     // Set Env.maxWorkers and Env.maxJobs
     (() => {
-        const nodeTypes = ['front', 'core', 'storage', 'http'];
-        const maxCpus = Object.keys(OS.cpus()).length;
-        const maxWorkersPerNode = Math.floor(maxCpus / nodeTypes.length) || 1;
-        const defaultMaxJobs = 10;
+        // XXX FIXME default values based on number of each type of node per machine
+        // (check infra config, count number of node of each type with same serverId)
+        //const nodeTypes = ['front', 'core', 'storage', 'http'];
+        //const maxCpus = Object.keys(OS.cpus()).length;
+        //const maxWorkersPerNode = Math.floor(maxCpus / nodeTypes.length) || 1;
+        //const defaultMaxJobs = 10;
 
         Env.maxWorkers = typeof(config.maxWorkers) === 'object' ? config.maxWorkers : {};
         Env.maxJobs = typeof(config.maxJobs) === 'object' ? config.maxJobs : {};
+        /*
         nodeTypes.forEach((type) => {
             if (typeof (Env.maxWorkers[type]) !== 'number' || Env.maxWorkers[type] <= 0) {
                 Env.maxWorkers[type] = maxWorkersPerNode;
@@ -101,6 +104,7 @@ const init = (Env, mainConfig, pluginModules) => {
                 Env.maxJobs[type] = defaultMaxJobs;
             }
         });
+        */
     })();
 
     Env.getDecree = type => {

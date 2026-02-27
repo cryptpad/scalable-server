@@ -617,8 +617,8 @@ const startServers = (mainConfig) => {
     const workerConfig = {
         Log: Env.Log,
         workerPath: './build/core.worker.js',
-        maxWorkers: Env.maxWorkers['core'],
-        maxJobs: Env.maxJobs['core'],
+        maxWorkers: Env.maxWorkers['core'] || 2,
+        maxJobs: Env.maxJobs['core'] || 10,
         commandTimers: {}, // time spent on each command
         config: {
         },
