@@ -241,8 +241,32 @@ const leaveChannelHandler = (args, cb) => {
     cb(void 0, Array.from(users));
 };
 
+const dropUserFromAll = (userId, cb) => {
+    const userLists = {};
+    Object.keys(Env.channel_cache).forEach(channel => {
+        const channelData = Env.channel_cache[channel];
+        const users = channelData.users;
+        if (!(users instanceof Set)) { return; }
+        if (!users.has(userId)) { return; }
+        users.delete(userId);
+        if (!users.size) {
+            onDropChannel(channel);
+            return;
+        }
+        userLists[channel] = Array.from(users);
+    });
+    cb(void 0, userLists);
+};
 const dropUserHandler = (args, cb) => {
     let { channels, userId } = args;
+
+    // If we received this command from "checkCache" in core,
+    // it means we won't have the channels list from this user
+    // and we must check all our channels...
+    if (typeof(channels) === "undefined") {
+        return dropUserFromAll(userId, cb);
+    }
+
     const userLists = {};
     channels.forEach(channel => {
         const cache = Env.channel_cache[channel];

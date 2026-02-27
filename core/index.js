@@ -131,13 +131,10 @@ const dropChannelHandler = (args, cb, extra) => {
 };
 
 const sendChannelMessage = (users, message) => {
-    const sent = new Set();
-    (users || []).forEach(id => {
-        const frontId = getFrontId(id);
-        if (!frontId || sent.has(frontId)) { return; }
-        sent.add(frontId);
+    const usersByFront = Core.getUsersFront(Env, users);
+    Object.keys(usersByFront).forEach(frontId => {
         Env.interface.sendEvent(frontId, 'SEND_CHANNEL_MESSAGE', {
-            users,
+            users: usersByFront[frontId],
             message
         });
     });
@@ -563,6 +560,19 @@ const onSetModerators = (args) => {
 
 const checkCacheInterval = Util.once(() => {
     const interval = 5*60*1000; // 5min
+    const dropUser = (userId) => {
+        Env.interface.broadcast('storage', 'DROP_USER', {
+            userId
+        }, (err, allLists) => {
+            allLists.forEach(lists => {
+                Object.keys(lists || {}).forEach(channel => {
+                    const users = lists[channel];
+                    const message = [ 0, userId, 'LEAVE', channel ];
+                    sendChannelMessage(users, message);
+                });
+            });
+        });
+    };
     Env.intervals.checkCacheInterval = setInterval(() => {
         Env.interface.broadcast('front', 'ADMIN_CMD', {
             cmd: 'GET_ACTIVE_USERS'
@@ -579,10 +589,12 @@ const checkCacheInterval = Util.once(() => {
                 let from = Env.userCache[userId].from;
                 if (!from || !all[from]) { // disconnected front?
                     delete Env.userCache[userId];
+                    dropUser(userId);
                     return;
                 }
                 if (!all[from].has(userId)) { // disconnected user
                     delete Env.userCache[userId];
+                    dropUser(userId);
                 }
             });
         });

@@ -226,6 +226,19 @@ Core.getChannelsCore = (Env, channels) => {
     });
     return channelsByCore;
 };
+Core.getUsersFront = (Env, users) => {
+    const usersByFront = {};
+    users.forEach(userId => {
+        const frontId = Env.userCache?.[userId]?.from;
+        if (!frontId) { return; }
+        const list = usersByFront[frontId] ||= new Set();
+        list.add(userId);
+    });
+    Object.keys(usersByFront).forEach(frontId => {
+        usersByFront[frontId] = Array.from(usersByFront[frontId]);
+    });
+    return usersByFront;
+};
 
 const validLimitFields = ['limit', 'plan', 'note', 'users', 'origin'];
 Core.isValidLimit = (o) => {
