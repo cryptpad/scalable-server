@@ -11,6 +11,7 @@ const WorkerModule = require("../common/worker-module.js");
 const Cluster = require("node:cluster");
 const Environment = require('../common/env.js');
 const Admin = require('./commands/admin');
+const Core = require('../common/core.js');
 const nThen = require('nthen');
 
 const {
@@ -26,19 +27,17 @@ const getCoreId = (Env, channel) => {
 const dropUserChannels = (Env, userId) => {
     const user = Env.users[userId];
     if (!user) { return; }
-    const sent = [];
-    // XXX only send matching channels to each node instead of all channels
-    user.channels.forEach(channel => {
-        const coreId = getCoreId(Env, channel);
-        if (sent.includes(coreId)) { return; }
-        sent.push(coreId);
+
+    const channels = Array.from(user.channels || []);
+    const channelsByCore = Core.getChannelsCore(Env, channels);
+    Object.keys(channelsByCore).forEach(coreId => {
         Env.interface?.sendEvent(coreId, 'DROP_USER', {
-            channels: user.channels,
+            channels: channelsByCore[coreId],
             userId
         });
     });
     const rpcCore = getCoreId(Env, userId);
-    if (sent.includes(rpcCore)) { return; }
+    if (channelsByCore[rpcCore]) { return; }
     Env.interface?.sendEvent(rpcCore, 'DROP_USER', {
         channels: [],
         userId
@@ -227,7 +226,7 @@ const handleMsg = (Env, args) => {
 
     // XXX handle invalid "obj" format (channel or ephemeral)
 
-    if (user.channels.includes(obj)) {
+    if (user.channels.has(obj)) {
         return void onChannelMessage();
     }
 
@@ -252,7 +251,7 @@ const handleJoin = (Env, args) => {
         }
 
         // Add channel to our local list
-        user.channels.push(channel);
+        user.channels.add(channel);
 
         sendMsg(Env, user, [seq, 'JACK', channel]);
 
@@ -291,9 +290,7 @@ const handleLeave = (Env, args) => {
         if (error) {
             return sendMsg(Env, user, [seq, 'ERROR', error, channel]);
         }
-        const channels = user.channels || [];
-        const channelIdx = channels.indexOf(channel);
-        if (channelIdx >= 0) { channels.splice(channelIdx, 1); }
+        user.channels.delete(channel);
         sendMsg(Env, user, [seq, 'ACK']);
     });
 };
@@ -327,7 +324,7 @@ const onWsUser = (Env, args, cb, state) => {
     Env.users[id] = {
         state,
         id, ip,
-        channels: []
+        channels: new Set()
     };
     onSessionOpen(Env, id, ip);
     cb();

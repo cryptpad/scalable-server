@@ -214,6 +214,18 @@ Core.getChannelsStorage = (Env, channels) => {
     });
     return channelsByStorage;
 };
+Core.getChannelsCore = (Env, channels) => {
+    const channelsByCore = {};
+    channels.forEach(channel => {
+        const coreId = Env.getCoreId(channel);
+        const list = channelsByCore[coreId] ||= new Set();
+        list.add(channel);
+    });
+    Object.keys(channelsByCore).forEach(coreId => {
+        channelsByCore[coreId] = Array.from(channelsByCore[coreId]);
+    });
+    return channelsByCore;
+};
 
 const validLimitFields = ['limit', 'plan', 'note', 'users', 'origin'];
 Core.isValidLimit = (o) => {
