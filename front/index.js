@@ -362,7 +362,16 @@ const sendUserMessage = (Env, args, cb) => { // Query
     });
 };
 const sendChannelMessage = (Env, args) => { // Event
-    const { users, message } = args;
+    const { users, message, broadcast } = args;
+
+    if (broadcast) {
+        Env.workers.broadcast('BROADCAST_MESSAGE', {
+            message
+        }, () => {
+            Env.Log.verbose('BROADCAST_MESSAGE_SENT');
+        });
+        return;
+    }
 
     users.forEach(id => {
         const user = Env.users[id];

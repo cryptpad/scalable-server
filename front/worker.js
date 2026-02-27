@@ -481,6 +481,16 @@ COMMANDS.SET_MODERATORS = (args, cb) => {
     cb();
 };
 
+COMMANDS.BROADCAST_MESSAGE = (args, cb) => {
+    const message = args?.message;
+    if (!message) { return void cb(); }
+    Object.keys(Env.users).forEach((userId) => {
+        const u = Env.users[userId];
+        sendMsg(u, message);
+    });
+    cb();
+};
+
 // INIT Worker
 
 const init = (config, cb) => {

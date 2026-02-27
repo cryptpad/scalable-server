@@ -79,10 +79,10 @@ Env.checkCache = channel => {
 Env.channelContainsUser = (channel, userId) => {
     const cache = Env.channel_cache[channel];
     // Check if the channel exists in this storage
-    if (!cache || !Array.isArray(cache.users)) { return false; }
+    if (!cache || !(cache.users instanceof Set)) { return false; }
 
     // Check if the user is a member of this channel
-    return cache.users.includes(userId);
+    return cache.users.has(userId);
 };
 
 const onDropChannel = channel => {
@@ -105,8 +105,8 @@ const onDropChannel = channel => {
 
 Env.onExpiredChannel = channel => {
     const channelData = Env.channel_cache[channel];
-    if (!channelData) { return; }
-    const users = channelData.users.slice();
+    if (!channelData?.users) { return; }
+    const users = Array.from(channelData.users);
 
     const coreId = Env.getCoreId(channel);
     const message = [0, hkId, 'MSG', null, {
@@ -154,23 +154,23 @@ const joinChannelHandler = (args, cb) => {
     let { channel, userId } = args;
 
     const channelData = Env.channel_cache[channel] ||= {
-        users: []
-    };
-    const onSuccess = () => {
-        // If you're allowed to join the channel, add yourself
-        // and callback with the old userlist (without you)
-        const _users = channelData.users.slice();
-        if (!channelData.users.includes(userId)) {
-            channelData.users.push(userId);
-        }
-
-        return void cb(void 0, _users);
+        users: new Set()
     };
 
     if (channel.length !== STANDARD_CHANNEL_LENGTH) {
         // only conventional channels can be restricted
-        return void onSuccess();
+        // and don't create a userlist for the broadcast channel
+        return void cb(void 0, []);
     }
+
+    const onSuccess = () => {
+        // If you're allowed to join the channel, add yourself
+        // and callback with the old userlist (without you)
+        const _users = Array.from(channelData.users);
+        channelData.users.add(userId);
+        return void cb(void 0, _users);
+    };
+
     HistoryManager.getMetadata(Env, channel, (err, metadata) => {
         if (err) {
             Env.Log.error('HK_METADATA_ERR', {
@@ -228,17 +228,17 @@ const leaveChannelHandler = (args, cb) => {
 
     const channelData = Env.channel_cache[channel];
     const users = channelData?.users;
-    if (!Array.isArray(users)) {
+    if (!(users instanceof Set)) {
         return void cb('ENOENT');
     }
-    if (!users.includes(userId)) {
+    if (!users.has(userId)) {
         return void cb('NOT_IN_CHAN');
     }
-    users.splice(users.indexOf(userId), 1);
+    users.delete(userId);
 
-    if (!users.length) { onDropChannel(channel); }
+    if (!users.size) { onDropChannel(channel); }
 
-    cb(void 0, users);
+    cb(void 0, Array.from(users));
 };
 
 const dropUserHandler = (args, cb) => {
@@ -247,22 +247,21 @@ const dropUserHandler = (args, cb) => {
     channels.forEach(channel => {
         const cache = Env.channel_cache[channel];
         // Check if the channel exists in this storage
-        if (!cache || !Array.isArray(cache.users)) { return; }
+        if (!cache || !(cache.users instanceof Set)) { return; }
 
         // Check if the user is a member of this channel
-        const idx = cache.users.indexOf(userId);
-        if (idx === -1) { return; }
+        if (!cache.users.has(userId)) { return; }
 
         // Remove the user
-        cache.users.splice(idx, 1);
+        cache.users.delete(userId);
 
         // Clean the channel if no remaining members
-        if (!cache.users.length) {
+        if (!cache.users.size) {
             onDropChannel(channel);
             return;
         }
 
-        userLists[channel] = cache.users;
+        userLists[channel] = Array.from(cache.users);
     });
     cb(void 0, userLists);
 };

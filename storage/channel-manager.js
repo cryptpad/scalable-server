@@ -145,7 +145,7 @@ const create = (Env) => {
         if (channel.length === EPHEMERAL_CHANNEL_LENGTH) {
             // XXX
             return void cb(void 0, {
-                users: channelData.users || [],
+                users: Array.from(channelData.users || []),
                 message: msgStruct
             });
         }
@@ -238,7 +238,7 @@ const create = (Env) => {
             storeMessage(channel, JSON.stringify(msgStruct), isCp, HKUtil.getHash(msgStruct[4], Env.Log), time, err => {
                 if (err) { return void cb(err); }
                 cb(void 0, {
-                    users: channelData.users || [],
+                    users: Array.from(channelData.users || []),
                     message: msgStruct
                 });
             });
@@ -314,6 +314,7 @@ const create = (Env) => {
                 }
 
                 // treat the broadcast channel as write-protected
+                // (all admins are owners)
                 if (channel.length === ADMIN_CHANNEL_LENGTH) {
                     metadata.restricted = true;
                 }
@@ -369,6 +370,10 @@ const create = (Env) => {
 
                 const { /*users,*/ message } = res;
                 const time = message[message.length - 1];
+
+                if (channel.length === ADMIN_CHANNEL_LENGTH) {
+                    res.broadcast = true;
+                }
 
                 const coreId = Env.getCoreId(channel);
                 Env.interface.sendEvent(coreId, 'SEND_CHANNEL_MESSAGE', res);
@@ -448,7 +453,7 @@ const create = (Env) => {
 
                 // Warn members about cleared status
                 const channelData = channel_cache[channel] || {};
-                const users = channelData.users || [];
+                const users = Array.from(channelData.users || []);
                 const message = [
                     0,
                     hkId,
@@ -498,7 +503,7 @@ const create = (Env) => {
             store.closeChannel(channel, w());
         }).nThen((w) => {
             const channelData = channel_cache[channel] || {};
-            const users = channelData.users || [];
+            const users = Array.from(channelData.users || []);
             const message = [
                 0,
                 hkId,

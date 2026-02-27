@@ -161,6 +161,7 @@ Data.setMetadata = (Env, data, cb) => {
                 const s_metadata = JSON.stringify(metadata);
 
                 const channelData = Env.channel_cache[channel] || {};
+                const users = Array.from(channelData.users || []);
 
                 const fullMessage = [
                     0,
@@ -172,12 +173,13 @@ Data.setMetadata = (Env, data, cb) => {
 
                 const coreId = Env.getCoreId(channel);
 
+
                 if (!isRestricted) {
                     // pre-allow-list behaviour
                     // if it's not restricted, broadcast the new metadata to everyone
                     return Env.interface.sendEvent(coreId,
                         'HISTORY_CHANNEL_MESSAGE', {
-                        users: channelData.users || [],
+                        users,
                         message: fullMessage
                     });
                 }
@@ -191,9 +193,8 @@ Data.setMetadata = (Env, data, cb) => {
                     channel: channel,
                 });
 
-                // iterate over the channel's userlist
-                const toRemove = [];
-                (channelData.users || []).forEach(userId => {
+                // iterate over the channel's userlist to remove unauthorized users
+                users.forEach(userId => {
                     const coreRpc = Env.getCoreId(userId);
                     Env.interface.sendQuery(coreRpc, 'GET_AUTH_KEYS', {
                         userId
@@ -213,21 +214,16 @@ Data.setMetadata = (Env, data, cb) => {
                         // otherwise they are not in the list.
                         // send them an error and kick them out!
                         fullMessage[4] = s_error;
-                        toRemove.push(userId);
                         Env.interface.sendEvent(coreId,
                             'HISTORY_CHANNEL_MESSAGE', {
                             users: [userId],
                             message: fullMessage.slice()
                         });
+
+                        channelData.users?.delete(userId);
                     });
                 });
 
-                let list = channelData.users || [];
-                toRemove.forEach(userId => {
-                    let idx = list.indexOf(userId);
-                    if (idx === -1) { return; }
-                    list.splice(idx, 1);
-                });
             });
         });
     });

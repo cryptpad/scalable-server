@@ -306,7 +306,17 @@ const onHistoryChannelMessage = (args, cb) => {
 
 // Private message to all members
 const onSendChannelMessage = (args) => {
-    const { users, message } = args;
+    const { users, message, broadcast } = args;
+
+    if (broadcast) { // admin channel, broadcast to all users
+        Env.interface.broadcast('front', 'SEND_CHANNEL_MESSAGE', {
+            broadcast,
+            users,
+            message
+        });
+        return;
+    }
+
     sendChannelMessage(users, message);
 };
 
