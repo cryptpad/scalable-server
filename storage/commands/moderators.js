@@ -34,7 +34,10 @@ Moderators.add = (Env, edPublic, data, adminKey, _cb) => {
         if (!Env.moderators.includes(edPublic)) {
             Env.moderators.push(edPublic);
         }
-        // Env.envUpdated.fire();
+
+        // XXX decrees and moderators could be handled by any core now
+        // that they're all connected to each other
+
         Env.interface.sendEvent('core:0', 'SET_MODERATORS', Env.moderators);
         cb();
     });

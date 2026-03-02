@@ -892,7 +892,9 @@ const start = (mainConfig) => {
         if (index !== 0) { return; }
         initAccountsIntervals();
 
-        Env.moderators = Moderators.getKeysSync(Env);
+        Env.moderators = Moderators.getKeysSync(Env).map(safeKey => {
+            return Util.unescapeKeyCharacters(safeKey);
+        });
         Env.interface.sendEvent('core:0', 'SET_MODERATORS', Env.moderators);
 
         Env.adminDecrees.load(Env, waitFor((err, toSend) => {
