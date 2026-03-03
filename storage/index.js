@@ -41,6 +41,7 @@ const Moderators = require('./commands/moderators.js');
 
 const {
     TEMPORARY_CHANNEL_LIFETIME,
+    ADMIN_CHANNEL_LENGTH,
     STANDARD_CHANNEL_LENGTH,
     hkId
 } = Constants;
@@ -157,9 +158,8 @@ const joinChannelHandler = (args, cb) => {
         users: new Set()
     };
 
-    if (channel.length !== STANDARD_CHANNEL_LENGTH) {
-        // only conventional channels can be restricted
-        // and don't create a userlist for the broadcast channel
+    if (channel.length === ADMIN_CHANNEL_LENGTH) {
+        // don't create a userlist for the broadcast channel
         return void cb(void 0, []);
     }
 
@@ -170,6 +170,12 @@ const joinChannelHandler = (args, cb) => {
         channelData.users.add(userId);
         return void cb(void 0, _users);
     };
+
+    if (channel.length !== STANDARD_CHANNEL_LENGTH) {
+        // This is probably an ephemeral channel
+        // only conventional channels can be restricted
+        return void onSuccess();
+    }
 
     HistoryManager.getMetadata(Env, channel, (err, metadata) => {
         if (err) {
