@@ -173,6 +173,10 @@ const initStatic = (Env, app) => {
     // serve custom app content from the customize directory
     // useful for testing pages customized with opengraph data
     const root = Env.clientRoot;
+
+    const checkPath = Path.resolve(root, './www');
+    if (!Fs.existsSync(checkPath)) { return; }
+
     app.use(Express.static(Path.resolve(root, './customize/www')));
     app.use(gzipStatic(Path.resolve(root, './www')));
 
