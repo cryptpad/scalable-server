@@ -301,6 +301,11 @@ const newDecreeHandler = (args, cb) => { // bcast from core:0
     Env.getDecree(type).loadRemote(Env, decrees);
     Env.cacheDecrees(type, decrees);
     if (curveKeys) { Env.curveKeys = curveKeys; }
+    Env.clusters.broadcast('NEW_DECREES', {
+        type, decrees
+    }, () => {
+        Env.Log.silly('UPDATE_DECREE_STORAGE_CLUSTER');
+    });
     Env.workers.broadcast('NEW_DECREES', {
         type, decrees
     }, () => {
@@ -781,10 +786,14 @@ const start = (mainConfig) => {
                 type
             }, waitFor());
             Env.workers.broadcast('NEW_DECREES', {
-                decrees,
-                type
+                decrees, type
             }, waitFor(() => {
                 Env.Log.silly('UPDATE_DECREE_STORAGE_WORKER');
+            }));
+            Env.clusters.broadcast('NEW_DECREES', {
+                type, decrees
+            }, waitFor(() => {
+                Env.Log.silly('UPDATE_DECREE_STORAGE_CLUSTER');
             }));
             curveKeys = undefined;
         }).nThen(() => {
