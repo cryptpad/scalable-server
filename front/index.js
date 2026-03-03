@@ -209,7 +209,7 @@ const handleMsg = (Env, args) => {
         json.unshift(user.id);
         json.unshift(0);
         Env.interface.sendQuery(coreId, 'USER_MESSAGE', {
-            userId: user.id,
+            userId: obj,
             message: json
         }, () => {
             sendMsg(Env, user, [seq, 'ACK']);
