@@ -245,7 +245,7 @@ const handleJoin = (Env, args) => {
         let error = answer.error;
         let users = answer.data;
         if (error) {
-            return sendMsg(Env, user, [seq, 'ERROR', error]);
+            return sendMsg(Env, user, [seq, 'ERROR', error, users]);
         }
 
         // Add channel to our local list

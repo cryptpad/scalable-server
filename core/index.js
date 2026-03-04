@@ -187,7 +187,7 @@ const joinChannel = (args, cb, extra) => {
 
     const storageId = Env.getStorageId(channel);
     Env.interface.sendQuery(storageId, 'JOIN_CHANNEL', args, res => {
-        if (res.error) { return void cb(res.error); }
+        if (res.error) { return void cb(res.error, res.data); }
         const users = res.data;
 
         const message = [ 0, userId, 'JOIN', channel ];
