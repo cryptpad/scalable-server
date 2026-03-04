@@ -350,7 +350,7 @@ HistoryManager.onGetHistory = (Env, args, sendMessage, _cb) => {
             if (err && err.error) { err = err.error; }
             if (err && err.code !== 'ENOENT') {
                 if (err.message === "EUNKNOWN") {
-                    Log.error("HK_GET_HISTORY", {
+                    Log.verbose("HK_GET_HISTORY", {
                         channel, lastKnownHash, userId,
                         err: err?.message || err,
                     });
