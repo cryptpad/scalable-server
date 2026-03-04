@@ -606,7 +606,7 @@ const changeColor = (Env, unsafeKey, data, cb) => {
         if (err) { return void cb(err); }
         flushCache(Env, unsafeKey, {}, (err) => {
             if (err) {
-                Env.log.error('ADMIN_CHANGE_COLOR_FLUSH_CACHE', err);
+                Env.Log.error('ADMIN_CHANGE_COLOR_FLUSH_CACHE', err);
             }
         });
         cb(void 0, true);

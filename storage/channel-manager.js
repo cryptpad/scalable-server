@@ -53,7 +53,7 @@ const create = (Env) => {
 
     const storeMessage = function(channel, msg, isCp, optionalMessageHash, time, cb) {
         // TODO: check why channel.id disappears in the middle
-        const Log = Env.log;
+        const Log = Env.Log;
         if (typeof (cb) !== "function") { cb = function() { }; }
 
         Env.queueStorage(channel, next => {
