@@ -6,15 +6,12 @@ const onFlushCache = (Env, args, cb) => {
 const onGetActiveSessions = (Env, args, cb) => {
     const users = Object.keys(Env.users);
     const total = users.length;
-    let unique = [];
+    let unique = new Set();
     users.forEach(u => {
-        const user = Env.users[u];
-        const req = user?.socket?.upgradeReq;
-        const conn = req?.connection;
-        const ip = req?.headers?.['x-forwarded-for'] || conn?.remoteAddress;
-        if (!unique.includes(ip)) { unique.push(ip); }
+        const ip = Env.users[u]?.ip;
+        if (ip) { unique.add(ip); }
     });
-    cb(void 0, { total, unique });
+    cb(void 0, { total, unique: Array.from(unique) });
 };
 
 const onGetActiveUsers = (Env, args, cb) => {
