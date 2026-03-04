@@ -1,8 +1,6 @@
 const Util = require('../../common/common-util.js');
 const Keys = require("../../common/keys");
 
-const StorageCommands = require('./storage');
-
 const Core = require("../../common/core");
 const nThen = require('nthen');
 
