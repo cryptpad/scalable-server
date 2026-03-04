@@ -267,7 +267,7 @@ const getUserTotalSize = (Env, _publicKey, data, cb) => {
     const signingKey = Array.isArray(data) && data[1];
     if (!Core.isValidPublicKey(signingKey)) { return void cb('EINVAL'); }
     const safeKey = Util.escapeKeyCharacters(signingKey);
-    StorageCommands.getTotalSize(Env, safeKey, cb);
+    Core.coreToStorage(Env, safeKey, 'GET_TOTAL_SIZE', { safeKey }, cb);
 };
 
 const isUserOnline = (Env, _publicKey, data, cb) => {
