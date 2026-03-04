@@ -314,7 +314,7 @@ const getHashOffset = (args, cb) => {
     let offset = -1;
     Env.store.readMessagesBin(channel, 0, (msgObj, readMore, abort) => {
         // tryParse return a parsed message or undefined
-        const msg = Util.tryParse(Env, msgObj.buff.toString('utf8'));
+        const msg = Util.tryParse(msgObj.buff.toString('utf8'));
         // if it was undefined then go onto the next message
         if (typeof msg === "undefined") { return readMore(); }
         if (typeof (msg[4]) !== 'string' || hash !== HKUtil.getHash(msg[4])) {
