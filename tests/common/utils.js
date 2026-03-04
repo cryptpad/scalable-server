@@ -10,7 +10,7 @@ const { jumpConsistentHash } = require('../../common/consistent-hash.js');
 const Util = require('../../common/common-util');
 const Core = require('../../common/core');
 
-const { infra } = require('../../common/load-config');
+const { infra, config } = require('../../common/load-config');
 
 const hk = '0123456789abcdef';
 
@@ -86,7 +86,7 @@ const getChannelPath = channel => {
     const nb = infra.storage.length;
     let key = Buffer.from(channel.slice(0, 8));
     let index = jumpConsistentHash(key, nb);
-    const p = Core.getPaths({ index });
+    const p = Core.getPaths({ index, config });
     const file = `${channel}.ndjson`;
     return Path.join(p.filePath, channel.slice(0,2), file);
 };
@@ -95,7 +95,7 @@ const getBlobPath = channel => {
     const nb = infra.storage.length;
     let key = Buffer.from(channel.slice(0, 8));
     let index = jumpConsistentHash(key, nb);
-    const p = Core.getPaths({ index });
+    const p = Core.getPaths({ index, config });
     const file = `${channel}.ndjson`;
     return Path.join(p.blobPath, channel.slice(0,2), file);
 };
@@ -105,7 +105,7 @@ const getPinPath = publicKey => {
     let safeKey = Util.escapeKeyCharacters(publicKey);
     let key = Buffer.from(safeKey.slice(0, 8));
     let index = jumpConsistentHash(key, nb);
-    const p = Core.getPaths({ index });
+    const p = Core.getPaths({ index, config });
     const file = `${safeKey}.ndjson`;
     return Path.join(p.pinPath, safeKey.slice(0,2), file);
 };
@@ -115,7 +115,7 @@ const getBlockPath = publicKey => {
     let safeKey = Util.escapeKeyCharacters(publicKey);
     let key = Buffer.from(safeKey.slice(0, 8));
     let index = jumpConsistentHash(key, nb);
-    const p = Core.getPaths({ index });
+    const p = Core.getPaths({ index, config });
     const file = `${safeKey}`;
     return Path.join(p.blockPath, safeKey.slice(0,2), file);
 };
