@@ -389,7 +389,7 @@ const checkUserActivity = () => {
         const u = Env.users[userId];
         try {
             if (time - u.timeOfLastMessage > LAG_MAX_BEFORE_DISCONNECT) {
-                dropUser(u, 'BAD_MESSAGE');
+                dropUser(u, 'INACTIVITY');
             }
             if (!u.pingOutstanding && time - u.timeOfLastMessage > LAG_MAX_BEFORE_PING) {
                 sendMsg(u, [0, '', 'PING', now()]);
