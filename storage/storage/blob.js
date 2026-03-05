@@ -314,8 +314,8 @@ var upload = function (Env, safeKey, content, cb) {
         return void todo();
     }
     Env.sendCommand('UPLOAD_GET_SESSION', { safeKey }, (err, data) => {
-        if (typeof(data.currentUploadSize) !== 'number' ||
-            typeof(data.pendingUploadSize) !== 'number') {
+        if (typeof(data?.currentUploadSize) !== 'number' ||
+            typeof(data?.pendingUploadSize) !== 'number') {
             // improperly initialized... maybe they didn't check before uploading?
             // reject it, just in case
             return cb('NOT_READY');
