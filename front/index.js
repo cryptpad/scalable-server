@@ -82,6 +82,7 @@ const sendMsgPromise = (Env, user, msg) => {
 };
 const sendMsg = (Env, user, msg) => {
     sendMsgPromise(Env, user, msg).catch(e => {
+        if (['NO_USER', 'UNSENDABLE'].includes(e)) { return; }
         Env.Log.error(e, 'SEND_MESSAGE', {
             user: user.id,
             message: msg
