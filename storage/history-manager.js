@@ -286,6 +286,7 @@ HistoryManager.onGetHistory = (Env, args, sendMessage, _cb) => {
     let lastKnownHash;
     let txid;
     let priority;
+    let hasMetadataFile = false;
 
     // Clients can optionally pass a map of attributes.
     // If the channel already exists this map will be ignored,
@@ -318,7 +319,8 @@ HistoryManager.onGetHistory = (Env, args, sendMessage, _cb) => {
                 waitFor.abort();
                 return void cb(void 0, [ seq, 'ERROR', err, hkId ]);
             }
-            if (!_metadata) { return; } // New pad, don't overwrite metadata
+            if (!_metadata?.channel) { return; } // New pad, don't overwrite metadata
+            hasMetadataFile = true;
             metadata = _metadata;
         };
 
@@ -327,11 +329,12 @@ HistoryManager.onGetHistory = (Env, args, sendMessage, _cb) => {
         // Not expired nor restricted, we can send the ack
         cb(void 0, [seq, 'ACK']);
 
+        if (!metadata?.channel) { return; }
         // Send metadata as first HISTORY message and wait
-        setTimeout(() => {
+        setTimeout(waitFor(() => {
             sendMessage([0, HISTORY_KEEPER_ID, 'MSG', userId,
                 JSON.stringify(metadata), priority], waitFor());
-        });
+        }));
     }).nThen(() => {
         let msgCount = 0;
 
@@ -392,7 +395,7 @@ HistoryManager.onGetHistory = (Env, args, sendMessage, _cb) => {
             // This is a pad creation: write the metadata and send
             // them to the user
             if (msgCount === 0 && !metadata_cache[channel]
-            && Env.channelContainsUser(channel, userId)) {
+            && Env.channelContainsUser(channel, userId) && !hasMetadataFile) {
                 handleFirstMessage(Env, channel, metadata);
                 sendMessage([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(metadata), priority]);
             }
