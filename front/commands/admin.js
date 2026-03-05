@@ -56,18 +56,29 @@ const onGetWsData = (Env, args, cb) => {
 
             const details = {};
             const details_id = {};
+            const details_ip = {};
+            const empty_user = new Set();
             Object.keys(Env.users).forEach(id => {
                 const user = Env.users[id];
-                let key = user.ip || id;
+                const ip = user.ip;
+                let key = ip || id;
                 details[key] ||= {};
                 details_id[id] = user.channels.size;
                 Array.from(user.channels).forEach(chan => {
                     details[key][chan] ||= 0;
                     details[key][chan]++;
                 });
+                if (user.isEmpty) {
+                    empty_user.add(id);
+                }
+                if (!ip) { return; }
+                details_ip[ip] ||= [];
+                details_ip[ip].push(id);
             });
             data.padsPerIP = details;
             data.padsPerWS = details_id;
+            data.WSPerIP = details_ip;
+            data.emptyUsers = Array.from(empty_user);
 
             values.forEach(obj => {
                 if (obj.error) {

@@ -250,6 +250,7 @@ const handleJoin = (Env, args) => {
         }
 
         // Add channel to our local list
+        user.validated = true;
         user.channels.add(channel);
 
         sendMsg(Env, user, [seq, 'JACK', channel]);
@@ -320,11 +321,16 @@ const onWsMessage = (Env, args, cb) => {
 
 const onWsUser = (Env, args, cb, state) => {
     const { id, ip } = args;
-    Env.users[id] = {
+    const user = Env.users[id] = {
         state,
         id, ip,
         channels: new Set()
     };
+    setTimeout(() => {
+        if (!Env.users[id]) { return; }
+        if (!user.validated) { user.isEmpty = true }
+        delete user.validated;
+    }, 120000);
     onSessionOpen(Env, id, ip);
     cb();
 };
