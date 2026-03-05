@@ -28,9 +28,12 @@ const Env = {
     blobstage: {} // Store file streams to write blobs
 };
 
+const onEnvReady = Util.mkEvent(true);
+
 COMMANDS.NEW_DECREES = (data, cb) => {
     const { decrees, type } = data;
     Env.getDecree(type).loadRemote(Env, decrees);
+    onEnvReady.fire();
     cb();
 };
 COMMANDS.CLOSE_BLOBSTAGE = (data, cb) => {
@@ -458,15 +461,17 @@ const init = (config, cb) => {
         }, Core.SESSION_EXPIRATION_TIME);
     }).nThen(() => {
         // Init http server
-        const cfg = config?.infra?.storage[config.index];
-        const app = Express();
-        const server = Http.createServer(app);
-        server.listen(cfg.port, cfg.host, () => {
-            Env.Log.debug('HTTP worker listening on port', cfg.port);
-            cb();
-        });
+        onEnvReady.reg(() => {
+            const cfg = config?.infra?.storage[config.index];
+            const app = Express();
+            const server = Http.createServer(app);
+            server.listen(cfg.port, cfg.host, () => {
+                Env.Log.debug('HTTP worker listening on port', cfg.port);
+            });
 
-        initServerHandlers(Env, app);
+            initServerHandlers(Env, app);
+        });
+        cb();
     });
 };
 

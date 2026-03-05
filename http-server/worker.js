@@ -11,12 +11,13 @@ const Default = require("./defaults");
 const gzipStatic = require('connect-gzip-static');
 const Environment = require('../common/env.js');
 const { setHeaders } = require('./headers.js');
-const nThen = require('nthen');
 
 const COMMANDS = {};
 const Env = {
     isWorker: true
 };
+
+const onEnvReady = Util.mkEvent(true);
 
 const proxyLog = {
     error: console.error,
@@ -242,6 +243,7 @@ const initStatic = (Env, app) => {
 COMMANDS.NEW_DECREES = (data, cb) => {
     const { decrees, type } = data;
     Env.getDecree(type).loadRemote(Env, decrees);
+    onEnvReady.fire();
     cb();
 };
 
@@ -259,26 +261,25 @@ const init = (mainConfig, cb) => {
     initPlugins(Env, app);
     initStatic(Env, app);
 
-    nThen(w => {
+    onEnvReady.reg(() => {
         const httpServer = Http.createServer(app);
-        httpServer.listen(Env.httpPort, Env.httpAddress, w(() => {
+        httpServer.listen(Env.httpPort, Env.httpAddress, () => {
             if (process.send) { return; }
             Env.Log.info('HTTP server started');
             if (Env.DEV_MODE) {
                 Env.Log.info('DEV mode enabled');
             }
-        }));
+        });
         httpServer.on('upgrade', wsProxy.upgrade);
 
         if (!Env.httpSafePort) { return; }
         const safeServer = Http.createServer(app);
-        safeServer.listen(Env.httpSafePort, Env.httpAddress, w(() => {
+        safeServer.listen(Env.httpSafePort, Env.httpAddress, () => {
             if (process.send) { return; }
             Env.Log.info('HTTP sandbox started');
-        }));
-    }).nThen(() => {
-        cb();
+        });
     });
+    cb();
 };
 
 let ready = false;
