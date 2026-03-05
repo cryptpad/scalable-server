@@ -641,6 +641,12 @@ const uploadLogo = (Env, unsafeKey, data, cb) => {
     });
 };
 
+const getWsData = (Env, key, data, cb) => {
+    Env.interface.broadcast('front', 'ADMIN_CMD', { cmd: 'DEBUG_GET_WS_DATA' }, (err, data) => {
+        cb(void 0, data);
+    });
+};
+
 const commands = {
     ACTIVE_SESSIONS: getActiveSessions,
     ACTIVE_PADS: getActiveChannelCount,
@@ -685,6 +691,9 @@ const commands = {
 
     CLEAR_CACHED_CHANNEL_METADATA: channelIndexCommand('CLEAR_CACHED_CHANNEL_METADATA'),
     GET_CACHED_CHANNEL_METADATA: channelIndexCommand('GET_CACHED_CHANNEL_METADATA'),
+
+    // XXX
+    GET_WS_DATA: getWsData,
 
     CHECK_TEST_DECREE: checkTestDecree,
     ADMIN_DECREE: Admin.sendDecree,

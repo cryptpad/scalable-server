@@ -494,6 +494,15 @@ COMMANDS.BROADCAST_MESSAGE = (args, cb) => {
     cb();
 };
 
+
+COMMANDS.GET_WS_DATA = (args, cb) => {
+    cb(void 0, {
+        pid: process?.pid,
+        nb: Object.keys(Env.users)?.length,
+        nb_wss: Env?.wss?.clients?.size
+    });
+};
+
 // INIT Worker
 
 const init = (config, cb) => {

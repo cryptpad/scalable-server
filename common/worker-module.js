@@ -428,6 +428,7 @@ const init = workerConfig => {
                 pid: PID
             });
         },
+        _workers: workers,
         broadcast: (command, data, _cb) => {
             const cb = Util.once(_cb);
             workers.forEach(state => {

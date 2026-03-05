@@ -29,11 +29,52 @@ const onSetModerators = (Env, args) => {
     });
 };
 
+const onGetWsData = (Env, args, cb) => {
+    try {
+        const prom = [];
+        Env.workers._workers.forEach(state => {
+            prom.push(new Promise((res) => {
+                Env.workers.sendTo(state, 'GET_WS_DATA', {}, (err, data) => {
+                    if (err) {
+                        return res({ error: err, pid: state.pid });
+                    }
+                    res(data);
+                });
+            }));
+        });
+
+        const data = {};
+        onGetActiveSessions(Env, {}, (err, val) => {
+            data.myId = Env?.myId;
+            data.main_nb = val?.total;
+            data.main_unique = val?.unique?.length;
+        });
+        data.workers = {};
+        data.errors = [];
+
+        Promise.all(prom).then(values => {
+            values.forEach(obj => {
+                if (obj.error) {
+                    data.errors.push(obj);
+                    return;
+                }
+                data.workers[obj.pid] = obj;
+            });
+            cb(void 0, data);
+        }).catch(err => {
+            cb(err);
+        });
+    } catch (e) {
+        cb(e);
+    }
+};
+
 const commands = {
     'FLUSH_CACHE': onFlushCache,
     'GET_ACTIVE_SESSIONS': onGetActiveSessions,
     'GET_ACTIVE_USERS': onGetActiveUsers,
     'SET_MODERATORS': onSetModerators,
+    'DEBUG_GET_WS_DATA': onGetWsData
 };
 
 module.exports = {
