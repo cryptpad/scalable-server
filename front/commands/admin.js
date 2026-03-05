@@ -44,15 +44,31 @@ const onGetWsData = (Env, args, cb) => {
         });
 
         const data = {};
-        onGetActiveSessions(Env, {}, (err, val) => {
-            data.myId = Env?.myId;
-            data.main_nb = val?.total;
-            data.main_unique = val?.unique?.length;
-        });
         data.workers = {};
         data.errors = [];
 
         Promise.all(prom).then(values => {
+            onGetActiveSessions(Env, {}, (err, val) => {
+                data.myId = Env?.myId;
+                data.main_nbWS = val?.total;
+                data.main_uniqueIP = val?.unique?.length;
+            });
+
+            const details = {};
+            const details_id = {};
+            Object.keys(Env.users).forEach(id => {
+                const user = Env.users[id];
+                let key = user.ip || id;
+                details[key] ||= {};
+                details_id[id] = user.channels.size;
+                Array.from(user.channels).forEach(chan => {
+                    details[key][chan] ||= 0;
+                    details[key][chan]++;
+                });
+            });
+            data.padsPerIP = details;
+            data.padsPerWS = details_id;
+
             values.forEach(obj => {
                 if (obj.error) {
                     data.errors.push(obj);
