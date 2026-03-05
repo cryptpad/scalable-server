@@ -17,6 +17,8 @@ const Env = {
     users: {}
 };
 
+const onEnvReady = Util.mkEvent(true);
+
 const app = Express();
 
 app.use(function (req, res, next) {
@@ -235,6 +237,7 @@ COMMANDS.NEW_DECREES = (data, cb) => {
     [ 'configCache', 'broadcastCache', ].forEach(key => {
         Env[key] = {};
     });
+    onEnvReady.fire();
     cb();
 };
 
@@ -499,15 +502,17 @@ const init = (config, cb) => {
     Environment.init(Env, config);
     servePlugins(Env);
 
-    const cfg = config?.infra?.front[config.index];
-    const server = Http.createServer(app);
-    server.listen(cfg.port, cfg.host, () => {
-        Env.Log.debug('HTTP worker listening on port', cfg.port);
-        cb();
-    });
+    onEnvReady.reg(() => {
+        const cfg = config?.infra?.front[config.index];
+        const server = Http.createServer(app);
+        server.listen(cfg.port, cfg.host, () => {
+            Env.Log.debug('HTTP worker listening on port', cfg.port);
+        });
 
-    Env.wss = new WebSocketServer({ server });
-    initServerHandlers(Env);
+        Env.wss = new WebSocketServer({ server });
+        initServerHandlers(Env);
+    });
+    cb();
 };
 
 let ready = false;
