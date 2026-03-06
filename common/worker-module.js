@@ -36,7 +36,7 @@ const init = workerConfig => {
 
     const onNewWorker = Util.mkEvent();
 
-    if (customFork) { fork = customFork; }
+    const spawnWorker = customFork || fork;
 
     const limit = typeof(maxWorkers) === "number" ?
                     maxWorkers : OS.cpus().length;
@@ -72,7 +72,7 @@ const init = workerConfig => {
 
     // Worker definition
     const create = () => {
-        return fork(workerPath);
+        return spawnWorker(workerPath);
         // return new Worker(...)
     };
     const kill = (worker) => {

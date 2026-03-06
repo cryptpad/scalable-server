@@ -328,7 +328,7 @@ const onWsUser = (Env, args, cb, state) => {
     };
     setTimeout(() => {
         if (!Env.users[id]) { return; }
-        if (!user.validated) { user.isEmpty = true }
+        if (!user.validated) { user.isEmpty = true; }
         delete user.validated;
     }, 120000);
     onSessionOpen(Env, id, ip);
