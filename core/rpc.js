@@ -223,13 +223,22 @@ Rpc.handleUnauthenticated = (Env, data, userId, cb) => {
     Env.Log.silly('LOG_RPC', command);
 
     const method = UNAUTHENTICATED_CALLS[command];
-    method(Env, content, (err, value) => {
-        if (err) {
-            Env.Log.warn('ANON_RPC_ERROR', command, err, content);
-            return void cb(err);
+    try {
+        method(Env, content, (err, value) => {
+            if (err) {
+                Env.Log.warn('ANON_RPC_ERROR', command, err, content);
+                return void cb(err);
+            }
+            cb(void 0, [null, value, null]);
+        }, userId);
+    } catch (error) {
+        if (error instanceof Error) {
+            Env.Log.warn('ANON_RPC_FAIL', command, error.name, error.message, content);
+        } else {
+            Env.Log.warn('ANON_RPC_FAIL', command, error, content);
         }
-        cb(void 0, [null, value, null]);
-    }, userId);
+        cb('ANON_RPC_FAIL');
+    }
 };
 
 Rpc.handleAuthenticated = (Env, publicKey, data, cb) => {
@@ -257,23 +266,41 @@ Rpc.handleAuthenticated = (Env, publicKey, data, cb) => {
     Env.Log.silly('LOG_RPC', TYPE);
 
     if (typeof(AUTHENTICATED_USER_TARGETED[TYPE]) === 'function') {
-        return void AUTHENTICATED_USER_TARGETED[TYPE](Env, safeKey, data[1], (e, value) => {
-            if (e) {
-                Env.Log.warn('RPC_ERROR', TYPE, e, safeKey, data[1]);
-                return void Respond(e);
+        try {
+            return void AUTHENTICATED_USER_TARGETED[TYPE](Env, safeKey, data[1], (e, value) => {
+                if (e) {
+                    Env.Log.warn('RPC_ERROR', TYPE, e, safeKey, data[1]);
+                    return void Respond(e);
+                }
+                Respond(e, value);
+            });
+        } catch (error) {
+            if (error instanceof Error) {
+                Env.Log.warn('RPC_FAIL', TYPE, error.name, error.message, data[1]);
+            } else {
+                Env.Log.warn('RPC_FAIL', TYPE, error, data[1]);
             }
-            Respond(e, value);
-        });
+            return void Respond('RPC_FAIL');
+        }
     }
 
     if (typeof(AUTHENTICATED_USER_SCOPED[TYPE]) === 'function') {
-        return void AUTHENTICATED_USER_SCOPED[TYPE](Env, safeKey, (e, value) => {
-            if (e) {
-                Env.Log.warn('RPC_ERROR', TYPE, e, safeKey);
-                return void Respond(e);
+        try {
+            return void AUTHENTICATED_USER_SCOPED[TYPE](Env, safeKey, (e, value) => {
+                if (e) {
+                    Env.Log.warn('RPC_ERROR', TYPE, e, safeKey);
+                    return void Respond(e);
+                }
+                Respond(e, value);
+            });
+        } catch (error) {
+            if (error instanceof Error) {
+                Env.Log.warn('RPC_FAIL', TYPE, error.name, error.message, safeKey);
+            } else {
+                Env.Log.warn('RPC_FAIL', TYPE, error, safeKey);
             }
-            Respond(e, value);
-        });
+            return void Respond('RPC_FAIL');
+        }
     }
 
     return void Respond('UNSUPPORTED_RPC_CALL', data);
