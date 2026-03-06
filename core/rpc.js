@@ -91,12 +91,18 @@ const clearOwnedChannel = (Env, safeKey, channel, cb) => {
         { safeKey, channel }, res => { cb(res.error, res.data); });
 };
 const removeOwnedChannel = (Env, safeKey, data, cb) => {
+    if (!data?.channel) {
+        return void cb('RPC_EARGS');
+    }
     const storageId = getStorageId(Env, data.channel);
     data.safeKey = safeKey;
     Env.interface.sendQuery(storageId, 'RPC_REMOVE_OWNED_CHANNEL',
         data , res => { cb(res.error, res.data); });
 };
 const trimHistory = (Env, safeKey, data, cb) => {
+    if (!data?.channel) {
+        return void cb('RPC_EARGS');
+    }
     const storageId = getStorageId(Env, data.channel);
     data.safeKey = safeKey;
     Env.interface.sendQuery(storageId, 'RPC_TRIM_HISTORY',
