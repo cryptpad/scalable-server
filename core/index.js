@@ -22,6 +22,7 @@ const {
 
 let Env = {
     userCache: {}, // user.from, user.authKeys
+    historyFromCache: {}, // "from" on history commands (no JOIN command)
     channelKeyCache: {}, // Validate key of each channel
     queueValidation: WriteQueue(),
     Sessions: {},
@@ -39,8 +40,9 @@ const isValidChannel = str => {
 };
 
 
-let getFrontId = function(userId) {
-    return Env.userCache?.[userId]?.from || 'front:0';
+const getFrontId = (userId) => {
+    return Env.userCache?.[userId]?.from ||
+           Env.historyFromCache?.[userId]?.from || 'front:0';
 };
 
 let frontToStorage = function(command, validated, isEvent) {
@@ -443,8 +445,13 @@ const onHttpCommand = (args, cb, extra) => {
 const onFrontCommand = command => {
     return (args, cb, extra) => {
         if (!isFrontCmd(extra.from)) { return void cb('UNAUTHORIZED'); }
-        const channel = args.channel;
+        const channel = args?.channel;
+        const userId = args?.userId;
+        if (!channel || !userId) { return void cb('INVALID_ARGS'); }
         const storageId = Env.getStorageId(channel);
+
+        const cache = Env.historyFromCache[userId] ||= { from: extra.from };
+        cache.atime = +new Date();
 
         Env.interface.sendQuery(storageId, command, args, function(response) {
             cb(response.error, response.data);
@@ -525,6 +532,15 @@ const initIntervals = () => {
     // expire old sessions once per minute
     Env.intervals.sessionExpirationInterval = setInterval(() => {
         Core.expireSessions(Env.Sessions);
+    }, Core.SESSION_EXPIRATION_TIME);
+    Env.intervals.historyFromInterval = setInterval(() => {
+        const now = +new Date();
+        Object.keys(Env.historyFromCache).forEach(userId => {
+            const u = Env.historyFromCache[userId];
+            if (!u || (now - u.atime) > Core.SESSION_EXPIRATION_TIME) {
+                delete Env.historyFromCache[userId];
+            }
+        });
     }, Core.SESSION_EXPIRATION_TIME);
 };
 
