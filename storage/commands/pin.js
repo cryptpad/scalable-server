@@ -342,6 +342,13 @@ Pinning.resetUserPins = (Env, safeKey, channelList, _cb) => {
         ]), (e) => {
             if (e) { return void cb(e); }
             channelList.forEach((channel) => {
+                // Remove "#drive"
+                if (/#drive$/.test(channel)) {
+                    channel = channel.slice(0, -6);
+                }
+                // Don't "pin" block
+                if (/#block$/.test(channel)) { return; }
+
                 pins[channel] = true;
             });
 
