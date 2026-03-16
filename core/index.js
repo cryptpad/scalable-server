@@ -95,7 +95,7 @@ const authenticateUser = (userId, unsafeKey) => {
 };
 const unauthenticateUser = (userId, unsafeKey) => {
     const user = Env.userCache[userId];
-    if (user.authKeys) { return; }
+    if (!user?.authKeys) { return; }
     delete user.authKeys[unsafeKey];
 };
 
