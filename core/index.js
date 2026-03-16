@@ -88,8 +88,9 @@ let storageToFront = function(command) {
     };
 };
 
-const authenticateUser = (userId, unsafeKey) => {
+const authenticateUser = (userId, unsafeKey, extra) => {
     const user = Env.userCache[userId] ||= {};
+    if (!user.from) { user.from = extra.from; }
     const authKeys = user.authKeys ||= {};
     authKeys[unsafeKey] = +new Date();
 };
@@ -417,7 +418,7 @@ const onAuthRpc = (args, cb, extra) => {
         // nothing but requires a recent cookie to work.
         // We can then update onRejected in async-store to call
         // this AUTH command before retrying to join a pad.
-        authenticateUser(userId, publicKey);
+        authenticateUser(userId, publicKey, extra);
 
         return Rpc.handleAuthenticated(Env, publicKey, data, Util.both(cb, avg?.time));
     });
@@ -522,7 +523,8 @@ const onGetAuthKeys = (args, cb, extra) => {
     if (!isStorageCmd(extra.from)) { return void cb("UNAUTHORIZED"); }
     const { userId } = args;
 
-    const user = Env.userCache[userId] ||= {};
+    const user = Env.userCache[userId];
+    if (!user) { return void cb(void 0, {}); }
     const authKeys = user.authKeys || {};
 
     cb(void 0, authKeys);
