@@ -372,6 +372,36 @@ const onArchiveDocument = (Env, data, _cb) => {
 
 };
 
+const onRemoveDocument = (Env, data, _cb) => {
+    const cb = Util.mkAsync(_cb);
+    const { id, reason } = data;
+    const reasonStr = `MODERATION_DESTROY:${reason}`;
+
+    switch (id.length) {
+        case 32:
+            return void Env.store.removeChannel(id, Util.both(cb, function(err) {
+                Env.Log.info("REMOVAL_CHANNEL_BY_ADMIN_RPC", {
+                    channelId: id,
+                    reason: reasonStr,
+                    status: err ? String(err) : "SUCCESS",
+                });
+                Env.CM.disconnectChannelMembers(Env, id, 'EDELETED', reasonStr, err => {
+                    if (err) { } // TODO
+                });
+            }));
+        case 48:
+            return void Env.blobStore.remove.blob(id, Util.both(cb, function(err) {
+                Env.Log.info("REMOVAL_BLOB_BY_ADMIN_RPC", {
+                    id: id,
+                    reason: reasonStr,
+                    status: err ? String(err) : "SUCCESS",
+                });
+            }));
+        default:
+            return void cb('INVALID_ID_LENGTH');
+    }
+};
+
 const onArchiveDocuments = (Env, data, cb) => {
     const { reason, list } = data;
     let failed = [];
@@ -749,6 +779,7 @@ const commands = {
     'ARCHIVE_BLOCK': onArchiveBlock,
     'RESTORE_ARCHIVED_BLOCK': onRestoreArchivedBlock,
     'ARCHIVE_DOCUMENT': onArchiveDocument,
+    'REMOVE_DOCUMENT': onRemoveDocument,
     'ARCHIVE_DOCUMENTS': onArchiveDocuments,
     'RESTORE_ARCHIVED_DOCUMENT': onRestoreArchivedDocument,
     'READ_REPORT': onReadReport,

@@ -477,6 +477,19 @@ const getAccountArchiveStatus = (Env, _key, data, _cb) => {
     }, cb);
 };
 
+const removeDocument = (Env, _key, data, cb) => {
+    const args = Array.isArray(data) && data[1];
+    if (!args) { return void cb("EINVAL"); }
+    const { id, reason } = args;
+
+    if (typeof (id) !== 'string' || id.length < 32) { return void cb("EINVAL"); }
+
+    Core.coreToStorage(Env, id, 'ADMIN_CMD', {
+        cmd: 'REMOVE_DOCUMENT',
+        data: { id, reason }
+    }, cb);
+};
+
 const archiveDocument = (Env, _key, data, cb) => {
     const args = Array.isArray(data) && data[1];
     if (!args) { return void cb("EINVAL"); }
@@ -678,6 +691,7 @@ const commands = {
     ARCHIVE_BLOCK: argsCommand('ARCHIVE_BLOCK'),
     RESTORE_ARCHIVED_BLOCK: argsCommand('RESTORE_ARCHIVED_BLOCK'),
 
+    REMOVE_DOCUMENT: removeDocument,
     ARCHIVE_DOCUMENT: archiveDocument,
     ARCHIVE_DOCUMENTS: archiveDocuments,
     RESTORE_ARCHIVED_DOCUMENT: restoreArchivedDocument,
