@@ -815,8 +815,7 @@ const start = (mainConfig) => {
     } = Core.getPaths(mainConfig);
     nThen(waitFor => {
         File.create({
-            filePath, archivePath,
-            volume: 'channel'
+            filePath, archivePath
         }, waitFor((err, store) => {
             if (err) { throw new Error(err); }
             Env.store = store;

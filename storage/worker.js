@@ -39,8 +39,7 @@ const init = (config, cb) => {
     } = Core.getPaths(config);
     nThen(waitFor => {
         File.create({
-            filePath, archivePath,
-            volumeId: 'channel'
+            filePath, archivePath
         }, waitFor((err, store) => {
             if (err) {
                 waitFor.abort();
