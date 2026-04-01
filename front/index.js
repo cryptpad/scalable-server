@@ -7,12 +7,11 @@ const Crypto = require('crypto');
 const Util = require("../common/common-util.js");
 const Constants = require("../common/constants.js");
 const Logger = require("../common/logger.js");
-const WorkerModule = require("../common/worker-module.js");
-const Cluster = require("node:cluster");
 const Environment = require('../common/env.js');
 const Admin = require('./commands/admin');
 const Core = require('../common/core.js');
 const nThen = require('nthen');
+const Network = require('./network.js');
 
 const {
     hkId,
@@ -23,6 +22,8 @@ const {
 const getCoreId = (Env, channel) => {
     return Env.getCoreId(channel);
 };
+
+const onEnvReady = Util.mkEvent(true);
 
 const dropUserChannels = (Env, userId) => {
     const user = Env.users[userId];
@@ -44,50 +45,15 @@ const dropUserChannels = (Env, userId) => {
     });
 };
 
-const onSessionOpen = function(Env, userId) {
-    const user = Env.users[userId];
-    if (!user) { return; }
-
-    if (!Env.logIP || !user.ip) { return; }
-    Env.Log.info('USER_CONNECTION', {
-        userId: userId,
-        ip: user.ip,
-    });
-};
-const onSessionClose = (Env, userId) => {
-    // Cleanup leftover channels
-    dropUserChannels(Env, userId);
-    delete Env.users[userId];
-};
 const historyCommands = [
     'GET_HISTORY', 'GET_HISTORY_RANGE', 'GET_FULL_HISTORY'
 ];
 
 const sendMsgPromise = (Env, user, msg) => {
-    return new Promise((resolve, reject) => {
-        const state = user.state;
-        Env.workers.sendTo(state, 'WS_SEND_MESSAGE', {
-            id: user.id,
-            msg
-        }, (err, res) => {
-            if (err) {
-                return reject(err);
-            }
-            const length = res?.length || msg.length;
-            Env.plugins?.MONITORING?.increment(`sent`);
-            Env.plugins?.MONITORING?.increment(`sentSize`, length);
-            resolve();
-        });
-    });
+    return Env.network.sendMsgPromise(user, msg);
 };
 const sendMsg = (Env, user, msg) => {
-    sendMsgPromise(Env, user, msg).catch(e => {
-        if (['NO_USER', 'UNSENDABLE'].includes(e)) { return; }
-        Env.Log.error(e, 'SEND_MESSAGE', {
-            user: user.id,
-            message: msg
-        });
-    });
+    return Env.network.sendMsg(user, msg);
 };
 
 const handleRPC = (Env, seq, message, user) => {
@@ -250,7 +216,7 @@ const handleJoin = (Env, args) => {
         }
 
         // Add channel to our local list
-        user.validated = true;
+        // user.validated = true;
         user.channels.add(channel);
 
         sendMsg(Env, user, [seq, 'JACK', channel]);
@@ -306,11 +272,8 @@ const commands = {
 };
 
 const onWsMessage = (Env, args, cb) => {
-    const { userId, cmd, seq, json, length } = args;
+    const { user, cmd, seq, json } = args;
     if (typeof(commands[cmd]) !== 'function') { return void cb(); }
-    const user = Env.users[userId];
-    Env.plugins?.MONITORING?.increment(`received`);
-    Env.plugins?.MONITORING?.increment(`receivedSize`, length);
     if (!user) { return void cb(); }
     commands[cmd](Env, {
         user, json, seq,
@@ -319,31 +282,9 @@ const onWsMessage = (Env, args, cb) => {
     cb();
 };
 
-const onWsUser = (Env, args, cb, state) => {
-    const { id, ip } = args;
-    const user = Env.users[id] = {
-        state,
-        id, ip,
-        channels: new Set()
-    };
-    setTimeout(() => {
-        if (!Env.users[id]) { return; }
-        if (!user.validated) { user.isEmpty = true; }
-        delete user.validated;
-    }, 120000);
-    onSessionOpen(Env, id, ip);
-    cb();
-};
-
-const onWsDropUser = (Env, args, cb) => {
-    const { id, reason } = args;
-    onSessionClose(Env, id, reason);
-    cb();
-};
-
-const onWsPing = (Env, args, cb) => {
-    Env.plugins?.MONITORING?.increment(`pingSent`);
-    cb();
+const onWsDropUser = (Env, args) => {
+    const { id /*, reason*/ } = args;
+    dropUserChannels(Env, id); // Cleanup leftover channels
 };
 
 // Respond to CORE commands
@@ -367,11 +308,8 @@ const sendChannelMessage = (Env, args) => { // Event
     const { users, message, broadcast } = args;
 
     if (broadcast) {
-        Env.workers.broadcast('BROADCAST_MESSAGE', {
-            message
-        }, () => {
-            Env.Log.verbose('BROADCAST_MESSAGE_SENT');
-        });
+        let sent = Env.network.broadcast(message);
+        if (sent) { Env.Log.verbose('BROADCAST_MESSAGE_SENT'); }
         return;
     }
 
@@ -389,18 +327,12 @@ const onNewDecrees = (Env, args, cb) => {
     Env.FRESH_KEY = freshKey;
     Env.curveKeys ||= curveKeys;
     Env.getDecree(type).loadRemote(Env, decrees);
-    Env.workers.broadcast('NEW_DECREES', {
-        curveKeys: Env.curveKeys,
-        freshKey: Env.FRESH_KEY,
-        type, decrees
-    }, () => {
-        Env.Log.silly('UPDATE_DECREE_WS_WORKER');
-    });
+    onEnvReady.fire();
     cb();
 };
 
 const shutdown = (Env) => {
-    Env.workers.broadcast('WS_SHUTDOWN', {}, () => {});
+    Env.network.shutdown();
 };
 
 // Respond to WORKER commands
@@ -422,53 +354,10 @@ const onHttpCommand = (Env, data, cb) => {
 };
 
 // Initialisation
-
-const initHttpCluster = (Env, mainConfig) => {
+const initNetwork = (Env, mainConfig) => {
     return new Promise((resolve) => {
-        Cluster.setupPrimary({
-            exec: './build/front.worker.js',
-            args: [],
-        });
-
-        const WORKERS = Env.maxWorkers['front'] || 2;
-        const workerConfig = {
-            Log: Env.Log,
-            noTaskLimit: true,
-            customFork: () => {
-                return Cluster.fork({});
-            },
-            maxWorkers: WORKERS,
-            maxJobs: Env.maxJobs['front'] || 10,
-            commandTimers: {}, // time spent on each command
-            config: mainConfig,
-            Env: { // Serialized Env (Environment.serialize)
-            }
-        };
-
-        let ready = 0;
-        Cluster.on('online', () => {
-            ready++;
-            if (ready === WORKERS) {
-                resolve();
-            }
-        });
-
-        Env.workers = WorkerModule(workerConfig);
-        Env.workers.onNewWorker(state => {
-            Object.keys(Env.allDecrees).forEach(type => {
-                const decrees = Env.allDecrees[type];
-                Env.workers.sendTo(state, 'NEW_DECREES', {
-                    curveKeys: Env.curveKeys,
-                    freshKey: Env.FRESH_KEY,
-                    decrees, type
-                }, () => {
-                    Env.Log.silly('UPDATE_DECREE_WS_WORKER');
-                });
-            });
-            Env.workers.sendTo(state, 'SET_MODERATORS', Env.moderators, () => {
-                Env.Log.silly('UPDATE_MODERATORS_FRONT_WORKER');
-            });
-        });
+        Env.network = Network.init(Env, mainConfig, onEnvReady);
+        resolve();
     });
 };
 
@@ -509,20 +398,18 @@ const start = (mainConfig) => {
     };
 
     const WORKER_COMMANDS = {
-        'HTTP_COMMAND': callWithEnv(onHttpCommand),
-        'WS_MESSAGE': callWithEnv(onWsMessage),
-        'WS_NEW_USER': callWithEnv(onWsUser),
-        'WS_DROP_USER': callWithEnv(onWsDropUser),
-        'WS_SEND_PING': callWithEnv(onWsPing),
+        'httpCommand': callWithEnv(onHttpCommand),
+        'message': callWithEnv(onWsMessage),
+        'dropUser': callWithEnv(onWsDropUser)
     };
 
     nThen(w => {
-        initHttpCluster(Env, mainConfig).then(w());
+        initNetwork(Env, mainConfig).then(w());
     }).nThen(w => {
         try {
             Object.keys(WORKER_COMMANDS).forEach(cmd => {
                 let handler = WORKER_COMMANDS[cmd];
-                Env.workers.on(cmd, handler);
+                Env.network?.events[cmd]?.reg(handler);
             });
         } catch (e) {
             console.error(e);

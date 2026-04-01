@@ -6,7 +6,6 @@ module.exports = {
      *  If so, set 'maxWorkers.{type}' to a positive integer.
      */
     maxWorkers: {
-        front: 2,
         core: 1,
         storage: 1,
         http: 2,
@@ -16,7 +15,6 @@ module.exports = {
      * syntax is the same as above. The default value for unset node type is 10
      */
     maxJobs: {
-        front: 10,
         core: 15,
         storage: 15,
         http: 10,

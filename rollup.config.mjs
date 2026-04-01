@@ -51,16 +51,6 @@ if (!type || type === "front") {
         }],
         plugins: getPlugins()
     });
-    list.push({
-        input: "./front/worker.js",
-        output: [{
-            name: 'cryptpad-server-front-worker',
-            file: "./build/front.worker.js",
-            format: "cjs",
-            plugins: [ getTerser() ]
-        }],
-        plugins: getPlugins()
-    });
 }
 if (!type || type === "core") {
     list.push({
