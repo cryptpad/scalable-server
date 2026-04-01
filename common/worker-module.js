@@ -14,6 +14,7 @@ const {
 const OS = require("node:os");
 
 let { fork } = require('node:child_process');
+const { Worker } = require('node:worker_threads');
 
 const DEFAULT_QUERY_TIMEOUT = 60000 * 15;
 const WORKER_TASK_LIMIT = 250000;
@@ -29,14 +30,23 @@ const init = workerConfig => {
     const { Log, workerPath,
             maxWorkers, maxJobs,
             commandTimers,
-            config, Env,
+            config, Env, useThread,
             customFork, noTaskLimit } = workerConfig;
     const handlers = {};
     const PID = process.pid;
 
     const onNewWorker = Util.mkEvent();
 
-    const spawnWorker = customFork || fork;
+    let spawnWorker = customFork || fork;
+    if (useThread) {
+        spawnWorker = workerPath => {
+            let w =  new Worker(workerPath);
+            w.send = w.postMessage;
+            w.kill = w.terminate;
+            w.pid = Util.uid();
+            return w;
+        };
+    }
 
     const limit = typeof(maxWorkers) === "number" ?
                     maxWorkers : OS.cpus().length;

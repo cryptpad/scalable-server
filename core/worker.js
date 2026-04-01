@@ -1,3 +1,4 @@
+const { parentPort } = require('node:worker_threads');
 const Util = require("../common/common-util");
 const Crypto = require("../common/crypto.js")('sodiumnative');
 
@@ -86,9 +87,9 @@ COMMANDS.VALIDATE_RPC = (data, cb) => {
 
 
 let ready = false;
-process.on('message', function(obj) {
+parentPort.on('message', function(obj) {
     if (!obj || !obj.txid || !obj.pid) {
-        return void process.send({
+        return void parentPort.postMessage({
             error: 'E_INVAL',
             data: obj,
         });
@@ -98,7 +99,7 @@ process.on('message', function(obj) {
     const data = obj.data;
 
     const cb = function(err, value) {
-        process.send({
+        parentPort.postMessage({
             error: Util.serializeError(err),
             txid: obj.txid,
             pid: obj.pid,
@@ -123,11 +124,4 @@ process.on('message', function(obj) {
         return void cb("E_BAD_COMMAND");
     }
     command(data, cb);
-});
-
-process.on('uncaughtException', function(err) {
-    console.error('[%s] UNCAUGHT EXCEPTION IN DB WORKER', new Date());
-    console.error(err);
-    console.error("TERMINATING");
-    process.exit(1);
 });

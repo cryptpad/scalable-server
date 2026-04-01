@@ -663,6 +663,7 @@ const startServers = (mainConfig) => {
         commandTimers: {}, // time spent on each command
         config: {
         },
+        useThread: true,
         Env: { // Serialized Env (Environment.serialize)
         }
     };
