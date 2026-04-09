@@ -110,9 +110,9 @@ Env.onExpiredChannel = channel => {
     const users = Array.from(channelData.users);
 
     const coreId = Env.getCoreId(channel);
-    const message = [0, hkId, 'MSG', null, {
+    const message = [0, hkId, 'MSG', null, JSON.stringify({
         error: 'EEXPIRED', channel
-    }];
+    })];
     Env.interface.sendEvent(coreId, 'HISTORY_CHANNEL_MESSAGE', {
         users, message
     });
