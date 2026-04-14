@@ -3,6 +3,7 @@ const Keys = require("../../common/keys");
 
 const Core = require("../../common/core");
 const nThen = require('nthen');
+const Crypto = require('node:crypto');
 
 const Admin = {};
 
@@ -13,7 +14,7 @@ const getWorkerProfiles = function(Env, _publicKey, _data, cb) {
 };
 
 const getUid = () => {
-    return Util.uid() + Util.uid() + Util.uid();
+    return Crypto.randomBytes(18).toString('hex');
 };
 
 

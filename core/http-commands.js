@@ -154,7 +154,7 @@ const handleCommand = (Env, body, cb) => {
         COMMANDS[command](Env, body, function (err) {
             if (err) {
                 Env.Log.error('CHALLENGE_COMMAND_EXECUTION_ERROR', {
-                    body: body,
+                    command,
                     error: Util.serializeError(err),
                 });
                 // errors returned from commands are passed back to the client
@@ -238,16 +238,6 @@ const handleResponse = (Env, body, cb) => {
             return void cb("Unexpected response");
         }
 
-        // garbage collection can clean this up later
-        Challenge.delete(Env, txid, function (err) {
-            if (err) {
-                Env.Log.error("CHALLENGE_DELETION_ERROR", {
-                    txid: txid,
-                    error: Util.serializeError(err),
-                });
-            }
-        });
-
         const json = Util.tryParse(text);
 
         if (!json) {
@@ -289,9 +279,8 @@ const handleResponse = (Env, body, cb) => {
             u8_publicKey = Util.decodeBase64(publicKey);
         } catch (err3) {
             Env.Log.error('CHALLENGE_RESPONSE_DECODING_ERROR', {
-                text: text,
-                sig: sig,
-                publicKey: publicKey,
+                command,
+                publicKey,
                 error: Util.serializeError(err3),
             });
             return void cb("decoding error");
@@ -305,6 +294,16 @@ const handleResponse = (Env, body, cb) => {
             });
             return void cb('Failed signature validation');
         }
+
+        // garbage collection can clean this up later
+        Challenge.delete(Env, txid, function (err) {
+            if (err) {
+                Env.Log.error("CHALLENGE_DELETION_ERROR", {
+                    txid: txid,
+                    error: Util.serializeError(err),
+                });
+            }
+        });
 
         // execute the command
         action(Env, json, function (err, content) {

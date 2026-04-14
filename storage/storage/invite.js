@@ -17,7 +17,7 @@ const Invite = module.exports;
 */
 
 const pathFromId = function (Env, id) {
-    if (!id || typeof(id) !== 'string') { return void console.error('INVITE_BAD_ID', id); }
+    if (!Basic.isValidId(id)) { return; }
     return Path.join(Env.paths.base, "invitations", id.slice(0, 2), id);
 };
 
