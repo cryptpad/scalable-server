@@ -44,7 +44,7 @@ module.exports = cryptoLib => {
             exports.secretbox = NaCl.secretbox;
             exports.secretboxOpen = NaCl.secretbox.open;
             exports.publicKeyFromSecretKey = (secretKey) => {
-                return Nacl.sign?.keyPair?.fromSecretKey(secretKey)?.publicKey;
+                return NaCl.sign?.keyPair?.fromSecretKey(secretKey)?.publicKey;
             };
             break;
     }

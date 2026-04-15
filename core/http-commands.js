@@ -279,7 +279,7 @@ const handleResponse = (Env, body, cb) => {
             u8_publicKey = Util.decodeBase64(publicKey);
         } catch (err3) {
             Env.Log.error('CHALLENGE_RESPONSE_DECODING_ERROR', {
-                command,
+                command: json.command,
                 publicKey,
                 error: Util.serializeError(err3),
             });
