@@ -114,6 +114,7 @@ const initServerHandlers = (Env, app) => {
         }
     ));
 
+    app.use(Express.json());
     Env.plugins.addHttpEndpoints(Env, app, 'storage');
 
     app.use('/block/', function (req, res, next) {
@@ -372,11 +373,6 @@ const initServerHandlers = (Env, app) => {
         }
     });
 
-    app.use('/api/updatequota', (req, res) => {
-        Env.updateLimits();
-        res.status(200).send();
-    });
-
     app.use('/api/logo', (req, res) => {
         if (Env.apiLogoCache) {
             return res.sendFile(Env.apiLogoCache);
@@ -430,7 +426,7 @@ Env.interface = {
 
 const init = (config, cb) => {
     Environment.init(Env, config, {
-        Block, Pinning, Decrees,
+        Block, Pinning, Decrees, CpCrypto,
         BlockStore, Blob, File, Sessions, Basic
     });
     Env.Log = Logger(config.config, Env.myId);
