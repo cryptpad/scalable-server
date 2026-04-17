@@ -30,7 +30,9 @@ const Path = require("node:path");
 
 var pathError = (cb) => {
     setTimeout(function () {
-        cb(new Error("INVALID_PATH"));
+        let err = new Error("INVALID_PATH");
+        err.code = err.message;
+        cb(err);
     });
 };
 

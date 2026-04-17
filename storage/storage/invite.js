@@ -24,7 +24,7 @@ const pathFromId = function (Env, id) {
 Invite.read = function (Env, id, cb) {
     var path = pathFromId(Env, id);
     Basic.read(Env, path, (err, data) => {
-        if (err) { return void cb(err.code); }
+        if (err) { return void cb(err.code || err.message || err); }
         cb(void 0, Util.tryParse(data));
     });
 };
