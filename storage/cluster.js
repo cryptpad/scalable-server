@@ -114,7 +114,6 @@ const initServerHandlers = (Env, app) => {
         }
     ));
 
-    app.use(Express.json());
     Env.plugins.addHttpEndpoints(Env, app, 'storage');
 
     app.use('/block/', function (req, res, next) {
