@@ -218,6 +218,25 @@ Network.init = (Env, config, onEnvReady) => {
     initExpress(Env);
 
     // WEBSOCKET
+    const RECV_RATE_LIMIT = 100; // messages per second slot
+
+    const checkWssLimit = (user) => {
+        const { wssLimit } = user;
+        if (wssLimit.dropped) { return false; } // Silently drop abusing users
+        const now = +new Date().setMilliseconds(0);
+        if (wssLimit?.lastWindow < now) { // new window
+            wssLimit.lastWindow = now;
+            wssLimit.count = 1;
+            return true;
+        }
+        if (wssLimit.count >= RECV_RATE_LIMIT) {
+            Env.Log.error('WS_LIMIT_EXCEEDED', user.ip);
+            wssLimit.dropped = true;
+            return false;
+        }
+        wssLimit.count++;
+        return true;
+    };
 
     const now = () => {
         return +new Date();
@@ -400,7 +419,12 @@ Network.init = (Env, config, onEnvReady) => {
                 inQueue: 0,
                 ip: ip.replace(/^::ffff:/, ''),
                 sendMsgCallbacks: [],
-                channels: new Set()
+                channels: new Set(),
+                wssLimit: {
+                    dropped: false,
+                    lastWindow: +new Date().setMilliseconds(0),
+                    count: 0
+                },
             };
             Env.users[user.id] = user;
             sendMsg(user, [0, '', 'IDENT', user.id]);
@@ -424,6 +448,7 @@ Network.init = (Env, config, onEnvReady) => {
 
             socket.on('message', message => {
                 if (!Env.users[user.id]) { return; } // websocket closing
+                if (!checkWssLimit(user)) { return ; } // silently ignoring an abusing user messages
                 Env.Log.silly('Receiving', JSON.parse(message), 'from', user.id);
                 handleMessage(user, message, e => {
                     if (!e) { return; }
