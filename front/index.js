@@ -347,7 +347,7 @@ const onHttpCommand = (Env, data, cb) => {
     }
     const coreId = getCoreId(Env, data._txid || data.txid);
     Env.interface.sendQuery(coreId, 'HTTP_COMMAND', data, answer => {
-        let response = answer?.data;
+        let response = answer?.data || {};
         let error = answer?.error;
         cb(error, response);
     });

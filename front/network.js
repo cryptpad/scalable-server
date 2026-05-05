@@ -202,7 +202,7 @@ const initExpress = (Env) => {
                     error: err
                 });
             }
-            if (response._cookie) {
+            if (response?._cookie) {
                 res.setHeader('Set-Cookie', response._cookie);
             }
             res.status(200).json(response);
