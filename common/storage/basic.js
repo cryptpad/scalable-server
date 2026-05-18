@@ -30,7 +30,9 @@ const Path = require("node:path");
 
 var pathError = (cb) => {
     setTimeout(function () {
-        cb(new Error("INVALID_PATH"));
+        let err = new Error("INVALID_PATH");
+        err.code = err.message;
+        cb(err);
     });
 };
 
@@ -89,3 +91,8 @@ Basic.restore = function (Env, archivePath, path, cb) {
         cb(err);
     });
 };
+
+Basic.isValidId = id => {
+    return id && typeof(id) === "string" && /^[a-zA-Z0-9-+=]+$/.test(id);
+};
+

@@ -29,6 +29,7 @@ so that it can be accessed quickly.
 const pathFromId = (Env, id) => {
     if (!id || typeof(id) !== 'string') { return; }
     id = Util.escapeKeyCharacters(id);
+    if (!Basic.isValidId(id)) { return; }
     return Path.join(Env.paths.base, "mfa", id.slice(0, 2), `${id}.json`);
 };
 

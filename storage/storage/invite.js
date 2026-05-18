@@ -17,14 +17,14 @@ const Invite = module.exports;
 */
 
 const pathFromId = function (Env, id) {
-    if (!id || typeof(id) !== 'string') { return void console.error('INVITE_BAD_ID', id); }
+    if (!Basic.isValidId(id)) { return; }
     return Path.join(Env.paths.base, "invitations", id.slice(0, 2), id);
 };
 
 Invite.read = function (Env, id, cb) {
     var path = pathFromId(Env, id);
     Basic.read(Env, path, (err, data) => {
-        if (err) { return void cb(err.code); }
+        if (err) { return void cb(err.code || err.message || err); }
         cb(void 0, Util.tryParse(data));
     });
 };
