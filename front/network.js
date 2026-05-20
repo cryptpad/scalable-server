@@ -278,7 +278,7 @@ Network.init = (Env, config, onEnvReady) => {
         }
 
         events.dropUser.fire({
-            id: user.id, reason
+            id: user.id, channels: user.channels, reason
         });
 
         // Log unexpected errors
