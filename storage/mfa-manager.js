@@ -12,6 +12,9 @@ const Block = require("./commands/block");
 const Users = require("./commands/users");
 const Invitation = require("./commands/invitation");
 
+let MFAFailCounter = {};
+setInterval(() => { MFAFailCounter = {}; }, 60_000);
+const MFA_RATE_LIMIT = 10;
 
 const isString = s => typeof(s) === 'string';
 
@@ -116,9 +119,23 @@ const readMFA = (Env, publicKey, cb) => {
     });
 };
 
+// Check if a given public key is allowed to check OTP
+const checkPublicKey = (Env, publicKey) => {
+    MFAFailCounter[publicKey] ||= 0;
+    if (MFAFailCounter[publicKey] >= MFA_RATE_LIMIT) {
+        Env.Log.error('WS_LIMIT_EXCEEDED', publicKey);
+        return false;
+    }
+    MFAFailCounter[publicKey]++;
+    return true;
+};
+
 // Check if an OTP code is valid against the provided secret
 const checkCode = (Env, secret, code, publicKey, _cb) => {
     const cb = Util.mkAsync(_cb);
+    if (!checkPublicKey(Env, publicKey)) {
+        return void cb("INVALID_OTP");
+    }
 
     let totp = new OTP.TOTP({
         secret
@@ -136,6 +153,8 @@ const checkCode = (Env, secret, code, publicKey, _cb) => {
         return void cb("INVALID_OTP");
     }
 
+    // Reset fail counter upon success
+    delete MFAFailCounter[publicKey];
     // call back to indicate that their request was well-formed and valid
     cb();
 };
