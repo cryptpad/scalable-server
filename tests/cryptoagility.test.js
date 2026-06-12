@@ -7,7 +7,7 @@
 const nodeCrypto = require('node:crypto');
 const CryptoLibs = [
     require('../common/crypto.js')('default'), //tweetnacl
-    require('../common/crypto.js')('sodium-native'),
+    require('../common/crypto.js')('sodiumnative'),
 ];
 
 const CryptoSize = CryptoLibs.length;
@@ -63,7 +63,7 @@ const testSecretBox = () => new Promise((resolve, reject) => {
     const testMsg = Uint8Array.from(Buffer.from("Test message"));
     const testEnc = CryptoLibs[0].secretbox(testMsg, nonce, secretKey);
     for (let i = 0; i < CryptoSize; i++) {
-        if (CryptoLibs[i].secretboxOpen(testEnc, nonce, secretKey).toString() !== testMsg.toString()) {
+        if (CryptoLibs[i].secretboxOpen(testEnc, nonce, secretKey).toString() !== Buffer.from(testMsg).toString()) {
             reject('Opening secretbox failed');
         }
     }

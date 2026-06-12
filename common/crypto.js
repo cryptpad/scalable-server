@@ -37,7 +37,7 @@ module.exports = cryptoLib => {
                 return pk;
             };
             exports.hash = (message) => {
-                let out = Buffer.alloc(SodiumNative.crypto_hash_sha512_bytes);
+                let out = Buffer.alloc(SodiumNative.crypto_hash_sha512_BYTES);
                 SodiumNative.crypto_hash_sha512(out, message);
                 return out;
             };
@@ -47,11 +47,11 @@ module.exports = cryptoLib => {
             exports.sigVerify = NaCl.sign.open;
             exports.detachedVerify = NaCl.sign.detached.verify;
             exports.secretbox = NaCl.secretbox;
-            exports.secretboxOpen = NaCl.secretbox.open;
+            exports.secretboxOpen = (secretBox, nonce, secretKey) => Buffer.from(NaCl.secretbox.open(secretBox, nonce, secretKey));
             exports.publicKeyFromSecretKey = (secretKey) => {
                 return NaCl.sign?.keyPair?.fromSecretKey(secretKey)?.publicKey;
             };
-            exports.hash = NaCl.hash;
+            exports.hash = (msg) => Buffer.from(NaCl.hash(msg));
             break;
     }
     return exports;
