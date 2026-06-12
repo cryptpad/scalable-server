@@ -36,6 +36,11 @@ module.exports = cryptoLib => {
                 SodiumNative.crypto_sign_ed25519_sk_to_pk(pk, secretKey);
                 return pk;
             };
+            exports.hash = (message) => {
+                let out = Buffer.alloc(SodiumNative.crypto_hash_sha512_bytes);
+                SodiumNative.crypto_hash_sha512(out, message);
+                return out;
+            };
             break;
         default: // tweetNaCl
             NaCl = require("tweetnacl/nacl-fast");
@@ -46,6 +51,7 @@ module.exports = cryptoLib => {
             exports.publicKeyFromSecretKey = (secretKey) => {
                 return NaCl.sign?.keyPair?.fromSecretKey(secretKey)?.publicKey;
             };
+            exports.hash = NaCl.hash;
             break;
     }
     return exports;
