@@ -11,6 +11,7 @@ const BlockStore = require("./storage/block");
 const Block = require("./commands/block");
 const Users = require("./commands/users");
 const Invitation = require("./commands/invitation");
+const CpCrypto = require("../common/crypto.js")('sodiumnative');
 
 let MFAFailCounter = {};
 setInterval(() => { MFAFailCounter = {}; }, 60_000);
@@ -36,6 +37,17 @@ const isValidRecoveryKey = otp => {
         otp.length === 32 &&
         // \D is non-digit characters, so this tests that it is exclusively numeric
         /[A-Za-z0-9+\/]{32}/.test(otp);
+};
+
+const parseRecoveryKey = recoveryStr => {
+    let splitted = recoveryStr.split(':');
+    let type = splitted[0];
+    // Only allow authorized type. To be upgraded when supporting more recovery modes
+    if (!['secret', 'hash'].includes(type)) {
+        type = '';
+    }
+    const content = splitted.slice(1).join(':');
+    return { type, content };
 };
 
 // we'll only allow users to set up multi-factor auth
@@ -392,12 +404,24 @@ MFAManager.revokeCheck = (Env, body, cb) => {
     }).nThen(function (w) {
         if (!recoveryKey) { return; }
         w.abort();
-        if (!/^secret:/.test(recoveryStored)) {
+        const recoveryParsed = parseRecoveryKey(recoveryStored);
+        if (!recoveryParsed.type) {
             return void cb("E_NO_RECOVERY_KEY");
         }
-        recoveryStored = recoveryStored.slice(7);
-        if (recoveryKey !== recoveryStored) {
-            return void cb("E_WRONG_RECOVERY_KEY");
+        switch (recoveryParsed.type) {
+            case 'secret':
+                if (recoveryKey !== recoveryParsed.content) {
+                    return void cb("E_WRONG_RECOVERY_KEY");
+                }
+                break;
+            case 'hash':
+                if (CpCrypto.encodeBase64(CpCrypto.hash(CpCrypto.decodeBase64(recoveryKey)))
+                    !== recoveryParsed.content) {
+                    return void cb("E_WRONG_RECOVERY_KEY");
+                }
+                break;
+            default:
+                return void cb("E_WRONG_RECOVERY_KEY");
         }
         cb();
     }).nThen(function () {
