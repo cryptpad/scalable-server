@@ -135,7 +135,7 @@ const readMFA = (Env, publicKey, cb) => {
 const checkPublicKey = (Env, publicKey) => {
     MFAFailCounter[publicKey] ||= 0;
     if (MFAFailCounter[publicKey] >= MFA_RATE_LIMIT) {
-        Env.Log.error('WS_LIMIT_EXCEEDED', publicKey);
+        Env.Log.error('MFA_LIMIT_EXCEEDED', publicKey);
         return false;
     }
     MFAFailCounter[publicKey]++;
