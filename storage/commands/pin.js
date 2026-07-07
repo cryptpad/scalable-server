@@ -317,6 +317,7 @@ Pinning.unpinChannel = (Env, safeKey, channels, cb) => {
             'UNPIN', toStore, +new Date()
         ]), (e) => {
             if (e) { return void cb(e); }
+            if (!session || !session.channels) { return void cb(); }
             toStore.forEach((channel) => {
                 delete session.channels[channel];
             });
