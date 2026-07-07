@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2025 XWiki CryptPad Team <contact@cryptpad.org> and contributors
 
+/* Test that http commands works
+ */
+
 const Nacl = require('tweetnacl/nacl-fast');
 const ServerCommand = require('./common/http-command');
 

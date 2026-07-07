@@ -1,3 +1,9 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 XWiki CryptPad Team <contact@cryptpad.org> and contributors
+
+/* Integration test for pinning mechanism (to know which pad should or should
+ * not be deleted during eviction)
+ */
 const Crypto = require('node:crypto');
 
 const padId = Crypto.randomBytes(16).toString('hex');

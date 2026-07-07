@@ -1,6 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2025 XWiki CryptPad Team <contact@cryptpad.org> and contributors
 
+/* Integration test of the decrees system.
+ * Note that it only works if the test public key belongs to the instance admin
+ * list. For test purpose only, don’t leave it in production (as the private key
+ * is in the clear)
+ *
+ * It checks the test_decree command from admin RPC commands and verify that
+ * invalid keys are indeed rejected.
+ */
+
 // Admin private key: Kr9wV6O/9qea9LasPAJSC247FBKnSTLfx048/rpXs4z0wRJj2FE3qztPwz3j6/GFLr1n0e765Bpe2UoW7HEVjQ==
 // Admin public key: 9MESY9hRN6s7T8M94+vxhS69Z9Hu+uQaXtlKFuxxFY0=
 

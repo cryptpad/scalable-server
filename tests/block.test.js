@@ -1,3 +1,12 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 XWiki CryptPad Team <contact@cryptpad.org> and contributors
+
+/* Unit and integration tests about login block operations:
+ * - Write a new block
+ * - Read the new block and check consistency
+ * - Remove the block and verify that it was correctly deleted
+ */
+
 const Crypto = require('node:crypto');
 const Block = require('./common/block');
 const Util = require('../common/common-util');

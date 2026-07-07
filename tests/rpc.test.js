@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 XWiki CryptPad Team <contact@cryptpad.org> and contributors
+
+/* Integration test for RPC commands (anonymous and authenticated.
+ */
 const Crypto = require('node:crypto');
 const Util = require('../common/common-util');
 
