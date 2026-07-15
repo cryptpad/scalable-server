@@ -7,6 +7,8 @@ const HistoryManager = require("./history-manager.js");
 const Core = require("../common/core.js");
 const Meta = require("./commands/metadata.js");
 const Nacl = require("tweetnacl/nacl-fast");
+const Linked = require("./commands/linked.js");
+
 
 const {
     hkId,
@@ -594,7 +596,15 @@ const create = (Env) => {
                 return Env.worker.removeOwnedBlob(channel, safeKey, reason, cb);
             }
             // TODO move to worker too?
-            archiveOwnedChannel(Env, safeKey, channel, reason, cb);
+            Linked.listLinkedDocuments(Env, channel, (err, channels) => {
+                archiveOwnedChannel(Env, safeKey, channel, reason, (err, data) => {
+                    if (!channels) { return void cb(err, data); } // no linked channels
+                    if (err) { return void cb(err); }
+                    Linked.archiveLinkedData(Env, channel, reason, channels, () => {
+                        cb(void 0, data);
+                    });
+                });
+            });
         });
     };
 
@@ -622,7 +632,11 @@ const create = (Env) => {
                 }
                 // else fall through to the next block
             }));
+        }).nThen(function (w) {
+            // Archive old checkpoints
+            Linked.trimHistory(Env, { channel }, w());
         }).nThen(function () {
+            // Trim chainpad doc:
             store.trimChannel(channel, hash, (err) => {
                 Env.Log.info('HK_TRIM_HISTORY', {
                     unsafeKey: unsafeKey,

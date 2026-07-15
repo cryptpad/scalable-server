@@ -8,6 +8,7 @@ const Fs = require('node:fs');
 const Pinning = module.exports;
 const Util = require("../../common/common-util");
 const nThen = require("nthen");
+const Linked = require('./linked');
 
 const escapeKeyCharacters = Util.escapeKeyCharacters;
 const unescapeKeyCharacters = Util.unescapeKeyCharacters;
@@ -159,6 +160,56 @@ Pinning.getChannelsTotalSize = (Env, channels, cb, noRedirect) => {
 
 };
 
+const addLinkedDocuments = (Env, channels, cb) => {
+    let n = nThen;
+    const toAdd = new Set();
+    channels.forEach(chan => {
+        // For each channel, add their linked documents
+        n = n(w => {
+            Linked.listLinkedDocuments(Env, chan, w((err, linked) => {
+                if (err || !linked) { return; }
+                linked.forEach(id => { toAdd.add(id); });
+            }));
+        }).nThen;
+    });
+    n(() => {
+        cb(void 0, Array.from(toAdd));
+    });
+};
+Pinning.addLinkedDocuments = (Env, channels, _cb, noRedirect) => {
+    const cb = Util.once(_cb);
+    const storages = Core.getChannelsStorage(Env, channels);
+
+    const toAdd = new Set();
+    nThen(w => {
+        Object.keys(storages).forEach(storageId => {
+            const _channels = storages[storageId];
+            // noRedirect guards against infinite loops
+            if (!noRedirect && storageId !== Env.myId) {
+                Env.interface.sendQuery(storageId, 'GET_LINKED_DOCUMENTS',
+                _channels, w(res => {
+                    if (res.error || typeof(res.data) !== "array") {
+                        w.abort();
+                        return void cb(res.error);
+                    }
+                    res.data.forEach(chan => { toAdd.add(chan); });
+                }));
+                return;
+            }
+            let myChannels = storages[Env.myId];
+            if (myChannels && myChannels.length) {
+                addLinkedDocuments(Env, myChannels, w((err, channels) => {
+                    if (err || !toAdd) { return; }
+                    channels.forEach(chan => { toAdd.add(chan); });
+                }));
+            }
+        });
+    }).nThen(() => {
+        cb(void 0, Array.from(toAdd));
+    });
+};
+
+
 Pinning.getTotalSize = (Env, safeKey, cb, noRedirect) => {
     const unsafeKey = unescapeKeyCharacters(safeKey);
     const limit = Env.limits[unsafeKey];
@@ -197,6 +248,12 @@ Pinning.getTotalSize = (Env, safeKey, cb, noRedirect) => {
                     }));
                 });
             }
+        }).nThen((waitFor) => {
+            Pinning.addLinkedDocuments(Env, Array.from(channels),
+            waitFor((err, toAdd) => {
+                if (!Array.isArray(toAdd)) { return; }
+                toAdd.forEach(chan => { channels.add(chan); });
+            }));
         }).nThen(() => {
             Pinning.getChannelsTotalSize(Env, Array.from(channels), done);
         });

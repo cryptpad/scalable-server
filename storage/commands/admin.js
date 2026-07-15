@@ -16,6 +16,7 @@ const Fse = require('fs-extra');
 const Path = require('node:path');
 const nThen = require('nthen');
 const Decrees = require('./decrees.js');
+const Linked = require("./linked.js");
 
 
 // XXX: Find a way to detect if it’s called from the same virtual machine?
@@ -344,16 +345,21 @@ const onArchiveDocument = (Env, data, _cb) => {
 
     switch (id.length) {
         case 32:
-            return void Env.store.archiveChannel(id, archiveReason, Util.both(cb, function(err) {
-                Env.Log.info("ARCHIVAL_CHANNEL_BY_ADMIN_RPC", {
-                    channelId: id,
-                    reason: reason,
-                    status: err ? String(err) : "SUCCESS",
-                });
-                Env.CM.disconnectChannelMembers(Env, id, 'EDELETED', reasonStr, err => {
-                    if (err) { } // TODO
-                });
-            }));
+            return void Linked.listLinkedDocuments(Env, id, (err, channels) => {
+                Env.store.archiveChannel(id, archiveReason, Util.both(cb, function(err) {
+                    if (!err && channels) {
+                        Linked.archiveLinkedData(Env, id, archiveReason, channels, () => {});
+                    }
+                    Env.Log.info("ARCHIVAL_CHANNEL_BY_ADMIN_RPC", {
+                        channelId: id,
+                        reason: reason,
+                        status: err ? String(err) : "SUCCESS",
+                    });
+                    Env.CM.disconnectChannelMembers(Env, id, 'EDELETED', reasonStr, err => {
+                        if (err) { } // TODO
+                    });
+                }));
+            });
         case 48:
             return void Env.blobStore.archive.blob(id, archiveReason, Util.both(cb, function(err) {
                 Env.Log.info("ARCHIVAL_BLOB_BY_ADMIN_RPC", {
@@ -379,16 +385,22 @@ const onRemoveDocument = (Env, data, _cb) => {
 
     switch (id.length) {
         case 32:
-            return void Env.store.removeChannel(id, Util.both(cb, function(err) {
-                Env.Log.info("REMOVAL_CHANNEL_BY_ADMIN_RPC", {
-                    channelId: id,
-                    reason: reasonStr,
-                    status: err ? String(err) : "SUCCESS",
-                });
-                Env.CM.disconnectChannelMembers(Env, id, 'EDELETED', reasonStr, err => {
-                    if (err) { } // TODO
-                });
-            }));
+            return void Linked.listLinkedDocuments(Env, id, (err, channels) => {
+                Env.store.removeChannel(id, Util.both(cb, function(err) {
+                    if (!err && channels) {
+                        Linked.archiveLinkedData(Env, id, reason, channels, () => {});
+                    }
+
+                    Env.Log.info("REMOVAL_CHANNEL_BY_ADMIN_RPC", {
+                        channelId: id,
+                        reason: reasonStr,
+                        status: err ? String(err) : "SUCCESS",
+                    });
+                    Env.CM.disconnectChannelMembers(Env, id, 'EDELETED', reasonStr, err => {
+                        if (err) { } // TODO
+                    });
+                }));
+            });
         case 48:
             return void Env.blobStore.remove.blob(id, Util.both(cb, function(err) {
                 Env.Log.info("REMOVAL_BLOB_BY_ADMIN_RPC", {

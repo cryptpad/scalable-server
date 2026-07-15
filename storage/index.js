@@ -38,6 +38,7 @@ const Block = require('./commands/block.js');
 const Metadata = require('./commands/metadata.js');
 const Admin = require('./commands/admin.js');
 const Moderators = require('./commands/moderators.js');
+const Linked = require('./commands/linked.js');
 
 const {
     TEMPORARY_CHANNEL_LIFETIME,
@@ -359,6 +360,10 @@ const getRegisteredUsersHandler = (args, cb) => {
     Pinning.getRegisteredUsers(Env, cb, true);
 };
 
+const getLinkedDocumentsHandler = (channels, cb) => {
+    Pinning.addLinkedDocuments(Env, channels, cb, true);
+};
+
 const setMetadataHandler = (args, cb) => {
     Metadata.setMetadata(Env, args, cb);
 };
@@ -441,6 +446,8 @@ let COMMANDS = {
     'GET_TOTAL_SIZE': getTotalSizeHandler,
     'GET_CHANNELS_TOTAL_SIZE': getChannelsTotalSizeHandler,
     'GET_REGISTERED_USERS': getRegisteredUsersHandler,
+
+    'GET_LINKED_DOCUMENTS': getLinkedDocumentsHandler,
 
     'GET_METADATA': getMetadataHandler,
 
@@ -592,9 +599,9 @@ const initWorkerCommands = () => {
         }, cb);
     };
 
-    Env.worker.completeUpload = (safeKey, arg, owned, size, cb) => {
+    Env.worker.completeUpload = (safeKey, arg, owned, size, linked, cb) => {
         Env.workers.send('COMPLETE_UPLOAD', {
-            safeKey, arg, owned, size
+            safeKey, arg, owned, size, linked
         }, cb);
     };
 
@@ -605,9 +612,13 @@ const initWorkerCommands = () => {
     };
 
     // RPC
-    Env.worker.getFileSize = (channel, cb) => {
+    Env.worker.getFileSize = (channel, cb, singleFile) => {
+        if (!singleFile) {
+            return Linked.getFileSize(Env, { channel }, cb);
+        }
         Env.workers.send('GET_FILE_SIZE', {
-            channel
+            channel,
+            singleFile // ignore linked documents
         }, cb);
     };
 

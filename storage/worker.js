@@ -602,7 +602,7 @@ const reportStatus = (Env, label, safeKey, err, id, size) => {
     Env.Log[method](label, data);
 };
 const completeUpload = (data, cb) => {
-    const { owned, arg, size } = data;
+    const { owned, arg, size, linked } = data;
 
     if (!data) { return void cb('INVALID_ARGS'); }
     if (typeof(data.safeKey) !== 'string') {
@@ -625,7 +625,7 @@ const completeUpload = (data, cb) => {
     Env.blobStore[method](safeKey, arg, (err, id) => {
         reportStatus(Env, label, safeKey, err, id, size);
         cb(err, id);
-    });
+    }, linked);
 };
 
 const runTasks = (data, cb) => {

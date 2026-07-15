@@ -2,6 +2,7 @@ const Util = require("../common/common-util");
 const Core = require('../common/core');
 const Admin = require('./commands/admin');
 const StorageCommands = require('./commands/storage');
+const Linked = require("./commands/linked");
 
 const nThen = require('nthen');
 
@@ -185,7 +186,11 @@ const UNAUTHENTICATED_CALLS = {
     DELETE_MAILBOX_MESSAGE: deleteMailboxMessage,
     GET_METADATA: getMetadata,
     IS_PREMIUM: isPremium,
-    ADD_FIRST_ADMIN: addFirstAdmin
+    ADD_FIRST_ADMIN: addFirstAdmin,
+    GET_LINKED_DOCUMENTS: Linked.getLinkedDocuments,
+    ADD_LINKED_DOCUMENT: Linked.addLinkedDocument,
+    RESET_LINKED_DOCUMENTS: Linked.resetLinkedDocuments,
+    GET_HISTORY_SIZE: Linked.getHistorySize
 };
 
 const AUTHENTICATED_USER_TARGETED = {

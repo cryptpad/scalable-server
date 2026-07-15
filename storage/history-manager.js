@@ -33,10 +33,10 @@ const getMetadata = HistoryManager.getMetadata = (Env, channel, _cb) => {
         // cache it
         Env.metadata_cache[channel] = metadata;
         cb(void 0, metadata);
-    });
+    }, false, true); // don't resolve linked, no redirect
 };
 
-const getHistoryOffset = (Env, channel, lastKnownHash, _cb) => {
+const getHistoryOffset = HistoryManager.getHistoryOffset = (Env, channel, lastKnownHash, _cb) => {
     const cb = Util.once(Util.mkAsync(_cb));
 
     // lastKnownhash === -1 means we want the complete history
@@ -522,7 +522,7 @@ const onGetFullHistory = (Env, args, sendMessage, _cb) => {
         sendMessage([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(['FULL_HISTORY', msg])], readMore);
     }, (err) => {
         let parsedMsg = ['FULL_HISTORY_END', channel];
-        if (err) {
+        if (err && err?.code !== 'ENOENT') {
             Log.error('HK_GET_FULL_HISTORY', err.stack);
             parsedMsg = ['ERROR', channel, err.message];
         }
