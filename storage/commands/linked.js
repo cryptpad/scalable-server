@@ -8,8 +8,10 @@ const nThen = require("nthen");
 //const Core = require("./core");
 //const CPCrypto = require('../crypto');
 const Util = require("../common-util");
+const Core = require("../../common/core");
 const MetaRPC = require("./metadata");
 const HK = require("../hk-util");
+const HistoryManager = require("../history-manager");
 
 const getMetadata = (Env, channel, _cb) => {
     const cb = Util.once(Util.mkAsync(_cb));
@@ -19,14 +21,17 @@ const getMetadata = (Env, channel, _cb) => {
         return void cb(undefined, metadata);
     }
 
+
     MetaRPC.getMetadataRaw(Env, channel, (err, metadata) => {
         if (err) { return void cb(err); }
         if (metadata?.channel !== channel && channel.length !== HK.BLOB_ID_LENGTH) {
             return cb();
         }
 
+        const storageId = Env.getStorageId(channel);
+
         // cache it
-        if (channel.length !== HK.BLOB_ID_LENGTH) {
+        if (channel.length !== HK.BLOB_ID_LENGTH && storageId === Env.myId) {
             Env.metadata_cache[channel] = metadata;
         }
         cb(undefined, metadata);
@@ -115,19 +120,21 @@ const checkContent = (content, user) => {
     return false;
 };
 
-Linked.addLinkedDocument = (Env, data, cb, _S, userId) => {
+Linked.addLinkedDocument = (Env, data, cb) => {
     // data.user
     // data.channel
     // data.content
     //    type, data (channelId or blobId or checkpoint {blob, rtChannel}})
     // data.proof
     //    (sign "{ user, channel, content }" with pad signing key
+    // data.userId comes from the server, data.netfluxId from the client
 
-    const { user, channel, content, netfluxId, proof } = data;
+    const { user, channel, content, netfluxId, proof, userId } = data;
     if (userId !== netfluxId) { return void cb('EFORBIDDEN'); }
 
     const msg = Util.clone(data);
     delete msg.proof;
+    delete msg.userId;
     const signedMsg = JSON.stringify(msg);
 
     const type = content?.type;
@@ -150,7 +157,7 @@ Linked.addLinkedDocument = (Env, data, cb, _S, userId) => {
             validateKey = metadata.validateKey;
         }));
     }).nThen(waitFor => {
-        Env.checkSignature(signedMsg, proof, validateKey, waitFor((err)=> {
+        Env.worker.checkSignature(signedMsg, proof, validateKey, waitFor((err)=> {
             if (err) {
                 waitFor.abort();
                 return void cb('INVALID_PROOF');
@@ -161,19 +168,20 @@ Linked.addLinkedDocument = (Env, data, cb, _S, userId) => {
     });
 };
 
-Linked.resetLinkedDocuments = (Env, data, cb, _S, userId) => {
+Linked.resetLinkedDocuments = (Env, data, cb) => {
     // data.user
     // data.channel
     // data.content
     // data.proof
     //    (sign "{ user, channel, content }" with pad signing key
 
-    const { user, channel, content, netfluxId, proof } = data;
+    const { user, channel, content, netfluxId, proof, userId } = data;
 
     if (userId !== netfluxId) { return void cb('EFORBIDDEN'); }
 
     const msg = Util.clone(data);
     delete msg.proof;
+    delete msg.userId;
     const signedMsg = JSON.stringify(msg);
 
     let validateKey;
@@ -189,7 +197,7 @@ Linked.resetLinkedDocuments = (Env, data, cb, _S, userId) => {
             validateKey = metadata.validateKey;
         }));
     }).nThen(waitFor => {
-        Env.checkSignature(signedMsg, proof, validateKey, waitFor((err)=> {
+        Env.worker.checkSignature(signedMsg, proof, validateKey, waitFor((err)=> {
             if (err) {
                 waitFor.abort();
                 return void cb('INVALID_PROOF');
@@ -240,7 +248,7 @@ Linked.resetLinkedDocuments = (Env, data, cb, _S, userId) => {
     });
 };
 
-Linked.removeLinkedDocument = (Env, allData, cb, _S, userId) => {
+Linked.removeLinkedDocument = (Env, allData, cb) => {
     // data.user
     // data.channel
     // data.content
@@ -248,7 +256,7 @@ Linked.removeLinkedDocument = (Env, allData, cb, _S, userId) => {
     // data.proof
     //    (sign "{ user, channel, content }" with pad signing key
 
-    const { channel, content, netfluxId, proof } = allData;
+    const { channel, content, netfluxId, proof, userId } = allData;
 
     if (userId !== netfluxId) { return void cb('EFORBIDDEN'); }
 
@@ -256,6 +264,7 @@ Linked.removeLinkedDocument = (Env, allData, cb, _S, userId) => {
 
     const msg = Util.clone(data);
     delete msg.proof;
+    delete msg.userId;
     const signedMsg = JSON.stringify(msg);
 
     if (!allowedTypes.includes(type)) {
@@ -276,7 +285,7 @@ Linked.removeLinkedDocument = (Env, allData, cb, _S, userId) => {
             validateKey = metadata.validateKey;
         }));
     }).nThen(waitFor => {
-        Env.checkSignature(signedMsg, proof, validateKey, waitFor((err)=> {
+        Env.worker.checkSignature(signedMsg, proof, validateKey, waitFor((err)=> {
             if (err) {
                 waitFor.abort();
                 return void cb('INVALID_PROOF');
@@ -301,8 +310,30 @@ Linked.getFileSize = (Env, data, _cb) => {
         }));
     }).nThen(() => {
         linked.push(channel);
-        Env.getTotalSize(linked, cb);
+        Env.getChannelsTotalSize(Env, linked, cb);
     });
+};
+const getSingleFileSize = (Env, channel, cb) => {
+    // Other storage
+    if (!Core.checkStorage(Env, channel, 'GET_SINGLE_FILE_SIZE', {
+        channel
+    }, cb)) { return; }
+
+    // This storage
+    Env.worker.getFileSize(channel, cb, true);
+};
+const archiveDocument = (Env, id, reason, cb) => {
+    // Other storage
+    if (!Core.checkStorage(Env, id, 'ADMIN_CMD', {
+        cmd: 'ARCHIVE_DOCUMENT',
+        data: { id, reason }
+    }, cb)) { return; }
+
+    // This storage
+    if (id.length === HK.BLOB_ID_LENGTH) {
+        return Env.blobStore.archive.blob(id, reason, cb);
+    }
+    Env.store.archiveChannel(id, reason, cb);
 };
 
 Linked.getHistorySize = (Env, data, _cb) => {
@@ -324,7 +355,7 @@ Linked.getHistorySize = (Env, data, _cb) => {
         }));
     }).nThen(waitFor => {
         // Get main channel size (chainpad)
-        Env.getFileSize(channel, waitFor((err, _size) => {
+        Env.worker.getFileSize(channel, waitFor((err, _size) => {
             if (err) {
                 waitFor.abort();
                 return void cb(err);
@@ -333,7 +364,7 @@ Linked.getHistorySize = (Env, data, _cb) => {
         }), true);
     }).nThen(waitFor => {
         // Get history offset to compute non-history size
-        HK.getHistoryOffset(Env, channel, null, waitFor((err, offset) => {
+        HistoryManager.getHistoryOffset(Env, channel, null, waitFor((err, offset) => {
             if (err) {
                 waitFor.abort();
                 return void cb(err);
@@ -360,22 +391,22 @@ Linked.getHistorySize = (Env, data, _cb) => {
         const { blob, rtChannel } = lastCp;
 
         if (blob) {
-            Env.getFileSize(blob, waitFor((err, _size) => {
+            getSingleFileSize(Env, blob, waitFor((err, _size) => {
                 if (err) {
                     waitFor.abort();
                     return void cb(err);
                 }
                 size += _size;
-            }), true);
+            }));
         }
 
-        Env.getFileSize(rtChannel, waitFor((err, _size) => {
+        getSingleFileSize(rtChannel, waitFor((err, _size) => {
             if (err) {
                 waitFor.abort();
                 return void cb(err);
             }
             size += _size;
-        }), true);
+        }));
     }).nThen(() => {
         cb(void 0, {
             size, hash
@@ -399,6 +430,7 @@ Linked.trimHistory = (Env, data, cb) => {
         }));
     }).nThen(() => {
         let n = nThen;
+        const reason = "TRIM_HISTORY";
         linked.forEach(chan => {
             n = n(w => {
                 // If channel is "linked", we can archive all but last cp
@@ -406,11 +438,7 @@ Linked.trimHistory = (Env, data, cb) => {
                     if (md?.linked !== channel) { return; }
                     // This is an old checkpoint linked to our document,
                     // we can archive it
-                    const reason = "TRIM_HISTORY";
-                    if (chan.length === HK.BLOB_ID_LENGTH) {
-                        return Env.blobStore.archive.blob(chan, reason, w());
-                    }
-                    Env.store.archiveChannel(chan, reason, w());
+                    archiveDocument(Env, chan, reason, w());
                 }));
             }).nThen;
         });
@@ -432,10 +460,7 @@ Linked.archiveLinkedData = (Env, channel, reason, channels, _cb) => {
             getMetadata(Env, chan, w((err, md) => {
                 if (md?.linked !== channel) { return; }
                 // If they do, archive the document
-                if (chan.length === HK.BLOB_ID_LENGTH) {
-                    return Env.blobStore.archive.blob(chan, reason, w());
-                }
-                Env.store.archiveChannel(chan, reason, w());
+                archiveDocument(Env, chan, reason, w());
             }));
         }).nThen;
     });

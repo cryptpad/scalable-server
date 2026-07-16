@@ -2,7 +2,6 @@ const Util = require("../common/common-util");
 const Core = require('../common/core');
 const Admin = require('./commands/admin');
 const StorageCommands = require('./commands/storage');
-const Linked = require("./commands/linked");
 
 const nThen = require('nthen');
 
@@ -69,6 +68,31 @@ const isPremium = (Env, userKey, cb) => {
     return void cb(void 0, !!limit?.plan);
 };
 const addFirstAdmin = Admin.addFirstAdmin;
+
+const getLinkedDocuments = (Env, args, cb, userId) => {
+    const storageId = getStorageId(Env, args.channel);
+    args.userId = userId;
+    Env.interface.sendQuery(storageId, 'GET_LINKED_DOCUMENTS',
+        args, res => { cb(res.error, res.data); });
+};
+const addLinkedDocument = (Env, args, cb, userId) => {
+    const storageId = getStorageId(Env, args.channel);
+    args.userId = userId;
+    Env.interface.sendQuery(storageId, 'ADD_LINKED_DOCUMENT',
+        args, res => { cb(res.error, res.data); });
+};
+const resetLinkedDocuments = (Env, args, cb, userId) => {
+    const storageId = getStorageId(Env, args.channel);
+    args.userId = userId;
+    Env.interface.sendQuery(storageId, 'RESET_LINKED_DOCUMENTS',
+        args, res => { cb(res.error, res.data); });
+};
+const getHistorySize = (Env, args, cb, userId) => {
+    const storageId = getStorageId(Env, args.channel);
+    args.userId = userId;
+    Env.interface.sendQuery(storageId, 'GET_HISTORY_SIZE',
+        args, res => { cb(res.error, res.data); });
+};
 
 // Auth
 const resetUserPins = (Env, safeKey, channels, cb) => {
@@ -187,10 +211,10 @@ const UNAUTHENTICATED_CALLS = {
     GET_METADATA: getMetadata,
     IS_PREMIUM: isPremium,
     ADD_FIRST_ADMIN: addFirstAdmin,
-    GET_LINKED_DOCUMENTS: Linked.getLinkedDocuments,
-    ADD_LINKED_DOCUMENT: Linked.addLinkedDocument,
-    RESET_LINKED_DOCUMENTS: Linked.resetLinkedDocuments,
-    GET_HISTORY_SIZE: Linked.getHistorySize
+    GET_LINKED_DOCUMENTS: getLinkedDocuments,
+    ADD_LINKED_DOCUMENT: addLinkedDocument,
+    RESET_LINKED_DOCUMENTS: resetLinkedDocuments,
+    GET_HISTORY_SIZE: getHistorySize
 };
 
 const AUTHENTICATED_USER_TARGETED = {

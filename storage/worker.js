@@ -8,6 +8,7 @@ const File = require("./storage/file.js");
 const Blob = require("./storage/blob.js");
 const Tasks = require("./storage/tasks.js");
 const Environment = require('../common/env');
+const Crypto = require("../common/crypto.js")('sodiumnative');
 
 const Nacl = require('tweetnacl/nacl-fast');
 
@@ -783,6 +784,46 @@ const accountRestoreStart = (args, cb) => {
     });;
 };
 
+const validateDetached = (args, cb) => {
+    const { msg, sig, key } = args;
+    if (!(msg && key)) { return void cb("INVALID_ARGS"); }
+
+    let signedBuffer;
+    let pubBuffer;
+    let signatureBuffer;
+
+    try {
+        signedBuffer = Util.decodeUTF8(msg);
+    } catch (e) {
+        return void cb("INVALID_SIGNED_BUFFER");
+    }
+
+    try {
+        pubBuffer = Util.decodeBase64(key);
+    } catch (e) {
+        return void cb("INVALID_PUBLIC_KEY");
+    }
+
+    try {
+        signatureBuffer = Util.decodeBase64(sig);
+    } catch (e) {
+        return void cb("INVALID_SIGNATURE");
+    }
+
+    if (pubBuffer.length !== 32) {
+        return void cb("INVALID_PUBLIC_KEY_LENGTH");
+    }
+
+    if (signatureBuffer.length !== 64) {
+        return void cb("INVALID_SIGNATURE_LENGTH");
+    }
+
+    if (Crypto.detachedVerify(signedBuffer, signatureBuffer, pubBuffer) !== true) {
+        return void cb("FAILED");
+    }
+    cb();
+};
+
 const COMMANDS = {
     NEW_DECREES: onNewDecrees,
 
@@ -811,6 +852,8 @@ const COMMANDS = {
     READ_REPORT: readReport,
     ACCOUNT_ARCHIVAL_START: accountArchivalStart,
     ACCOUNT_RESTORE_START: accountRestoreStart,
+
+    VALIDATE_DETACHED: validateDetached
 };
 
 let ready = false;

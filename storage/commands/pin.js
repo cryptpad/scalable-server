@@ -186,7 +186,7 @@ Pinning.addLinkedDocuments = (Env, channels, _cb, noRedirect) => {
             const _channels = storages[storageId];
             // noRedirect guards against infinite loops
             if (!noRedirect && storageId !== Env.myId) {
-                Env.interface.sendQuery(storageId, 'GET_LINKED_DOCUMENTS',
+                Env.interface.sendQuery(storageId, 'ADD_LINKED_DOCUMENTS',
                 _channels, w(res => {
                     if (res.error || typeof(res.data) !== "array") {
                         w.abort();

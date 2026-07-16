@@ -344,6 +344,9 @@ const adminDecreeHandler = (decree, cb) => { // sent from UI
 const getFileSizeHandler = (channel, cb) => {
     Pinning.getFileSize(Env, channel, cb);
 };
+const getSingleFileSizeHandler = (args, cb) => {
+    Env.worker.getFileSize(args.channel, cb, true);
+};
 const getMultipleFileSizeHandler = (channels, cb) => {
     Pinning.getMultipleFileSize(Env, channels, cb, true);
 };
@@ -356,11 +359,13 @@ const getTotalSizeHandler = (args, cb) => {
 const getChannelsTotalSizeHandler = (channels, cb) => {
     Pinning.getChannelsTotalSize(Env, channels, cb, true);
 };
+Env.getChannelsTotalSize = Pinning.getChannelsTotalSize;
+
 const getRegisteredUsersHandler = (args, cb) => {
     Pinning.getRegisteredUsers(Env, cb, true);
 };
 
-const getLinkedDocumentsHandler = (channels, cb) => {
+const addLinkedDocumentsHandler = (channels, cb) => {
     Pinning.addLinkedDocuments(Env, channels, cb, true);
 };
 
@@ -447,7 +452,12 @@ let COMMANDS = {
     'GET_CHANNELS_TOTAL_SIZE': getChannelsTotalSizeHandler,
     'GET_REGISTERED_USERS': getRegisteredUsersHandler,
 
-    'GET_LINKED_DOCUMENTS': getLinkedDocumentsHandler,
+    'ADD_LINKED_DOCUMENTS': addLinkedDocumentsHandler,
+    'GET_SINGLE_FILE_SIZE': getSingleFileSizeHandler,
+    'GET_LINKED_DOCUMENTS': callWithEnv(Linked.getLinkedDocuments),
+    'ADD_LINKED_DOCUMENT': callWithEnv(Linked.addLinkedDocument),
+    'RESET_LINKED_DOCUMENTS': callWithEnv(Linked.resetLinkedDocuments),
+    'GET_HISTORY_SIZE': callWithEnv(Linked.getHistorySize),
 
     'GET_METADATA': getMetadataHandler,
 
@@ -619,6 +629,12 @@ const initWorkerCommands = () => {
         Env.workers.send('GET_FILE_SIZE', {
             channel,
             singleFile // ignore linked documents
+        }, cb);
+    };
+
+    Env.worker.checkSignature = (msg, sig, key, cb) => {
+        Env.workers.send('VALIDATE_DETACHED', {
+            msg, sig, key
         }, cb);
     };
 
