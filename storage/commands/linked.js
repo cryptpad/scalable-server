@@ -400,7 +400,7 @@ Linked.getHistorySize = (Env, data, _cb) => {
             }));
         }
 
-        getSingleFileSize(rtChannel, waitFor((err, _size) => {
+        getSingleFileSize(Env, rtChannel, waitFor((err, _size) => {
             if (err) {
                 waitFor.abort();
                 return void cb(err);
