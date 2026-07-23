@@ -76,7 +76,8 @@ const createUserRpc = (args) => {
         Rpc.create(network, edPrivate, edPublic, (e, rpc) => {
             clearTimeout(t);
             if (e) { return reject(e); }
-            resolve({network, rpc});
+            args.rpc = rpc;
+            resolve(args);
         });
     });
 };
