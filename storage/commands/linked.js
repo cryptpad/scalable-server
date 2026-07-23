@@ -328,7 +328,7 @@ const archiveDocument = (Env, id, reason, cb) => {
     if (!Core.checkStorage(Env, id, 'ADMIN_CMD', {
         cmd: 'ARCHIVE_DOCUMENT',
         data: { id, reason, linked: true }
-    }, cb)) { console.error("ARCHIVEDOCUMENT", id, reason); return; }
+    }, cb)) { return; }
 
     // This storage
     if (id.length === HK.BLOB_ID_LENGTH) {
