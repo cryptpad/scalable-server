@@ -150,7 +150,7 @@ Linked.addLinkedDocument = (Env, data, cb) => {
 
     nThen(waitFor => {
         getMetadata(Env, channel, waitFor((err, metadata) => {
-            if (!metadata.validateKey) {
+            if (!metadata?.validateKey) {
                 waitFor.abort();
                 return void cb(err || 'METADATA_ERROR');
             }
@@ -190,7 +190,7 @@ Linked.resetLinkedDocuments = (Env, data, cb) => {
 
     nThen(waitFor => {
         getMetadata(Env, channel, waitFor((err, metadata) => {
-            if (!metadata.validateKey) {
+            if (!metadata?.validateKey) {
                 waitFor.abort();
                 return void cb(err || 'METADATA_ERROR');
             }
@@ -199,6 +199,7 @@ Linked.resetLinkedDocuments = (Env, data, cb) => {
     }).nThen(waitFor => {
         Env.worker.checkSignature(signedMsg, proof, validateKey, waitFor((err)=> {
             if (err) {
+                console.log(err);
                 waitFor.abort();
                 return void cb('INVALID_PROOF');
             }
@@ -242,7 +243,7 @@ Linked.resetLinkedDocuments = (Env, data, cb) => {
     }).nThen(() => {
         Env.store.resetLinkedDocuments(channel, newContent, (err, data) => {
             const { oldContent } = data;
-            Env.Log.info('RESET_LINKED_DOCUMENTS', {user, channel, oldContent, content});
+            Env.Log.debug('RESET_LINKED_DOCUMENTS', {user, channel, oldContent, content});
             cb();
         });
     });
@@ -278,7 +279,7 @@ Linked.removeLinkedDocument = (Env, allData, cb) => {
     let validateKey;
     nThen(waitFor => {
         getMetadata(Env, channel, waitFor((err, metadata) => {
-            if (!metadata.validateKey) {
+            if (!metadata?.validateKey) {
                 waitFor.abort();
                 return void cb(err || 'METADATA_ERROR');
             }
@@ -326,14 +327,17 @@ const archiveDocument = (Env, id, reason, cb) => {
     // Other storage
     if (!Core.checkStorage(Env, id, 'ADMIN_CMD', {
         cmd: 'ARCHIVE_DOCUMENT',
-        data: { id, reason }
-    }, cb)) { return; }
+        data: { id, reason, linked: true }
+    }, cb)) { console.error("ARCHIVEDOCUMENT", id, reason); return; }
 
     // This storage
     if (id.length === HK.BLOB_ID_LENGTH) {
         return Env.blobStore.archive.blob(id, reason, cb);
     }
     Env.store.archiveChannel(id, reason, cb);
+    if (Env.metadata_cache[id]) {
+        delete Env.metadata_cache[id];
+    }
 };
 
 Linked.getHistorySize = (Env, data, _cb) => {

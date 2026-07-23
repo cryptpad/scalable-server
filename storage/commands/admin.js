@@ -336,17 +336,20 @@ const onRestoreArchivedBlock = (Env, data, cb) => {
 
 const onArchiveDocument = (Env, data, _cb) => {
     const cb = Util.mkAsync(_cb);
-    const { id, reason } = data;
-    const archiveReason = {
+    const { id, reason, linked } = data;
+    const archiveReason = linked ? reason : {
         code: 'MODERATION_PAD',
         txt: reason
     };
-    const reasonStr = `MODERATION_PAD:${reason}`;
+
+    let reasonStr = `MODERATION_PAD:${reason}`;
+    if (linked) { reasonStr = reason; }
 
     switch (id.length) {
         case 32:
             return void Linked.listLinkedDocuments(Env, id, (err, channels) => {
                 Env.store.archiveChannel(id, archiveReason, Util.both(cb, function(err) {
+                    onClearCachedChannelMetadata(Env, id, () => {});
                     if (!err && channels) {
                         Linked.archiveLinkedData(Env, id, archiveReason, channels, () => {});
                     }

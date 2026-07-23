@@ -18,7 +18,7 @@ Data.getMetadataRaw = (Env, channel, _cb, resolveLinked, noRedirect) => {
         channel.length !== HKUtil.BLOB_ID_LENGTH) { return cb("INVALID_CHAN_LENGTH"); }
 
     const id = channel;
-    if (!noRedirect && !Core.checkStorage(Env, id, 'GET_METADATA', {
+    if (!noRedirect && !Core.checkStorage(Env, id, 'GET_METADATA_RAW', {
         channel
     }, cb)) { return; }
 

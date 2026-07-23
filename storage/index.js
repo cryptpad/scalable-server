@@ -368,6 +368,10 @@ const getRegisteredUsersHandler = (args, cb) => {
 const addLinkedDocumentsHandler = (channels, cb) => {
     Pinning.addLinkedDocuments(Env, channels, cb, true);
 };
+const getMetadataRawHandler = (args, cb) => {
+    // don't resolve linked, no redirect
+    Metadata.getMetadataRaw(Env, args?.channel, cb, false, true);
+};
 
 const setMetadataHandler = (args, cb) => {
     Metadata.setMetadata(Env, args, cb);
@@ -460,6 +464,7 @@ let COMMANDS = {
     'GET_HISTORY_SIZE': callWithEnv(Linked.getHistorySize),
 
     'GET_METADATA': getMetadataHandler,
+    'GET_METADATA_RAW': getMetadataRawHandler,
 
     'RPC_IS_NEW_CHANNEL': isNewChannelHandler,
     'RPC_WRITE_PRIVATE_MESSAGE': writePrivateMessageHandler,

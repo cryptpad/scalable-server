@@ -33,7 +33,7 @@ const getMetadata = HistoryManager.getMetadata = (Env, channel, _cb) => {
         // cache it
         Env.metadata_cache[channel] = metadata;
         cb(void 0, metadata);
-    }, false, true); // don't resolve linked, no redirect
+    }, true);
 };
 
 const getHistoryOffset = HistoryManager.getHistoryOffset = (Env, channel, lastKnownHash, _cb) => {
@@ -310,6 +310,7 @@ HistoryManager.onGetHistory = (Env, args, sendMessage, _cb) => {
         return void Log.error('HK_INVALID_KEY', metadata.validateKey);
     }
 
+    let isNew = false;
     nThen(function (waitFor) {
         const todo = (err, _metadata) => {
             if (err === 'EXPIRED') {
@@ -319,7 +320,10 @@ HistoryManager.onGetHistory = (Env, args, sendMessage, _cb) => {
                 waitFor.abort();
                 return void cb(void 0, [ seq, 'ERROR', err, hkId ]);
             }
-            if (!_metadata?.channel) { return; } // New pad, don't overwrite metadata
+            if (!_metadata?.channel) {
+                isNew = true;
+                return; // New pad, don't overwrite metadata
+            }
             hasMetadataFile = true;
             metadata = _metadata;
         };
@@ -329,7 +333,7 @@ HistoryManager.onGetHistory = (Env, args, sendMessage, _cb) => {
         // Not expired nor restricted, we can send the ack
         cb(void 0, [seq, 'ACK']);
 
-        if (!metadata?.channel) { return; }
+        if (isNew) { return; }
         // Send metadata as first HISTORY message and wait
         setTimeout(waitFor(() => {
             sendMessage([0, HISTORY_KEEPER_ID, 'MSG', userId,

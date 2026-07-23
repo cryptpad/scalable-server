@@ -342,7 +342,7 @@ const create = (Env) => {
                 }, w(res => {
                     check(res?.data || {});
                 }));
-            }));
+            }), true);
         }).nThen(() => {
             // construct a message to store and broadcast
             const fullMessage = [
