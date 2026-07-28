@@ -25,11 +25,10 @@ const getCoreId = (Env, channel) => {
 
 const onEnvReady = Util.mkEvent(true);
 
-const dropUserChannels = (Env, userId) => {
-    const user = Env.users[userId];
-    if (!user) { return; }
+const dropUserChannels = (Env, userId, channelsSet) => {
+    if (!userId || !channelsSet) { return; }
 
-    const channels = Array.from(user.channels || []);
+    const channels = Array.from(channelsSet || []);
     const channelsByCore = Core.getChannelsCore(Env, channels);
     Object.keys(channelsByCore).forEach(coreId => {
         Env.interface?.sendEvent(coreId, 'DROP_USER', {
@@ -283,8 +282,8 @@ const onWsMessage = (Env, args, cb) => {
 };
 
 const onWsDropUser = (Env, args) => {
-    const { id /*, reason*/ } = args;
-    dropUserChannels(Env, id); // Cleanup leftover channels
+    const { id, channels /*, reason*/ } = args;
+    dropUserChannels(Env, id, channels); // Cleanup leftover channels
 };
 
 // Respond to CORE commands

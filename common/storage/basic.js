@@ -93,6 +93,6 @@ Basic.restore = function (Env, archivePath, path, cb) {
 };
 
 Basic.isValidId = id => {
-    return id && typeof(id) === "string" && /^[a-zA-Z0-9-+=]+$/.test(id);
+    return id && typeof(id) === "string" && /^[a-zA-Z0-9-_+=]+$/.test(id);
 };
 
