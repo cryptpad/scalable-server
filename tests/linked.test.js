@@ -277,7 +277,7 @@ const checkRemoved = (args) => {
     });
 };
 
-const initUser = () => {
+const startTest = () => {
     return new Promise((resolve, reject) => {
         connectUser(0)
         .then(network => { return initPad(network, padId, true); })
@@ -305,13 +305,13 @@ const initUser = () => {
     });
 };
 
-initUser()
+startTest()
 .then(() => {
-    console.log('RPC: success');
+    console.log('LINKED: success');
     if (require.main === module) { process.exit(0); }
     global?.onTestEnd?.(true);
 }).catch(e => {
-    console.log('RPC: failure');
+    console.log('LINKED: failure');
     console.log(e);
     if (require.main === module) { process.exit(1); }
     global?.onTestEnd?.(false);
