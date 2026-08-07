@@ -36,6 +36,7 @@ const writeBlock = Commands.WRITE_BLOCK = (Env, body, cb) => {
 
 writeBlock.complete = function (Env, body, cb) {
     const { publicKey, content, session } = body;
+    delete content.isSSO;
 
     const safeKey = Util.escapeKeyCharacters(publicKey);
     const sId = Env.getStorageId(safeKey);

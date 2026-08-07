@@ -13,6 +13,7 @@ const Challenge = require("./storage/challenge.js");
     // C.write(Env,id, data, cb)
     // C.delete(Env, id, cb)
 
+const CHALLENGE_EXPIRY = 60_000;
 
 /*
 The API for command definition consists of two stages:
@@ -245,6 +246,20 @@ const handleResponse = (Env, body, cb) => {
                 txid: txid,
             });
             return void cb("Internal server error 129");
+        }
+
+        const date = +new Date(json.date);
+        const now = +new Date();
+        if (!date || now - date > CHALLENGE_EXPIRY) {
+            Challenge.delete(Env, txid, (err) => {
+                if (err) {
+                    Env.Log.error("CHALLENGE_DELETION_ERROR", {
+                        txid: txid,
+                        error: Util.serializeError(err),
+                    });
+                }
+            });
+            return void cb("Challenge too old");
         }
 
         const publicKey = json.publicKey;
