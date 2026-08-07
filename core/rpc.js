@@ -58,10 +58,31 @@ const deleteMailboxMessage = (Env, args, cb) => {
     Env.interface.sendQuery(storageId, 'RPC_DELETE_CHANNEL_LINE',
         args, res => { cb(res.error, res.data); });
 };
-const getMetadata = (Env, channel, cb) => {
+const getMetadata = (Env, channel, cb, userId) => {
     const storageId = getStorageId(Env, channel);
     Env.interface.sendQuery(storageId, 'GET_METADATA',
-        { channel }, res => { cb(res.error, res.data); });
+        { channel }, res => {
+            if (res.error) { return cb(res.error); }
+            const metadata = res.data;
+            if (!metadata?.restricted) {
+                return cb(res.error, res.data);
+            }
+
+            // If the file is restricted, we need to check the access rights
+            // before sending metadata back
+            const user = Env.userCache[userId];
+            const allowed = (metadata.owners || []).concat((metadata.allowed || []));
+            const isAllowed = Object.keys((user?.authKeys || {})).some(unsafeKey => allowed.includes(unsafeKey));
+
+            if (!isAllowed) {
+                return void cb(void 0, {
+                    restricted: metadata.restricted,
+                    allowed: allowed,
+                    rejected: true,
+                });
+            }
+            cb (res.error, metadata);
+        });
 };
 const isPremium = (Env, userKey, cb) => {
     const limit = Env.limits[userKey];
