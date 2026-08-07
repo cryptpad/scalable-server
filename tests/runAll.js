@@ -1,17 +1,11 @@
 const Fs = require('node:fs');
 const Path = require('node:path');
+const { Worker } = require('node:worker_threads');
 
-let number = 0;
 Fs.readdir(Path.join('.', 'tests'), (err, dir) => {
     dir.forEach(file => {
         if (!/test.js$/.test(file)) { return; }
-        number++;
-        require('./'+file);
+        new Worker('./tests/'+file);
     });
 });
 
-let done = 0;
-global.onTestEnd = () => {
-    done++;
-    if (done === number) { process.exit(0); }
-};

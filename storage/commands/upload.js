@@ -72,6 +72,7 @@ Upload.status = (Env, data, _cb) => {
             let user = Core.getSession(Env.blobstage, safeKey);
             user.pendingUploadSize = filesize;
             user.currentUploadSize = 0;
+            user.linked = data.linked;
 
             cb(void 0, false);
         });
@@ -95,7 +96,8 @@ const completeUpload = (owned) => {
         Env.cluster.closeBlobstage(safeKey); // close blobstage in workers
         const user = Core.getSession(Env.blobstage, safeKey);
         const size = user.pendingUploadSize;
-        Env.worker.completeUpload(safeKey, id, Boolean(owned), size, cb);
+        const linked = user.linked;
+        Env.worker.completeUpload(safeKey, id, Boolean(owned), size, linked, cb);
     };
 };
 

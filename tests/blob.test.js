@@ -5,6 +5,7 @@
 
 const Crypto = require('node:crypto');
 const Upload = require('./common/upload.js');
+const { parentPort } = require('node:worker_threads');
 
 const blobId = Crypto.randomBytes(24).toString('hex');
 const blobId2 = Crypto.randomBytes(24).toString('hex');
@@ -32,7 +33,7 @@ const isEqual = (a, b) => {
     return Buffer.compare(a, b) === 0;
 };
 
-const log = (require.main === module) ? console.log : function () {};
+const log = (!parentPort) ? console.log : function () {};
 
 log('Blob Owner key', keys.edPublic);
 

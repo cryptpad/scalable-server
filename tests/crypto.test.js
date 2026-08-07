@@ -33,7 +33,7 @@ let secret = {
     keys: CPCrypto.createEditCryptor2()
 };
 secret.channel = base64ToHex(secret?.keys?.chanId);
-console.log(getChannelPath(secret.channel));
+console.log('crypto', getChannelPath(secret.channel));
 const encryptor = CPCrypto.createEncryptor(secret?.keys);
 
 const startUsers = () => {

@@ -38,6 +38,7 @@ const Block = require('./commands/block.js');
 const Metadata = require('./commands/metadata.js');
 const Admin = require('./commands/admin.js');
 const Moderators = require('./commands/moderators.js');
+const Linked = require('./commands/linked.js');
 
 const {
     TEMPORARY_CHANNEL_LIFETIME,
@@ -343,6 +344,9 @@ const adminDecreeHandler = (decree, cb) => { // sent from UI
 const getFileSizeHandler = (channel, cb) => {
     Pinning.getFileSize(Env, channel, cb);
 };
+const getSingleFileSizeHandler = (args, cb) => {
+    Env.worker.getFileSize(args.channel, cb, true);
+};
 const getMultipleFileSizeHandler = (channels, cb) => {
     Pinning.getMultipleFileSize(Env, channels, cb, true);
 };
@@ -355,8 +359,18 @@ const getTotalSizeHandler = (args, cb) => {
 const getChannelsTotalSizeHandler = (channels, cb) => {
     Pinning.getChannelsTotalSize(Env, channels, cb, true);
 };
+Env.getChannelsTotalSize = Pinning.getChannelsTotalSize;
+
 const getRegisteredUsersHandler = (args, cb) => {
     Pinning.getRegisteredUsers(Env, cb, true);
+};
+
+const addLinkedDocumentsHandler = (channels, cb) => {
+    Pinning.addLinkedDocuments(Env, channels, cb, true);
+};
+const getMetadataRawHandler = (args, cb) => {
+    // don't resolve linked, no redirect
+    Metadata.getMetadataRaw(Env, args?.channel, cb, false, true);
 };
 
 const setMetadataHandler = (args, cb) => {
@@ -442,7 +456,15 @@ let COMMANDS = {
     'GET_CHANNELS_TOTAL_SIZE': getChannelsTotalSizeHandler,
     'GET_REGISTERED_USERS': getRegisteredUsersHandler,
 
+    'ADD_LINKED_DOCUMENTS': addLinkedDocumentsHandler,
+    'GET_SINGLE_FILE_SIZE': getSingleFileSizeHandler,
+    'GET_LINKED_DOCUMENTS': callWithEnv(Linked.getLinkedDocuments),
+    'ADD_LINKED_DOCUMENT': callWithEnv(Linked.addLinkedDocument),
+    'RESET_LINKED_DOCUMENTS': callWithEnv(Linked.resetLinkedDocuments),
+    'GET_HISTORY_SIZE': callWithEnv(Linked.getHistorySize),
+
     'GET_METADATA': getMetadataHandler,
+    'GET_METADATA_RAW': getMetadataRawHandler,
 
     'RPC_IS_NEW_CHANNEL': isNewChannelHandler,
     'RPC_WRITE_PRIVATE_MESSAGE': writePrivateMessageHandler,
@@ -592,9 +614,9 @@ const initWorkerCommands = () => {
         }, cb);
     };
 
-    Env.worker.completeUpload = (safeKey, arg, owned, size, cb) => {
+    Env.worker.completeUpload = (safeKey, arg, owned, size, linked, cb) => {
         Env.workers.send('COMPLETE_UPLOAD', {
-            safeKey, arg, owned, size
+            safeKey, arg, owned, size, linked
         }, cb);
     };
 
@@ -605,9 +627,19 @@ const initWorkerCommands = () => {
     };
 
     // RPC
-    Env.worker.getFileSize = (channel, cb) => {
+    Env.worker.getFileSize = (channel, cb, singleFile) => {
+        if (!singleFile) {
+            return Linked.getFileSize(Env, { channel }, cb);
+        }
         Env.workers.send('GET_FILE_SIZE', {
-            channel
+            channel,
+            singleFile // ignore linked documents
+        }, cb);
+    };
+
+    Env.worker.checkSignature = (msg, sig, key, cb) => {
+        Env.workers.send('VALIDATE_DETACHED', {
+            msg, sig, key
         }, cb);
     };
 

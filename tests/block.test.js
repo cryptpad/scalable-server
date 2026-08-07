@@ -10,6 +10,7 @@
 const Crypto = require('node:crypto');
 const Block = require('./common/block');
 const Util = require('../common/common-util');
+const { parentPort } = require('node:worker_threads');
 
 const {
     connectUser,
@@ -26,7 +27,7 @@ const blockKeys = {
 
 const randomString = Crypto.randomBytes(16).toString('hex');
 
-const log = (require.main === module) ? console.log : function () {};
+const log = (!parentPort) ? console.log : function () {};
 
 log('Block path', getBlockPath(keys.edPublic));
 

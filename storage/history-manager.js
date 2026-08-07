@@ -33,10 +33,10 @@ const getMetadata = HistoryManager.getMetadata = (Env, channel, _cb) => {
         // cache it
         Env.metadata_cache[channel] = metadata;
         cb(void 0, metadata);
-    });
+    }, true);
 };
 
-const getHistoryOffset = (Env, channel, lastKnownHash, _cb) => {
+const getHistoryOffset = HistoryManager.getHistoryOffset = (Env, channel, lastKnownHash, _cb) => {
     const cb = Util.once(Util.mkAsync(_cb));
 
     // lastKnownhash === -1 means we want the complete history
@@ -310,6 +310,7 @@ HistoryManager.onGetHistory = (Env, args, sendMessage, _cb) => {
         return void Log.error('HK_INVALID_KEY', metadata.validateKey);
     }
 
+    let isNew = false;
     nThen(function (waitFor) {
         const todo = (err, _metadata) => {
             if (err === 'EXPIRED') {
@@ -319,7 +320,10 @@ HistoryManager.onGetHistory = (Env, args, sendMessage, _cb) => {
                 waitFor.abort();
                 return void cb(void 0, [ seq, 'ERROR', err, hkId ]);
             }
-            if (!_metadata?.channel) { return; } // New pad, don't overwrite metadata
+            if (!_metadata?.channel) {
+                isNew = true;
+                return; // New pad, don't overwrite metadata
+            }
             hasMetadataFile = true;
             metadata = _metadata;
         };
@@ -329,7 +333,7 @@ HistoryManager.onGetHistory = (Env, args, sendMessage, _cb) => {
         // Not expired nor restricted, we can send the ack
         cb(void 0, [seq, 'ACK']);
 
-        if (!metadata?.channel) { return; }
+        if (isNew) { return; }
         // Send metadata as first HISTORY message and wait
         setTimeout(waitFor(() => {
             sendMessage([0, HISTORY_KEEPER_ID, 'MSG', userId,
@@ -522,7 +526,7 @@ const onGetFullHistory = (Env, args, sendMessage, _cb) => {
         sendMessage([0, HISTORY_KEEPER_ID, 'MSG', userId, JSON.stringify(['FULL_HISTORY', msg])], readMore);
     }, (err) => {
         let parsedMsg = ['FULL_HISTORY_END', channel];
-        if (err) {
+        if (err && err?.code !== 'ENOENT') {
             Log.error('HK_GET_FULL_HISTORY', err.stack);
             parsedMsg = ['ERROR', channel, err.message];
         }

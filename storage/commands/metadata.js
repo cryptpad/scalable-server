@@ -10,12 +10,17 @@ const {
     hkId
 } = require("../../common/constants.js");
 
-Data.getMetadataRaw = (Env, channel, _cb) => {
+Data.getMetadataRaw = (Env, channel, _cb, resolveLinked, noRedirect) => {
     const cb = Util.once(Util.mkAsync(_cb));
     if (!Core.isValidId(channel)) { return void cb('INVALID_CHAN'); }
     if (channel.length !== HKUtil.STANDARD_CHANNEL_LENGTH &&
         channel.length !== HKUtil.ADMIN_CHANNEL_LENGTH &&
         channel.length !== HKUtil.BLOB_ID_LENGTH) { return cb("INVALID_CHAN_LENGTH"); }
+
+    const id = channel;
+    if (!noRedirect && !Core.checkStorage(Env, id, 'GET_METADATA_RAW', {
+        channel
+    }, cb)) { return; }
 
     // return synthetic metadata for admin broadcast channels as a safety net
     // in case anybody manages to write metadata
@@ -39,6 +44,20 @@ Data.getMetadataRaw = (Env, channel, _cb) => {
             // clear metadata after a delay if nobody has joined the channel within 30s
             Env.checkCache(channel);
         }
+
+        // If "resolveLinked", inherit access rights from "parent"
+        if (resolveLinked
+            && meta?.linked?.length === HKUtil.STANDARD_CHANNEL_LENGTH
+            && meta?.linked !== channel) {
+            Data.getMetadataRaw(Env, meta.linked, (err, _meta) => {
+                meta.owners = _meta.owners;
+                meta.restricted = _meta.restricted;
+                meta.allowed = _meta.allowed;
+                cb(err, meta);
+            });
+            return;
+        }
+
         cb(err, meta);
     };
 
@@ -122,7 +141,12 @@ Data.setMetadata = (Env, data, cb) => {
             }
             // otherwise, write the change
             const str = JSON.stringify(line);
-            Env.store.writeMetadata(channel, str, e => {
+
+            let store = Env.store;
+            if (channel.length === HKUtil.BLOB_ID_LENGTH) {
+                store = Env.blobStore;
+            }
+            store.writeMetadata(channel, str, e => {
                 if (e) {
                     cb(e);
                     return void next();
@@ -209,6 +233,6 @@ Data.setMetadata = (Env, data, cb) => {
                 });
 
             });
-        });
+        }, true);
     });
 };

@@ -6,6 +6,8 @@
  */
 const Crypto = require('node:crypto');
 
+const { parentPort } = require('node:worker_threads');
+
 const padId = Crypto.randomBytes(16).toString('hex');
 const driveId = Crypto.randomBytes(16).toString('hex');
 const blobId = Crypto.randomBytes(24).toString('hex');
@@ -21,7 +23,7 @@ const {
 
 const keys = getRandomKeys();
 
-const log = (require.main === module) ? console.log : function () {};
+const log = (!parentPort) ? console.log : function () {};
 
 log('Pin log path', getPinPath(keys.edPublic));
 
