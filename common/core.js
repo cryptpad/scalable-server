@@ -170,6 +170,7 @@ Core.getPaths = (mainConfig, isEnv) => {
     const paths = Constants.paths; // XXX use config
 
     const idx = String(index);
+    /*
     const all = {
         basePath: config.basePath || Path.join(paths.base, idx),
         filePath: config.filePath || Path.join(paths.base, idx, paths.channel),
@@ -182,6 +183,21 @@ Core.getPaths = (mainConfig, isEnv) => {
         decreePath: config.decreePath || Path.join(paths.base, "0", paths.decrees),
         logoPath: config.logoPath || Path.join(paths.base, "0", paths.logo),
         challengePath: config.challengePath || Path.join(paths.base, idx, paths.challenges)
+    };
+    */
+    // XXX Compatibility with old server config until migration script is ready
+    const all = {
+        basePath: config.basePath || config.base || './data',
+        filePath: config.filePath || './datastore',
+        blobPath: config.blobPath || './blob',
+        blobStagingPath: config.blobStagingPath ||'./blobstage',
+        blockPath: config.blockPath || './block',
+        pinPath: config.pinPath || './pins',
+        archivePath: config.archivePath || './data/archive',
+        taskPath: config.taskPath || './tasks',
+        decreePath: config.decreePath || './data',
+        logoPath: config.logoPath || './data/logo',
+        challengePath: config.challengePath || './data/challenges',
     };
     if (!isEnv) { return all; }
 
