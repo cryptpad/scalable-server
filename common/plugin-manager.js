@@ -8,24 +8,38 @@ const plugins = {};
 const extensions = plugins._extensions = [];
 const styles = plugins._styles = [];
 
+const isStandalone = process.env.STANDALONE !== "false";
 try {
-    const path = Path.join(__dirname, '..', 'plugins');
-    let pluginsDir = fs.readdirSync(path);
+    let pluginsDir, dirPath;
+    if (isStandalone) {
+        dirPath = Path.join(__dirname, '..', 'plugins');
+        pluginsDir = fs.readdirSync(dirPath);
+    } else {
+        const rootPath = Path.join(__dirname, '..', '..', '..');
+        try {
+            dirPath = Path.join(rootPath, 'plugins');
+            pluginsDir = fs.readdirSync(dirPath);
+        } catch (err) {
+            if (err.code !== 'ENOENT') { throw err; }
+            dirPath = Path.join(rootPath, 'lib', 'plugins');
+            pluginsDir = fs.readdirSync(dirPath);
+        }
+    }
     pluginsDir.forEach((name) => {
         if (name=== "README.md") { return; }
         try {
             // NOTE: plugin path relative to the built file.
             // (Plugin not included in the build)
-            let plugin = require(`../plugins/${name}/index.js`);
+            let plugin = require(Path.join(dirPath, `${name}/index.js`));
             plugins[plugin.name] = plugin.modules;
             try {
-                let hasExt = fs.existsSync(`./plugins/${name}/client/extensions.js`);
+                let hasExt = fs.existsSync(Path.join(dirPath, `${name}/client/extensions.js`));
                 if (hasExt) {
                     extensions.push(plugin.name.toLowerCase());
                 }
             } catch (e) {}
             try {
-                let hasStyle = fs.existsSync(`./plugins/${name}/client/style.less`);
+                let hasStyle = fs.existsSync(Path.join(dirPath, `${name}/client/style.less`));
                 if (hasStyle) {
                     styles.push(plugin.name.toLowerCase());
                 }

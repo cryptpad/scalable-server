@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2025 XWiki CryptPad Team <contact@cryptpad.org> and contributors
 
 const Util = require("./common-util");
+const Path = require('node:path');
 
 /*
 const {
@@ -72,7 +73,7 @@ const init = workerConfig => {
 
     // Worker definition
     const create = () => {
-        return spawnWorker(workerPath);
+        return spawnWorker(Path.join(__dirname, workerPath || ''));
         // return new Worker(...)
     };
     const kill = (worker) => {

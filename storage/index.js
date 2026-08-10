@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2024 XWiki CryptPad Team <contact@cryptpad.org> and contributors
 const Crypto = require('node:crypto');
+const Path = require('node:path');
 
 const Util = require("./common-util.js");
 const Constants = require("../common/constants.js");
@@ -696,7 +697,7 @@ const initHttpServer = (Env, mainConfig, _cb) => {
     const cb = Util.mkAsync(_cb);
 
     Cluster.setupPrimary({
-        exec: './build/storage.cluster.js',
+        exec: Path.join(__dirname, './storage.cluster.js'),
         args: [],
     });
     const WORKERS = Env.maxWorkers['storage-http'] || 2;
@@ -898,7 +899,7 @@ const start = (mainConfig) => {
         const WORKERS = Env.maxWorkers['storage'] || 2;
         const workerConfig = {
             Log: Env.Log,
-            workerPath: './build/storage.worker.js',
+            workerPath: './storage.worker.js',
             maxWorkers: WORKERS,
             maxJobs: Env.maxJobs['storage'] || 10,
             commandTimers: {}, // time spent on each command

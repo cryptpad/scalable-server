@@ -3,6 +3,7 @@ const Environment = require('../common/env.js');
 const nThen = require('nthen');
 const WorkerModule = require("../common/worker-module.js");
 const Cluster = require("node:cluster");
+const Path = require('node:path');
 
 const Interface = require("../common/interface.js");
 const WSConnector = require("../common/ws-connector.js");
@@ -22,7 +23,7 @@ const onNewDecrees = (Env, args, cb) => {
 const initHttpCluster = (Env, mainConfig) => {
     return new Promise((resolve) => {
         Cluster.setupPrimary({
-            exec: './build/http.worker.js',
+            exec: Path.join(__dirname, './http.worker.js'),
             args: [],
         });
 
