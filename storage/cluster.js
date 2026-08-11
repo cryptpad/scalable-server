@@ -113,11 +113,6 @@ const initServerHandlers = (Env, app) => {
             maxAge: "0d"
         }
     ));
-app.use((req, res, next) => {
-    console.log(Env.myId, req.url);
-    next();
-});
-
 
     Env.plugins.addHttpEndpoints(Env, app, 'storage');
 
