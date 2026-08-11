@@ -349,7 +349,7 @@ var checkUploadCookie = function (Env, safeKey, cb) {
         if (err) { return void cb(); }
         let expireTime = +new Date() - (5*60*1000);
         Fs.stat(cookiePath, function (err, stats) {
-            if (stats.mtime < expireTime) { return void cb(); }
+            if (err || !stats || stats.mtime < expireTime) { return void cb(); }
             cb(content.toString('utf8'));
         });
     });
