@@ -58,7 +58,7 @@ const init = (Env, mainConfig, pluginModules) => {
 
     Env.clientRoot = config?.clientRoot || '../cryptpad';
 
-    Env.version = Package.version;
+    Env.version = config?.version || Package.version;
     Env.launchTime = +new Date();
 
     Env.numberStorages = infra.storage.length;
