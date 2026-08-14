@@ -50,9 +50,13 @@ Data.getMetadataRaw = (Env, channel, _cb, resolveLinked, noRedirect) => {
             && meta?.linked?.length === HKUtil.STANDARD_CHANNEL_LENGTH
             && meta?.linked !== channel) {
             Data.getMetadataRaw(Env, meta.linked, (err, _meta) => {
-                meta.owners = _meta.owners;
-                meta.restricted = _meta.restricted;
-                meta.allowed = _meta.allowed;
+                if (_meta) {
+                    meta.owners = _meta.owners;
+                    meta.restricted = _meta.restricted;
+                    meta.allowed = _meta.allowed;
+                } else {
+                    Env.Log.warn("MISSING_LINKED_METADATA", meta);
+                }
                 cb(err, meta);
             });
             return;

@@ -199,7 +199,6 @@ Linked.resetLinkedDocuments = (Env, data, cb) => {
     }).nThen(waitFor => {
         Env.worker.checkSignature(signedMsg, proof, validateKey, waitFor((err)=> {
             if (err) {
-                console.log(err);
                 waitFor.abort();
                 return void cb('INVALID_PROOF');
             }

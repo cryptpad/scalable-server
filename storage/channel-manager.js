@@ -211,7 +211,7 @@ const create = (Env) => {
                         // we log this case, but not others for some reason
                         Env.Log.error("HK_SIGNED_MESSAGE_REJECTED", {
                             channel,
-                            validateKey: metadata.validayKey,
+                            validateKey: metadata.validateKey,
                             message: signedMsg,
                         });
                     }

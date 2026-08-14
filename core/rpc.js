@@ -155,10 +155,10 @@ const trimHistory = (Env, safeKey, data, cb) => {
         data , res => { cb(res.error, res.data); });
 };
 const uploadStatus = (Env, safeKey, data, cb) => {
-    const { size, id } = data;
+    const { size, id, linked } = data;
     const storageId = getStorageId(Env, id);
     Env.interface.sendQuery(storageId, 'RPC_UPLOAD_STATUS',
-        { safeKey, size }, res => { cb(res.error, res.data); });
+        { safeKey, size, linked }, res => { cb(res.error, res.data); });
 };
 const uploadCancel = (Env, safeKey, data, cb) => {
     const { size, id } = data;
