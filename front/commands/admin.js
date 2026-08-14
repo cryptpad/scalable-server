@@ -19,11 +19,12 @@ const onGetActiveUsers = (Env, args, cb) => {
     cb(void 0, { myId: Env.myId, users });
 };
 
-const onSetModerators = (Env, args) => {
+const onSetModerators = (Env, args, cb) => {
     Env.moderators = args.moderators;
     if (args.freshKey) {
         onFlushCache(Env, args, () => { });
     }
+    setTimeout(cb);
 };
 
 const onGetWsData = (Env, args, cb) => {

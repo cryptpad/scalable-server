@@ -563,7 +563,7 @@ const onFlushCache = Env.flushCache = (_args, cb) => {
 };
 
 // SET_MODERATORS triggers a FLUSH_CACHE to refresh the client cache
-const onSetModerators = (args) => {
+const onSetModerators = (args, cb) => {
     if (Env.myId !== 'core:0') { return void Env.Log.error('INVALID_CORE_ERROR'); }
     Env.moderators = args;
     Env.freshKey = +new Date();
@@ -573,7 +573,7 @@ const onSetModerators = (args) => {
             moderators: args,
             freshKey: Env.freshKey
         }
-    }, () => { });
+    }, cb);
 };
 
 const checkCacheInterval = Util.once(() => {

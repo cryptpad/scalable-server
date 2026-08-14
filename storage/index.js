@@ -941,7 +941,10 @@ const start = (mainConfig) => {
         Env.moderators = Moderators.getKeysSync(Env).map(safeKey => {
             return Util.unescapeKeyCharacters(safeKey);
         });
-        Env.interface.sendEvent('core:0', 'SET_MODERATORS', Env.moderators);
+        Env.interface.sendQuery('core:0', 'SET_MODERATORS', Env.moderators, waitFor());
+    }).nThen(waitFor => {
+        // Only storage:0 can manage decrees, moderators and accounts
+        if (index !== 0) { return; }
 
         Env.adminDecrees.load(Env, waitFor((err, toSend) => {
             if (err) {
