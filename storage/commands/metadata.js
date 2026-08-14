@@ -51,6 +51,7 @@ Data.getMetadataRaw = (Env, channel, _cb, resolveLinked, noRedirect) => {
             && meta?.linked !== channel) {
             Data.getMetadataRaw(Env, meta.linked, (err, _meta) => {
                 if (_meta) {
+                    Env.Log.warn("MISSING_LINKED_METADATA", meta);
                     meta.owners = _meta.owners;
                     meta.restricted = _meta.restricted;
                     meta.allowed = _meta.allowed;
