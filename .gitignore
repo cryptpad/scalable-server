@@ -5,3 +5,8 @@ data
 plugins
 config/config.js
 config/infra.js
+blob/
+block/
+cryptpad-server-*.tgz
+datastore/
+pins/
