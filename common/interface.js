@@ -42,16 +42,15 @@ const newConnection = (ctx, other, txid, type, data, message) => {
         return;
     }
     const { type: rcvType, idx, challenge: challengeBase64, nonce: nonceBase64 } = data;
-    const challenge = new Uint8Array(Buffer.from(challengeBase64, 'base64'));
-    const nonce = new Uint8Array(Buffer.from(nonceBase64, 'base64'));
+    const challenge = new Uint8Array(Crypto.decodeBase64(challengeBase64));
+    const nonce = new Uint8Array(Crypto.decodeBase64(nonceBase64));
 
     // Check for reused challenges
     if (ctx.ChallengesCache[challengeBase64]) {
         other.disconnect();
         return ctx.Log.error('INTERFACE_CHALLENGE_ERROR', "Reused challenge");
     }
-    // Buffer.from is needed for compatibility with tweetnacl
-    const msg = Buffer.from(Crypto.secretboxOpen(challenge, nonce, ctx.nodes_key));
+    const msg = Crypto.secretboxOpen(challenge, nonce, ctx.nodes_key);
     if (!msg) {
         other.disconnect();
         return ctx.Log.error('INTERFACE_CHALLENGE_ERROR', "Bad challenge answer");
@@ -144,10 +143,10 @@ const onConnected = (ctx, other, coreId) => {
 
     // Identify with challenge
     const nonce = NodeCrypto.randomBytes(24);
-    const msg = Buffer.from(`${ctx.myType}:${ctx.myNumber}:${String(Date.now())}`, 'utf-8');
-    const challenge = Crypto.secretbox(msg, nonce, ctx.nodes_key).toString('base64');
+    const msg = Crypto.decodeUTF8(`${ctx.myType}:${ctx.myNumber}:${String(Date.now())}`);
+    const challenge = Crypto.encodeBase64(Crypto.secretbox(msg, nonce, ctx.nodes_key));
     createHandlers(ctx, other);
-    other.send([uid, 'IDENTITY', { type: ctx.myType, idx: ctx.myNumber, nonce: nonce.toString('base64'), challenge }]);
+    other.send([uid, 'IDENTITY', { type: ctx.myType, idx: ctx.myNumber, nonce: Crypto.encodeBase64(nonce), challenge }]);
 };
 
 
