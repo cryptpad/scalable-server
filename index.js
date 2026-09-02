@@ -8,8 +8,8 @@ const Path = require('node:path');
 const showHelp = () => {
     console.log(`Usage ${process.argv[1]}:`);
     console.log("\t--help, -h\tDisplay this help");
-    console.log("\t--type,-t\tSet the core type (if unset, starts every core)");
-    console.log("\t--index,-i\tSet the core node index (default: 0)");
+    console.log("\t--type,-t\tSet the node type (if unset, starts every node)");
+    console.log("\t--index,-i\tSet the node index (default: 0)");
     process.exit(1);
 };
 
