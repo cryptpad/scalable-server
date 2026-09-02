@@ -10,6 +10,7 @@ const showHelp = () => {
     console.log("\t--help, -h\tDisplay this help");
     console.log("\t--type,-t\tSet the node type (if unset, starts every node)");
     console.log("\t--index,-i\tSet the node index (default: 0)");
+    console.log("\t--server,-s\tStart the set of nodes identified with serverId");
     process.exit(1);
 };
 

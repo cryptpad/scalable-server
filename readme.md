@@ -77,6 +77,14 @@ node index.js --type storage --index 2
 node index.js --type storage --index 1
 ```
 
+Alternatively, you can identify different sets of nodes with the `serverId`
+property of their corresponding nodes in `config/infra.js`, and start a subset
+of them sharing the same `serverId` with:
+
+```bash
+node index.js --server [serverId value]
+```
+
 ## Tests
 
 The directory [`tests`](tests/) contains some unit and integration tests scripts
