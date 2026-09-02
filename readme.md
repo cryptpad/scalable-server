@@ -2,10 +2,8 @@
 
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
-# Prototype: Scalable Server for CryptPad
 
-This repository contains a distributed server prototype for CryptPad. This is
-still in progress exploratory work.
+This repository contains the code for CryptPad server.
 
 ## Architecture
 
@@ -23,54 +21,32 @@ they can be done in place without too much pressure on them.
 
 ### Topology
 
-The core nodes are connected to both ws and storage nodes, but the latter two
-cannot communicate directly.
+The core nodes are connected to both front and storage nodes, but the latter two
+cannot communicate directly (only on the same layer).
 
 ## Configuration
 
-The configuration can be done using the `Config` argument, which will store the
-graph topology of the nodes.
+The configuration can be done in `config/infra.js`, which will store the graph
+topology of the nodes and how to connect to them.
 
-Using websockets for communication, this variable looks like this:
-
-```javascript
-let Config = {
-    infra: {
-        ws: [{
-            host: 'localhost',
-            port: 3010
-        }],
-        core: [{
-            host: 'localhost',
-            port: 3011
-        }, {
-                host: 'localhost',
-                port: 3012
-            }],
-        storage: [{
-            host: 'localhost',
-            port: 3014
-        }]
-    }
-};
-```
-
-The above configuration describes a network comprised of 4 nodes, having one
-front node on port `3010`, 2 core servers on port `3011` and `3012`
-and a storage node accessible via port `3014`.
-
-In addition, launching a server requires setting the field `myId` with your
-identifier, which will be of the form `type:id`. For instance, in the first core
-node (the node listening on port `3011`), it would be `Config.myId = 'core:0'`.
+Using websockets for communication, please look at `config/infra.example.js` for
+explanations.
 
 ## Usage
 
-Before first use, you may want to install the dependencies with:
+To be used in CryptPad, this repository releases are available on npm:
+https://www.npmjs.com/package/cryptpad-server
+
+You can also use it in standalone mode for development purpose. The client code
+should be present in `../cryptpad/` or in a `clientRoot` property as a string in
+`config/config.js`. Before first use, you may want to install the dependencies
+and build the code with:
 ```bash
 npm install
+npm run build
 ```
 
-To spawn the server topology described in `ws-config.js`, run the start script:
+To spawn the server topology described in `infra/config.js`, run the start script:
 ```bash
 npm run start
 ```
@@ -78,14 +54,27 @@ npm run start
 Alternatively, you can the new servers manually. You first need to start the
 `core` nodes with the following command.
 
+For that to work, you need to have a shared key between the different nodes to
+authenticate them, which can be generated with:
+
 ```bash
-node core/index.js
+openssl rand -base64 32
 ```
 
-Then you can start a `ws` and `storage` nodes in any order:
+Then add the resulting random bytes in `private.nodes_key` property in your
+`config/config.js`.
+
 ```bash
-node storage/index.js
-node front/index.js
+node index.js --type core --index 0
+```
+
+Then you can start a `front` and `storage` nodes in any order:
+```bash
+node index.js --type front --index 0
+node index.js --type storage --index 0
+node index.js --type front --index 1
+node index.js --type storage --index 2
+node index.js --type storage --index 1
 ```
 
 ## Tests
