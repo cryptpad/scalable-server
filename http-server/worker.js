@@ -113,6 +113,23 @@ const initProxy = (Env, app, infra) => {
     app.use('/extensions.js', httpProxy);
     app.use('/api', httpProxy);
 
+    const checkAllStores = (req, res) => {
+        const promiseResponses = storageList.map((baseUrl) => new Promise((res, rej) => {
+            Http.get(new URL(req.url, baseUrl), (resp) => {
+                const { statusCode } = resp;
+                if (statusCode !== 200) {
+                    return rej();
+                }
+                res();
+            });
+        }));
+        Promise.all(promiseResponses)
+            .then(() => res.status(200).send('PLACEHOLDER'))
+            .catch(() => res.status(404).end());
+    };
+
+    app.get('/blob/placeholder.txt', checkAllStores);
+    app.get('/block/placeholder.txt', checkAllStores);
 
     const storeProxy = createProxyMiddleware({
         router: req => {
