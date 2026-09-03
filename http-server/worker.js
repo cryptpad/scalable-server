@@ -1,5 +1,6 @@
 const Express = require('express');
 const Http = require('node:http');
+const Https = require('node:https');
 const Path = require('node:path');
 const Fs = require('node:fs');
 
@@ -114,8 +115,14 @@ const initProxy = (Env, app, infra) => {
     app.use('/api', httpProxy);
 
     const checkAllStores = (req, res) => {
+        setHeaders(Env, req, res);
         const promiseResponses = storageList.map((baseUrl) => new Promise((res, rej) => {
-            Http.get(new URL(req.url, baseUrl), (resp) => {
+            const protocol = new URL(baseUrl).protocol;
+            if (!['http:', 'https:'].includes(protocol)) {
+                return rej();
+            }
+            const H = protocol === 'http:' ? Http : Https;
+            H.get(new URL(req.url, baseUrl), { method: 'HEAD' }, (resp) => {
                 const { statusCode } = resp;
                 if (statusCode !== 200) {
                     return rej();
