@@ -970,6 +970,12 @@ const start = (mainConfig) => {
             +new Date()
         ];
         Decrees.onNewDecree(Env, decree, '', waitFor());
+    }).nThen((w) => {
+        BlockStore.rootPlaceholderCreate(Env, w((err) => {
+            if (err) {
+                console.warn(`${myId}: Impossible to create block's placeholder. Please check the value of blockPath in your config.js file and if you have write access on it.`);
+            };
+        }));
     }).nThen(() => {
         // INSTALL TOKEN admin decree (storage:0 only)
         if (index !== 0) { return; }

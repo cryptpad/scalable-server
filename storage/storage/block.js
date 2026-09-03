@@ -181,3 +181,24 @@ Block.write = function (Env, publicKey, buffer, _cb) {
     });
 };
 
+Block.rootPlaceholderCreate = (Env, _cb) => {
+    const cb = Util.once(Util.mkAsync(_cb));
+    nThen((w) => {
+        Fse.mkdirp(Env.paths.block, w((err) => {
+            if (err) {
+                Env.Log.error("BLOCK_FOLDER_CREATE_FAILED", err);
+                w.abort();
+                return cb(err);
+            }
+        }));
+    }).nThen((w) => {
+        const fullPath = Path.join(Env.paths.block, 'placeholder.txt');
+        Fs.writeFile(fullPath, 'PLACEHOLDER\n', w((err) => {
+            if (err) {
+                Env.Log.error('BLOCK_PLACEHOLDER_CREATE_FAILED', err);
+                w.abort();
+                return cb(err);
+            }
+        }));
+    }).nThen(() => cb());
+};
