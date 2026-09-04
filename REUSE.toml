@@ -1,4 +1,7 @@
 version = 1
+SPDX-PackageName = "CryptPad Server"
+SPDX-PackageSupplier = "XWiki CryptPad Team <contact@cryptpad.org>"
+SPDX-PackageDownloadLocation = "https://cryptpad.org"
 
 [[annotations]]
 path = "**.json"
