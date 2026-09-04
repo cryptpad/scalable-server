@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 XWiki CryptPad Team <contact@cryptpad.org> and contributors
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 const Util = require("./common-util.js");
 const Path = require('node:path');
 const Fs = require("node:fs");

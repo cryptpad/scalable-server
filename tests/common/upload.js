@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 XWiki CryptPad Team <contact@cryptpad.org> and contributors
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 const Util = require('../../common/common-util');
 const Nacl = require('tweetnacl/nacl-fast');
 const ServerCommand = require('./http-command');

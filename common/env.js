@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 XWiki CryptPad Team <contact@cryptpad.org> and contributors
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 const { existsSync, readdirSync } = require('node:fs');
 const Path = require('node:path');
 //const OS = require('node:os');

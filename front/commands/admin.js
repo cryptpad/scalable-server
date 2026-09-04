@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 XWiki CryptPad Team <contact@cryptpad.org> and contributors
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 const onFlushCache = (Env, args, cb) => {
     Env.FRESH_KEY = args.freshKey;
     if (typeof(cb) === "function") { cb(); }

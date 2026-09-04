@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 XWiki CryptPad Team <contact@cryptpad.org> and contributors
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 module.exports = {
     /*  CryptPad's nodes will launch a child process for every core available
      *  in order to perform CPU-intensive tasks in parallel.
