@@ -64,6 +64,7 @@
     "tests": "node --test tests/",
     "test": "node tests/runAll.js",
     "start": "node index.js",
-    "dev": "DEV=1 node index.js"
+    "dev": "DEV=1 node index.js",
+    "windev": "set DEV=1& node index.js"
   }
 }
