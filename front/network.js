@@ -10,7 +10,6 @@ const { setHeaders } = require('../http-server/headers.js');
 const Crypto = require('crypto');
 
 const cookieParser = require("cookie-parser");
-const bodyParser = require('body-parser');
 
 const Network = {};
 
@@ -30,7 +29,7 @@ const initExpress = (Env) => {
         next();
     });
 
-    app.use(bodyParser.urlencoded({
+    app.use(Express.urlencoded({
         extended: true
     }));
     app.use(cookieParser());

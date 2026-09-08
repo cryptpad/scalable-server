@@ -13,7 +13,6 @@ const CpCrypto = require("../common/crypto.js")('sodiumnative');
 const Util = require('../common/common-util');
 const MFA = require("./storage/mfa");
 const Sessions = require("./storage/sessions");
-const bodyParser = require('body-parser');
 const Fs = require('node:fs');
 const Environment = require('../common/env');
 const Logger = require('../common/logger');
@@ -55,7 +54,7 @@ const response = Util.response((errLabel, info) => {
 });
 
 const initServerHandlers = (Env, app) => {
-    app.use(bodyParser.urlencoded({
+    app.use(Express.urlencoded({
         extended: true
     }));
 
