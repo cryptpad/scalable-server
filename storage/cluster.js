@@ -334,7 +334,7 @@ const initServerHandlers = (Env, app) => {
             return void res.end();
         }
 
-        const { chunk, sig, edPublic } = req.body;
+        const { chunk, sig, edPublic } = req.body || {};
 
         const forbidden = reason => {
             return void res.status(403).send({error: reason});

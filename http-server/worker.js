@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 const Express = require('express');
+const Mime = require("mime-types")
 const Http = require('node:http');
 const Https = require('node:https');
 const Path = require('node:path');
@@ -30,7 +31,7 @@ const proxyLog = {
     info: () => {},
 };
 
-Express.static.mime.define({'application/wasm': ['wasm']});
+Mime.lookup('wasm')
 
 const initFeedback = (Env, app) => {
     if (!Env.logFeedback) { return; }
@@ -109,7 +110,7 @@ const initProxy = (Env, app, infra) => {
     app.use('/api/logo', (req, res, next) => {
         setHeaders(Env, req, res);
         if (!Env.customLogo) {
-            return res.redirect('/customize/CryptPad_logo_hero.svg');
+            return res.redirect(200, '/customize/CryptPad_logo_hero.svg');
         }
         storage0Proxy(req, res, next);
     });

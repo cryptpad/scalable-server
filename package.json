@@ -18,7 +18,8 @@
   "dependencies": {
     "connect-gzip-static": "^4.2.1",
     "cookie-parser": "^1.4.7",
-    "express": "~4.22.1",
+    "express": "~5.2.1",
+    "mime-types": "^3.0.2",
     "fs-extra": "^7.0.0",
     "http-proxy-middleware": "^3.0.3",
     "nthen": "0.1.8",
