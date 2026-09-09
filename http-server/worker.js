@@ -110,7 +110,7 @@ const initProxy = (Env, app, infra) => {
     app.use('/api/logo', (req, res, next) => {
         setHeaders(Env, req, res);
         if (!Env.customLogo) {
-            return res.redirect(200, '/customize/CryptPad_logo_hero.svg');
+            return res.redirect('/customize/CryptPad_logo_hero.svg');
         }
         storage0Proxy(req, res, next);
     });
