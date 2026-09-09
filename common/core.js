@@ -6,7 +6,7 @@ const Core = module.exports;
 const Util = require("./common-util");
 const Constants = require("./constants");
 const escapeKeyCharacters = Util.escapeKeyCharacters;
-const Path = require('node:path');
+// const Path = require('node:path');
 const Crypto = require('node:crypto');
 const Keys = require("./keys");
 //const { fork } = require('child_process');
@@ -166,10 +166,11 @@ Core.haveACookie = function (Env, safeKey, cb) {
 };
 
 Core.getPaths = (mainConfig, isEnv) => {
-    const { index, config } = mainConfig;
-    const paths = Constants.paths; // XXX use config
+    const { config } = mainConfig;
+    // const { index, config } = mainConfig;
+    // const paths = Constants.paths; // XXX use config
 
-    const idx = String(index);
+    // const idx = String(index);
     /*
     const all = {
         basePath: config.basePath || Path.join(paths.base, idx),

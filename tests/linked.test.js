@@ -29,8 +29,6 @@ console.log('linked', getChannelPath(padId4));
 
 const Env = {};
 
-const isClearedEvt = Util.mkEvent(true);
-
 const signData = data => {
     const edPrivate = Util.decodeBase64(Env.padKeys.edPrivate);
     const msg = Util.decodeUTF8(JSON.stringify(data));
@@ -112,7 +110,7 @@ const linkedContent = {
 };
 
 const setLinked = args => {
-    const {rpc, network} = args;
+    const { rpc } = args;
     if (!args.keys) { args.keys = Env.keys; }
     if (!Env.anonRpc) { Env.anonRpc = rpc; }
     return new Promise((resolve, reject) => {
@@ -178,7 +176,7 @@ const checkDestroy = (args) => {
     });
 };
 
-const getTotalSize = (args) => {
+const getTotalSize = () => {
     return new Promise((resolve, reject) => {
         Env.anonRpc.send("GET_FILE_SIZE", padId, (e, data) => {
             if (e) { return void reject(e); }
@@ -229,7 +227,7 @@ const checkTrim = (args) => {
     });
 };
 
-const removePad = (args) => {
+const removePad = () => {
     return new Promise((resolve, reject) => {
         Env.ownerRpc.send('REMOVE_OWNED_CHANNEL', {
             channel: padId,

@@ -299,6 +299,17 @@ const onDisableMFA = (Env, data, cb) => {
     MFA.revoke(Env, key, cb);
 };
 
+const onGetCachedChannelMetadata = (Env, id, cb) => {
+    const index = Env.metadata_cache?.[id];
+    if (!index) { return void cb('ENOENT'); }
+    cb(void 0, index);
+};
+
+const onClearCachedChannelMetadata = (Env, id, cb) => {
+    delete Env.metadata_cache[id];
+    cb();
+};
+
 const onArchiveBlock = (Env, data, cb) => {
     const { key, reason } = data;
     const archiveReason = {
@@ -676,17 +687,6 @@ const onGetCachedChannelIndex = (Env, id, cb) => {
     const index = Env.channel_cache?.[id];
     if (!index) { return void cb('ENOENT'); }
     cb(void 0, index);
-};
-
-const onGetCachedChannelMetadata = (Env, id, cb) => {
-    const index = Env.metadata_cache?.[id];
-    if (!index) { return void cb('ENOENT'); }
-    cb(void 0, index);
-};
-
-const onClearCachedChannelMetadata = (Env, id, cb) => {
-    delete Env.metadata_cache[id];
-    cb();
 };
 
 const onGetActiveChannelCount = (Env, _id, cb) => {
