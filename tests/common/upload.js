@@ -26,7 +26,7 @@ const post = (url, body, cb) => {
             'Content-Length': Buffer.byteLength(bodyStr)
         }
     }).then((res) => {
-        return res.status(200).json();
+        return res.json();
     }).then(json => {
         if (json?.error) { return cb(json.error); }
         cb(void 0, json);
