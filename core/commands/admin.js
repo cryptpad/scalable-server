@@ -11,12 +11,6 @@ const Crypto = require('node:crypto');
 
 const Admin = {};
 
-// CryptPad_AsyncStore.rpc.send('ADMIN', ['GET_WORKER_PROFILES'], console.log)
-// To remove?
-const getWorkerProfiles = function(Env, _publicKey, _data, cb) {
-    cb(void 0, { "Not Implemented": 1 });
-};
-
 const getUid = () => {
     return Crypto.randomBytes(18).toString('hex');
 };
@@ -75,12 +69,6 @@ const flushCache = (Env, _publicKey, args, cb) => {
         });
     }
     Env.flushCache(args, cb);
-};
-
-const getDiskUsage = (Env, _publicKey, _data, cb) => {
-    cb(void 0, {
-        'DEPRECATED': 0
-    });
 };
 
 const getRegisteredUsers = (Env, _publicKey, _data, cb) => {
@@ -669,7 +657,6 @@ const commands = {
     ACTIVE_SESSIONS: getActiveSessions,
     ACTIVE_PADS: getActiveChannelCount,
     REGISTERED_USERS: getRegisteredUsers,
-    DISK_USAGE: getDiskUsage,
     FLUSH_CACHE: flushCache,
     GET_FILE_DESCRIPTOR_COUNT: getFileDescriptorCount,
     GET_FILE_DESCRIPTOR_LIMIT: getFileDescriptorLimit,
@@ -719,7 +706,6 @@ const commands = {
     INSTANCE_STATUS: instanceStatus,
     GET_LIMITS: getLimits,
 
-    GET_WORKER_PROFILES: getWorkerProfiles,
     GET_USER_TOTAL_SIZE: getUserTotalSize,
 
     GET_ALL_INVITATIONS: getInvitations,
