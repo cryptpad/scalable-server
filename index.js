@@ -47,7 +47,7 @@ args.some(arg => {
     prev = '';
 });
 
-const start = (serverConfig, infraConfig) => {
+const start = async (serverConfig, infraConfig) => {
     const Log = {
         debug: console.debug,
         error: console.error,
@@ -57,8 +57,9 @@ const start = (serverConfig, infraConfig) => {
     };
 
     let serverId;
-    const startNode = (type, index, forking, cb) => {
-        if (typeof (cb) !== 'function') { cb = () => { }; };
+    const startNode = (type, index, forking, resolve, reject) => {
+        if (typeof (resolve) !== 'function') { resolve = () => { }; };
+        if (typeof (reject) !== 'function') { reject = () => { }; };
 
         const nodeFile = './build/' + type + '.js';
         const path = Path.join(__dirname, nodeFile);
@@ -75,22 +76,24 @@ const start = (serverConfig, infraConfig) => {
             nodeProcess.send(initConfig);
             nodeProcess.on('message', (message) => {
                 if (message.msg === 'READY') {
-                    Log.info(`Started: ${type}:${message.index}`);
+                    // Log.info(`Started: ${type}:${message.index}`);
                     if (message.dev) {
                         Log.info('DEV mode enabled');
                     }
-                    cb();
+                    resolve(message.pid);
                 }
             });
             // FIXME
             nodeProcess.on('error', (err) => {
                 Log.error('Child process stopped due to error.');
                 Log.error(err);
+                reject(err);
                 process.exit(1);
             });
             nodeProcess.on('exit', (err) => {
                 Log.error('Child process stopped due to error.');
                 Log.error(err);
+                reject(err);
                 process.exit(1);
             });
         } else {
@@ -98,30 +101,31 @@ const start = (serverConfig, infraConfig) => {
         }
     };
 
-    const coresReady = () => {
+    const coresReady = async (corePids) => {
         const promises = [];
         infraConfig?.front?.forEach((data, index) => {
-            promises.push(new Promise(resolve => {
+            promises.push(new Promise((resolve, reject) => {
                 if (serverId && data.serverId !== serverId) { return resolve(); }
-                startNode('front', index, true, resolve);
+                startNode('front', index, true, resolve, reject);
             }));
         });
         infraConfig?.storage?.forEach((data, index) => {
-            promises.push(new Promise(resolve => {
+            promises.push(new Promise((resolve, reject) => {
                 if (serverId && data.serverId !== serverId) { return resolve(); }
-                startNode('storage', index, true, resolve);
+                startNode('storage', index, true, resolve, reject);
             }));
         });
-        promises.push(new Promise(resolve => {
+        promises.push(new Promise((resolve, reject) => {
             if (serverId && infraConfig?.public?.httpServerId !== serverId) { return resolve(); }
-            startNode('http', 0, true, resolve);
+            startNode('http', 0, true, resolve, reject);
         }));
-        Promise.all(promises).then(() => {
+        return Promise.all(promises).then((childPids) => {
             Log.info('CryptPad server ready');
+            return corePids.concat(childPids);
         });
     };
 
-    const startCores = () => {
+    const startCores = async () => {
         if (!serverConfig?.private?.nodes_key) {
             if (!serverConfig?.private) {
                 serverConfig.private = { };
@@ -131,18 +135,12 @@ const start = (serverConfig, infraConfig) => {
         const corePromises = infraConfig?.core.map((data, index) => new Promise((resolve, reject) => {
             // hosted on another machine?
             if (serverId && data.serverId !== serverId) { return resolve(); }
-            startNode('core', index, true, (err) => {
-                if (err) {
-                    Log.error('START_CORE_ERROR', err);
-                    return reject(err);
-                }
-                return resolve();
-            });
+            startNode('core', index, true, resolve, reject);
         }));
 
-        Promise.all(corePromises)
-            .then(() => { coresReady(); })
-            .catch((e) => { return Log.error('START_CORE_ERROR', e); });
+        return Promise.all(corePromises)
+          .then((corePids) => coresReady(corePids))
+          .catch((e) => { return Log.error('START_CORE_ERROR', e); });
     };
 
 
@@ -153,12 +151,12 @@ const start = (serverConfig, infraConfig) => {
         if (!serverConfig?.private?.nodes_key) {
             throw Error('E_MISSINGKEY');
         }
-        startNode(type, index, false, (err) => {
+        startNode(type, index, false, () => {}, (err) => {
             if (err) { return Log.error('START_NODE_ERROR', err); }
         });
     } else {
         serverId = cliArgs.server;
-        startCores();
+        return startCores();
     }
 };
 

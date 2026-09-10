@@ -111,7 +111,8 @@ const start = (mainConfig) => {
             type: 'http',
             index: 0,
             dev: Env.DEV_MODE,
-            msg: 'READY'
+            msg: 'READY',
+            pid: process.pid
         });
     });
 };

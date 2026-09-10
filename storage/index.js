@@ -1005,7 +1005,7 @@ const start = (mainConfig) => {
         });
     }).nThen(() => {
         if (process.send !== undefined) {
-            process.send({ type: 'storage', index, msg: 'READY' });
+            process.send({ type: 'storage', index, msg: 'READY', pid: process.pid });
         } else {
             console.log(myId, 'started');
         }

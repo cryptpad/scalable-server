@@ -3,9 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 let config;
+const isTesting = process.env.CRYPTPAD_TEST === "server";
 const configPath = process.env.CRYPTPAD_CONFIG || "../config/config.js";
 try {
-    config = require(configPath);
+    config = isTesting ? require("../config/config.test") : require(configPath);
 } catch (e) {
     if (e instanceof SyntaxError) {
         console.error("config/config.js is faulty. See stacktrace below for more information. Terminating. \n");
@@ -21,7 +22,7 @@ try {
 let infra;
 const infraPath = process.env.CRYPTPAD_CONFIG_INFRA || "../config/infra.js";
 try {
-    infra = require(infraPath);
+    infra = isTesting ? require("../config/infra.example") : require(infraPath);
 } catch (e) {
     if (e instanceof SyntaxError) {
         console.error("config/infra.js is faulty. See stacktrace below for more information. Terminating. \n");

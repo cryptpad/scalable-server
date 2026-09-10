@@ -723,7 +723,7 @@ const startServers = (mainConfig) => {
             return;
         }
         if (process.send !== undefined) {
-            process.send({ type: 'core', index, msg: 'READY' });
+            process.send({ type: 'core', index, msg: 'READY', pid: process.pid });
         }
         checkCacheInterval();
     });

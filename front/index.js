@@ -427,7 +427,7 @@ const start = (mainConfig) => {
         Env.Log.info('FRONT_STARTED', Env.myId);
 
         if (process.send !== undefined) {
-            process.send({type: 'front', index, msg: 'READY'});
+            process.send({type: 'front', index, msg: 'READY', pid: process.pid});
         } else {
             Env.Log.info('SINGLE_FRONT_STARTED', Env.myId);
         }
