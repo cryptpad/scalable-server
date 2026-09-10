@@ -82,7 +82,6 @@ module.exports = {
      *
      */
     adminKeys: [
-        "[decrees-test-admin@test.local/9MESY9hRN6s7T8M94+vxhS69Z9Hu+uQaXtlKFuxxFY0=]"
     ],
 
     /* =====================
