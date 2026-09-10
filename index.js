@@ -87,14 +87,12 @@ const start = async (serverConfig, infraConfig) => {
             nodeProcess.on('error', (err) => {
                 Log.error('Child process stopped due to error.');
                 Log.error(err);
-                reject(err);
-                process.exit(1);
+                reject(`${type}:${index}: error ${err}`);
             });
             nodeProcess.on('exit', (err) => {
                 Log.error('Child process stopped due to error.');
                 Log.error(err);
-                reject(err);
-                process.exit(1);
+                reject(`${type}:${index}: exit(${err})`);
             });
         } else {
             require(path).start(initConfig);
@@ -140,7 +138,7 @@ const start = async (serverConfig, infraConfig) => {
 
         return Promise.all(corePromises)
           .then((corePids) => coresReady(corePids))
-          .catch((e) => { return Log.error('START_CORE_ERROR', e); });
+          .catch((e) => { Log.error('START_CORE_ERROR', e); return Promise.reject(e); });
     };
 
 
@@ -162,7 +160,7 @@ const start = async (serverConfig, infraConfig) => {
 
 if (require.main === module) {
     const { config, infra } = require('./common/load-config');
-    start(config, infra);
+    start(config, infra).catch((e) => { console.error('CryptPad server start failed:', e); });
 } else {
     module.exports = { start };
 }

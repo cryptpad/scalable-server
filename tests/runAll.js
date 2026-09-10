@@ -9,19 +9,34 @@ const Server = require("../index.js");
 process.env.CRYPTPAD_TEST = "server";
 const { config, infra } = require("../common/load-config");
 
+let serverPids = [];
+
 Server.start(config, infra)
-  .then((serverPids) => new Promise((res, rej) => {
+  .catch((e) => {
+    console.error('Fail to start the test server: ', e);
+    process.exit(1);
+  })
+  .then((pids) => new Promise((res, rej) => {
+    serverPids = pids;
     Fs.readdir(Path.join('.', 'tests'), (_err, dir) => {
       const testPromises = dir.map(file =>
         new Promise((resolve, reject) => {
           if (!/test.js$/.test(file)) { return resolve(); }
-          const testWorker = new Worker('./tests/' + file);
-          testWorker.on("exit", () => resolve());
-          testWorker.on("error", (err) => reject({ err, file }));
+          try {
+            const testWorker = new Worker('./tests/' + file);
+            testWorker.on("exit", (exitCode) => exitCode && reject({ err: 'Test failed', file }) || resolve());
+            testWorker.on("error", (err) => reject({ err, file }));
+          } catch (err) {
+            reject({ err, file });
+          }
         })
       );
-      return Promise.all(testPromises).catch(rej).then(() => res(serverPids));
+      return Promise.all(testPromises).catch(rej).then(res);
     });
   }))
   .catch((e) => { console.error(`Error in ${e.file}: ${e.err}`); })
-  .then((serverPids) => { serverPids.forEach(pid => process.kill(pid)); process.exit(0); });
+  .finally(() => {
+    // Stop the test server
+    serverPids.forEach(pid => process.kill(pid));
+    process.exit(0);
+});
