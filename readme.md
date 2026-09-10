@@ -90,12 +90,8 @@ node index.js --server [serverId value]
 The directory [`tests`](tests/) contains some unit and integration tests scripts
 and files.
 
-- [`interface.test.js`](tests/interface.test.js): test the communication
-interface by implementing a simple ping-pong protocol that computes the time it
-takes to go back and forth in the network.
-
 The aforementioned tests can be run with the following command (make sure to
 have installed the dependencies with `npm install` beforehand):
 ```bash
-npm run tests
+npm run test
 ```
