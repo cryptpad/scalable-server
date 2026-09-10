@@ -74,6 +74,9 @@ module.exports = {
         };
 
         const port = config.wsPort || config.port;
+        httpServer.on('error', e => {
+            cb(e);
+        });
         httpServer.listen(port, config.host, onServerReady);
     },
     initClient: (ctx, config, id, onConnected, cb) => {
