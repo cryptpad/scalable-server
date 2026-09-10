@@ -669,7 +669,6 @@ const startServers = (mainConfig) => {
 
     const { challengePath } = Core.getPaths(mainConfig);
     Env.challengePath = challengePath;
-    Env.workers = WorkerModule(workerConfig);
 
     let queriesToStorage = [];
     let queriesToFront = [];
@@ -722,6 +721,7 @@ const startServers = (mainConfig) => {
             Env.Log.error('INTERFACE_INIT_ERROR', err);
             return;
         }
+        Env.workers = WorkerModule(workerConfig);
         if (process.send !== undefined) {
             process.send({ type: 'core', index, msg: 'READY', pid: process.pid });
         }
