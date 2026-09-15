@@ -329,6 +329,8 @@ process.on('message', (obj) => {
             txid: obj.txid,
             pid: obj.pid,
             value: value,
+        }, (e) => {
+            if(e) { console.error('E_RESPONSE', Util.serializeError(e)); }
         });
     };
 

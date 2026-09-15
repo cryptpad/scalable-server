@@ -50,11 +50,10 @@ args.some(arg => {
 // Clean quit: kill child processes
 const childPids = [];
 
-const killChilds = () => childPids.forEach((pid) => process.kill(pid));
+const cleanSubprocesses = () => childPids.forEach((pid) => process.kill(pid));
 
-process.on('sigint', killChilds);
-process.on('exit', killChilds);
-process.on('error', killChilds);
+process.on('SIGTERM', cleanSubprocesses);
+process.on('exit', cleanSubprocesses);
 
 const start = (serverConfig, infraConfig) => {
     const Log = {
@@ -140,8 +139,7 @@ const start = (serverConfig, infraConfig) => {
         });
 
         return Promise.all(corePromises.filter(Boolean))
-          .then(() => coresReady())
-          .catch((e) => { Log.error('START_CORE_ERROR', e); return Promise.reject(e); });
+          .then(() => coresReady());
     };
 
 
