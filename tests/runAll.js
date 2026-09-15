@@ -9,16 +9,16 @@ const Server = require("../index.js");
 process.env.CRYPTPAD_TEST = "server";
 const { config, infra } = require("../common/load-config");
 
-let serverPids = [];
-
 Server.start(config, infra)
   .catch((e) => {
     console.error('Fail to start the test server: ', e);
     process.exit(1);
   })
-  .then((pids) => new Promise((res, rej) => {
-    serverPids = pids;
-    Fs.readdir(Path.join('.', 'tests'), (_err, dir) => {
+  .then(() => {
+    const testsPath = Path.join('.', 'tests');
+    try {
+      const dir = Fs.readdirSync(testsPath);
+
       const testPromises = dir.map(file =>
         new Promise((resolve, reject) => {
           if (!/test.js$/.test(file)) { return resolve(); }
@@ -31,12 +31,14 @@ Server.start(config, infra)
           }
         })
       );
-      return Promise.all(testPromises).catch(rej).then(res);
-    });
-  }))
+      return Promise.all(testPromises);
+    }
+    catch (err) {
+      Promise.reject({ err, file: testsPath });
+    }
+  })
   .catch((e) => { console.error(`Error in ${e.file}: ${e.err}`); })
   .finally(() => {
     // Stop the test server
-    serverPids.forEach(pid => process.kill(pid));
     process.exit(0);
-});
+  });

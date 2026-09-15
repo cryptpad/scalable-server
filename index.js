@@ -47,7 +47,16 @@ args.some(arg => {
     prev = '';
 });
 
-const start = async (serverConfig, infraConfig) => {
+// Clean quit: kill child processes
+const childPids = [];
+
+const killChilds = () => childPids.forEach((pid) => process.kill(pid));
+
+process.on('sigint', killChilds);
+process.on('exit', killChilds);
+process.on('error', killChilds);
+
+const start = (serverConfig, infraConfig) => {
     const Log = {
         debug: console.debug,
         error: console.error,
@@ -57,10 +66,7 @@ const start = async (serverConfig, infraConfig) => {
     };
 
     let serverId;
-    const startNode = (type, index, forking, resolve, reject) => {
-        if (typeof (resolve) !== 'function') { resolve = () => { }; };
-        if (typeof (reject) !== 'function') { reject = () => { }; };
-
+    const startNode = (type, index, forking) => new Promise((resolve, reject) => {
         const nodeFile = './build/' + type + '.js';
         const path = Path.join(__dirname, nodeFile);
         const initConfig = {
@@ -73,6 +79,7 @@ const start = async (serverConfig, infraConfig) => {
         //Log.info(`Starting: ${initConfig.myId}`);
         if (forking) {
             let nodeProcess = fork(path);
+            childPids.push(nodeProcess.pid);
             nodeProcess.send(initConfig);
             nodeProcess.on('message', (message) => {
                 if (message.msg === 'READY') {
@@ -80,64 +87,60 @@ const start = async (serverConfig, infraConfig) => {
                     if (message.dev) {
                         Log.info('DEV mode enabled');
                     }
-                    resolve(message.pid);
+                    resolve();
                 }
             });
-            // FIXME
             nodeProcess.on('error', (err) => {
                 Log.error('Child process stopped due to error.');
                 Log.error(err);
                 reject(`${type}:${index}: error ${err}`);
+                process.exit(1);
             });
             nodeProcess.on('exit', (err) => {
                 Log.error('Child process stopped due to error.');
                 Log.error(err);
                 reject(`${type}:${index}: exit(${err})`);
+                process.exit(err);
             });
         } else {
+            // Single process start
+            // Can only be called from CLI and not from external module
             require(path).start(initConfig);
         }
-    };
+    });
 
-    const coresReady = async (corePids) => {
+    const coresReady = () => {
         const promises = [];
         infraConfig?.front?.forEach((data, index) => {
-            promises.push(new Promise((resolve, reject) => {
-                if (serverId && data.serverId !== serverId) { return resolve(); }
-                startNode('front', index, true, resolve, reject);
-            }));
+          if (serverId && data.serverId !== serverId) { return; }
+          promises.push(startNode('front', index, true));
         });
         infraConfig?.storage?.forEach((data, index) => {
-            promises.push(new Promise((resolve, reject) => {
-                if (serverId && data.serverId !== serverId) { return resolve(); }
-                startNode('storage', index, true, resolve, reject);
-            }));
+          if (serverId && data.serverId !== serverId) { return; }
+            promises.push(startNode('storage', index, true));
         });
-        promises.push(new Promise((resolve, reject) => {
-            if (serverId && infraConfig?.public?.httpServerId !== serverId) { return resolve(); }
-            startNode('http', 0, true, resolve, reject);
-        }));
-        return Promise.all(promises).then((childPids) => {
+      if (serverId && infraConfig?.public?.httpServerId !== serverId) { return; }
+        promises.push(startNode('http', 0, true));
+        return Promise.all(promises.filter(Boolean)).then(() => {
             Log.info('CryptPad server ready');
-            return corePids.concat(childPids);
         });
     };
 
-    const startCores = async () => {
+    const startCores = () => {
         if (!serverConfig?.private?.nodes_key) {
             if (!serverConfig?.private) {
                 serverConfig.private = { };
             }
             serverConfig.private.nodes_key = Crypto.randomBytes(32).toString('base64');
         }
-        const corePromises = infraConfig?.core.map((data, index) => new Promise((resolve, reject) => {
+        const corePromises = infraConfig?.core.map((data, index) => {
             // hosted on another machine?
-            if (serverId && data.serverId !== serverId) { return resolve(); }
-            startNode('core', index, true, resolve, reject);
-        }));
+            if (serverId && data.serverId !== serverId) { return; }
+            return startNode('core', index, true);
+        });
 
-        return Promise.all(corePromises)
-          .then((corePids) => coresReady(corePids))
+        return Promise.all(corePromises.filter(Boolean))
+          .then(() => coresReady())
           .catch((e) => { Log.error('START_CORE_ERROR', e); return Promise.reject(e); });
     };
 
@@ -149,7 +152,7 @@ const start = async (serverConfig, infraConfig) => {
         if (!serverConfig?.private?.nodes_key) {
             throw Error('E_MISSINGKEY');
         }
-        startNode(type, index, false, () => {}, (err) => {
+        return startNode(type, index, false).catch((err) => {
             if (err) { return Log.error('START_NODE_ERROR', err); }
         });
     } else {
