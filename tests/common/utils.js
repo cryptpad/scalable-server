@@ -14,7 +14,7 @@ const { jumpConsistentHash } = require('../../common/consistent-hash.js');
 const Util = require('../../common/common-util');
 const Core = require('../../common/core');
 
-const { infra, config } = require('../../common/load-config');
+const { infra, config } = require('../../common/load-config')(true);
 
 const hk = '0123456789abcdef';
 

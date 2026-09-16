@@ -160,7 +160,7 @@ const start = (serverConfig, infraConfig) => {
 };
 
 if (require.main === module) {
-    const { config, infra } = require('./common/load-config');
+    const { config, infra } = require('./common/load-config')();
     start(config, infra).catch((e) => { console.error('CryptPad server start failed:', e); });
 } else {
     module.exports = { start };

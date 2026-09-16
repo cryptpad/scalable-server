@@ -6,8 +6,7 @@ const Fs = require('node:fs');
 const Path = require('node:path');
 const { Worker } = require('node:worker_threads');
 const Server = require("../index.js");
-process.env.CRYPTPAD_TEST = "server";
-const { config, infra } = require("../common/load-config");
+const { config, infra } = require("../common/load-config")(true);
 
 Server.start(config, infra)
   .catch((e) => {
