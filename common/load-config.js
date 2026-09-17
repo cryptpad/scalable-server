@@ -22,7 +22,7 @@ module.exports = (isTesting) => {
   let infra;
   const infraPath = process.env.CRYPTPAD_CONFIG_INFRA || "../config/infra.js";
   try {
-    infra = isTesting ? require("../config/infra.example") : require(infraPath);
+    infra = isTesting ? require("../config/infra.test") : require(infraPath);
   } catch (e) {
     if (e instanceof SyntaxError) {
       console.error("config/infra.js is faulty. See stacktrace below for more information. Terminating. \n");
