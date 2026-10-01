@@ -6,7 +6,7 @@ const Util = require('../../common/common-util');
 const Nacl = require('tweetnacl/nacl-fast');
 const ServerCommand = require('./http-command');
 
-const { infra } = require('../../common/load-config');
+const { infra } = require('../../common/load-config')(true);
 const origin = infra?.public?.origin;
 ServerCommand.setCustomize({
     ApiConfig: {
