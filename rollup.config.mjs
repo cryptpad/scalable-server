@@ -128,5 +128,17 @@ if (!type || type === "http") {
         plugins: getPlugins()
     });
 }
+if (type === "eviction") {
+    list.push({
+        input: "./eviction/eviction.js",
+        output: [{
+            name: 'cryptpad-eviction-script',
+            file: "./build/eviction.js",
+            format: "cjs",
+            plugins: [ getTerser() ]
+        }],
+        plugins: getPlugins()
+    });
+}
 
 export default list;

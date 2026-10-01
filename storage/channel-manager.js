@@ -633,10 +633,15 @@ const create = (Env) => {
                 // else fall through to the next block
             }));
         }).nThen(function (w) {
+            if (!store.hasLinkedDocuments(channel)) { return; }
             // Archive old checkpoints
             Linked.trimHistory(Env, { channel }, w());
         }).nThen(function () {
             // Trim chainpad doc:
+            Env.Log.info('HK_TRIM_HISTORY_START', {
+                unsafeKey: unsafeKey,
+                channel: channel
+            });
             store.trimChannel(channel, hash, (err) => {
                 Env.Log.info('HK_TRIM_HISTORY', {
                     unsafeKey: unsafeKey,

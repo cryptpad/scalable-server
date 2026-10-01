@@ -262,6 +262,12 @@ const removeLinkedDocument = (env, channelId, type, data, cb) => {
         writeLinkedFile(env, path, content, cb);
     });
 };
+const hasLinkedDocuments = (env, channelId) => {
+    const path = mkLinkedPath(env, channelId);
+    try {
+        return Fs.existsSync(path);
+    } catch (e) { return false; }
+};
 const getLinkedDocuments = (env, channelId, cb) => {
     const path = mkLinkedPath(env, channelId);
     readLinkedFile(env, path, cb);
@@ -1589,6 +1595,9 @@ module.exports.create = function (conf, _cb) {
 
         // LINKED DOCUMENTS
             // get linked documents
+            hasLinkedDocuments: (channelId) => {
+                return hasLinkedDocuments(env, channelId);
+            },
             getLinkedDocuments: (channelId, cb) => {
                 if (!isValidChannelId(channelId)) { return cb(new Error('EINVAL')); }
                 // read can be unordered
