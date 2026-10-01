@@ -16,12 +16,13 @@
     "build"
   ],
   "dependencies": {
+    "@mcrowe/minibloom": "^0.2.0",
     "connect-gzip-static": "^4.2.1",
     "cookie-parser": "^1.4.7",
     "express": "~5.2.1",
-    "mime-types": "^3.0.2",
     "fs-extra": "^7.0.0",
     "http-proxy-middleware": "^3.0.3",
+    "mime-types": "^3.0.2",
     "nthen": "0.1.8",
     "otpauth": "^9.4.1",
     "pull-stream": "^3.6.1",
@@ -61,6 +62,7 @@
     "build:core": "TYPE=core rollup -c",
     "build:storage": "TYPE=storage rollup -c",
     "build:http": "TYPE=http rollup -c",
+    "build:eviction": "TYPE=eviction rollup -c",
     "tests": "node --test tests/",
     "test": "node tests/runAll.js",
     "start": "node index.js",
