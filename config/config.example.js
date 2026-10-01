@@ -3,25 +3,28 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 module.exports = {
-    /*  CryptPad's nodes will launch a child process for every core available
-     *  in order to perform CPU-intensive tasks in parallel.
+    /*  CryptPad's nodes will launch by default a number of workers equals to
+     *  what is set in this file.
      *  Some host environments may have a very large number of cores available
      *  or you may want to limit how much computing power CryptPad can take.
      *  If so, set 'maxWorkers.{type}' to a positive integer.
+     *  For a node type to use every CPU cores, set it to the string "default".
      */
     maxWorkers: {
-        core: 1,
-        storage: 1,
-        http: 2,
+        "core": 2,
+        "storage": 2,
+        "http": 2,
+        "http-storage": 2,
     },
 
     /* The following option sets the max queue size for those workers, the
      * syntax is the same as above. The default value for unset node type is 10
      */
     maxJobs: {
-        core: 15,
-        storage: 15,
-        http: 10,
+        "core": 10,
+        "storage": 10,
+        "http": 10,
+        "http-storage": 10,
     },
 
     /* =====================
