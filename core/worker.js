@@ -107,6 +107,8 @@ process.on('message', function(obj) {
             txid: obj.txid,
             pid: obj.pid,
             value: value,
+        }, (e) => {
+          if (e) { console.error('E_RESPONSE', Util.serializeError(e)); }
         });
     };
 
@@ -128,6 +130,9 @@ process.on('message', function(obj) {
     }
     command(data, cb);
 });
+
+// Clean exit
+process.on('disconnect', () => { process.exit(0); });
 
 process.on('uncaughtException', function(err) {
     console.error('[%s] UNCAUGHT EXCEPTION IN DB WORKER', new Date());

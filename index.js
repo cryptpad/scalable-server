@@ -47,6 +47,14 @@ args.some(arg => {
     prev = '';
 });
 
+// Clean quit: kill child processes
+const childPids = [];
+
+const cleanSubprocesses = () => childPids.forEach((pid) => process.kill(pid));
+
+process.on('SIGTERM', cleanSubprocesses);
+process.on('exit', cleanSubprocesses);
+
 const start = (serverConfig, infraConfig) => {
     const Log = {
         debug: console.debug,
@@ -57,9 +65,7 @@ const start = (serverConfig, infraConfig) => {
     };
 
     let serverId;
-    const startNode = (type, index, forking, cb) => {
-        if (typeof (cb) !== 'function') { cb = () => { }; };
-
+    const startNode = (type, index, forking) => new Promise((resolve, reject) => {
         const nodeFile = './build/' + type + '.js';
         const path = Path.join(__dirname, nodeFile);
         const initConfig = {
@@ -72,51 +78,49 @@ const start = (serverConfig, infraConfig) => {
         //Log.info(`Starting: ${initConfig.myId}`);
         if (forking) {
             let nodeProcess = fork(path);
+            childPids.push(nodeProcess.pid);
             nodeProcess.send(initConfig);
             nodeProcess.on('message', (message) => {
                 if (message.msg === 'READY') {
-                    Log.info(`Started: ${type}:${message.index}`);
+                    // Log.info(`Started: ${type}:${message.index}`);
                     if (message.dev) {
                         Log.info('DEV mode enabled');
                     }
-                    cb();
+                    resolve();
                 }
             });
-            // FIXME
             nodeProcess.on('error', (err) => {
                 Log.error('Child process stopped due to error.');
                 Log.error(err);
+                reject(`${type}:${index}: error ${err}`);
                 process.exit(1);
             });
             nodeProcess.on('exit', (err) => {
                 Log.error('Child process stopped due to error.');
                 Log.error(err);
-                process.exit(1);
+                reject(`${type}:${index}: exit(${err})`);
+                process.exit(err);
             });
         } else {
+            // Single process start
+            // Can only be called from CLI and not from external module
             require(path).start(initConfig);
         }
-    };
+    });
 
     const coresReady = () => {
         const promises = [];
         infraConfig?.front?.forEach((data, index) => {
-            promises.push(new Promise(resolve => {
-                if (serverId && data.serverId !== serverId) { return resolve(); }
-                startNode('front', index, true, resolve);
-            }));
+          if (serverId && data.serverId !== serverId) { return; }
+          promises.push(startNode('front', index, true));
         });
         infraConfig?.storage?.forEach((data, index) => {
-            promises.push(new Promise(resolve => {
-                if (serverId && data.serverId !== serverId) { return resolve(); }
-                startNode('storage', index, true, resolve);
-            }));
+          if (serverId && data.serverId !== serverId) { return; }
+            promises.push(startNode('storage', index, true));
         });
-        promises.push(new Promise(resolve => {
-            if (serverId && infraConfig?.public?.httpServerId !== serverId) { return resolve(); }
-            startNode('http', 0, true, resolve);
-        }));
-        Promise.all(promises).then(() => {
+      if (serverId && infraConfig?.public?.httpServerId !== serverId) { return; }
+        promises.push(startNode('http', 0, true));
+        return Promise.all(promises.filter(Boolean)).then(() => {
             Log.info('CryptPad server ready');
         });
     };
@@ -128,21 +132,14 @@ const start = (serverConfig, infraConfig) => {
             }
             serverConfig.private.nodes_key = Crypto.randomBytes(32).toString('base64');
         }
-        const corePromises = infraConfig?.core.map((data, index) => new Promise((resolve, reject) => {
+        const corePromises = infraConfig?.core.map((data, index) => {
             // hosted on another machine?
-            if (serverId && data.serverId !== serverId) { return resolve(); }
-            startNode('core', index, true, (err) => {
-                if (err) {
-                    Log.error('START_CORE_ERROR', err);
-                    return reject(err);
-                }
-                return resolve();
-            });
-        }));
+            if (serverId && data.serverId !== serverId) { return; }
+            return startNode('core', index, true);
+        });
 
-        Promise.all(corePromises)
-            .then(() => { coresReady(); })
-            .catch((e) => { return Log.error('START_CORE_ERROR', e); });
+        return Promise.all(corePromises.filter(Boolean))
+          .then(() => coresReady());
     };
 
 
@@ -153,18 +150,18 @@ const start = (serverConfig, infraConfig) => {
         if (!serverConfig?.private?.nodes_key) {
             throw Error('E_MISSINGKEY');
         }
-        startNode(type, index, false, (err) => {
+        return startNode(type, index, false).catch((err) => {
             if (err) { return Log.error('START_NODE_ERROR', err); }
         });
     } else {
         serverId = cliArgs.server;
-        startCores();
+        return startCores();
     }
 };
 
 if (require.main === module) {
-    const { config, infra } = require('./common/load-config');
-    start(config, infra);
+    const { config, infra } = require('./common/load-config')();
+    start(config, infra).catch((e) => { console.error('CryptPad server start failed:', e); });
 } else {
     module.exports = { start };
 }
