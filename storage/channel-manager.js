@@ -652,7 +652,7 @@ const create = (Env) => {
                 // clear historyKeeper's cache for this channel
                 cb(void 0, 'OK');
                 delete (Env.channel_cache[channel] || {}).index;
-            });
+            }, Env.Log);
         });
     };
 

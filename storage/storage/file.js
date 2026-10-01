@@ -1155,7 +1155,7 @@ var getMessages = function (env, chanName, handler, cb) {
     });
 };
 
-var filterMessages = function (env, channelName, check, filterHandler, _cb) {
+var filterMessages = function (env, channelName, check, filterHandler, _cb, Log) {
     var cb = Util.once(Util.mkAsync(_cb));
     // this function is queued as a blocking action for the relevant channel
 
@@ -1204,6 +1204,7 @@ var filterMessages = function (env, channelName, check, filterHandler, _cb) {
     }).nThen(function (w) {
         // eat errors since loading the logger here would create a cyclical dependency
         var lineHandler = Meta.createLineHandler(metadataReference, Util.noop);
+        Log?.info('TRIM_HISTORY_DEBUG_2', { channel: channelName });
 
         readMetadata(env, channelName, lineHandler, w(function (err) {
             if (err) {
@@ -1233,6 +1234,7 @@ var filterMessages = function (env, channelName, check, filterHandler, _cb) {
             });
         });
     }).nThen(function (w) {
+        Log?.info('TRIM_HISTORY_DEBUG_3', { channel: channelName });
         var i = 0;
         var retain = false;
 
@@ -1292,6 +1294,7 @@ var filterMessages = function (env, channelName, check, filterHandler, _cb) {
             }
         }));
     }).nThen(function (w) {
+        Log?.info('TRIM_HISTORY_DEBUG_4', { channel: channelName });
         // copy existing channel to the archive
         Fse.copy(channelPath, archiveChannelPath, w(function (err) {
             if (!err || err.code === 'ENOENT') { return; }
@@ -1310,6 +1313,7 @@ var filterMessages = function (env, channelName, check, filterHandler, _cb) {
             });
         }));
     }).nThen(function (w) {
+        Log?.info('TRIM_HISTORY_DEBUG_5', { channel: channelName });
         // overwrite the existing metadata log with the current metadata state
         Fs.writeFile(metadataPath, JSON.stringify(metadataReference.meta) + '\n', w(function (err) {
             // this shouldn't happen, but if it does your channel might be messed up :(
@@ -1330,6 +1334,7 @@ var filterMessages = function (env, channelName, check, filterHandler, _cb) {
             }
         }));
     }).nThen(function () {
+        Log?.info('TRIM_HISTORY_DEBUG_6', { channel: channelName });
         // clean up and call back with no error
         // triggering a historyKeeper index cache eviction...
         cleanUp(function () {
@@ -1354,7 +1359,7 @@ var deleteChannelLine = function (env, channelName, hash, checkRights, _cb) {
     };
     filterMessages(env, channelName, check, handler, _cb);
 };
-var trimChannel = function (env, channelName, hash, _cb) {
+var trimChannel = function (env, channelName, hash, _cb, Log) {
     var handler = function (msg, msgHash, abort, remove, preserve, preserveRemaining) {
         if (msgHash === hash) {
             // Everything from this point on should be retained
@@ -1364,7 +1369,8 @@ var trimChannel = function (env, channelName, hash, _cb) {
         // Remove until we find our hash
         remove();
     };
-    filterMessages(env, channelName, null, handler, _cb);
+    Log?.info('TRIM_HISTORY_DEBUG_1', { channel: channelName });
+    filterMessages(env, channelName, null, handler, _cb, Log);
 };
 
 module.exports.create = function (conf, _cb) {
@@ -1494,10 +1500,10 @@ module.exports.create = function (conf, _cb) {
                     clearChannel(env, channelName, Util.both(cb, next));
                 });
             },
-            trimChannel: function (channelName, hash, cb) {
+            trimChannel: function (channelName, hash, cb, Log) {
                 if (!isValidChannelId(channelName)) { return void cb(new Error('EINVAL')); }
                 schedule.blocking(channelName, function (next) {
-                    trimChannel(env, channelName, hash, Util.both(cb, next));
+                    trimChannel(env, channelName, hash, Util.both(cb, next), Log);
                 });
             },
             deleteChannelLine: function (channelName, hash, checkRights, cb) {
