@@ -7,7 +7,6 @@ const Pins = module.exports;
 const Fs = require("node:fs");
 const Path = require("node:path");
 const Util = require("../common/common-util");
-const Store = require('./storage/file');
 
 const Semaphore = require('saferphore');
 const nThen = require('nthen');
@@ -145,34 +144,21 @@ Pins.calculateFromLog = function (pinFile, fileName) {
     pins/A+/A+hyhrQLrgYixOomZYxpuEhwfiVzKk1bBp+arH-zbgo=.ndjson
 */
 
-Pins.load = (cb, config) => {
-    // XXX eviction
-    throw new Error("EVICTION NOT IMPLEMENTED");
-
-
+// Pins.load only used from eviction script
+// XXX TODO this function doesn't work when storage is split
+Pins.load = (Env, cb, config) => {
     const sema = Semaphore.create(config.workers || 5);
 
     let dirList;
     const fileList = [];
     const pinned = {};
 
-    var pinPath = config.pinPath || './pins';
     var done = Util.once(cb);
     var handler = config.handler;
-    let store;
+    let store = Env.pinStore;
+    let pinPath = Env.paths.pin;
 
     nThen((waitFor) => {
-        Store.create({
-            filePath: config.pinPath,
-            volumeId: 'pins'
-        }, waitFor((err, _) => {
-            if (err) {
-                waitFor.abort();
-                return void done(err);
-            }
-            store = _;
-        }));
-    }).nThen((waitFor) => {
         // recurse over the configured pinPath, or the default
         Fs.readdir(pinPath, waitFor((err, list) => {
             if (err) {
