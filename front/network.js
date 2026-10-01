@@ -196,7 +196,7 @@ const initExpress = (Env) => {
     // via an interactive challenge-response protocol
     app.use(Express.json());
     app.post('/api/auth', (req, res) => {
-        const body = Util.clone(req.body);
+        const body = Util.clone(req.body) || {};
         const cookies = req.cookies;
         body._cookies = cookies;
         events.httpCommand.fire(body, (err, response) => {
