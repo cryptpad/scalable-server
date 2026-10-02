@@ -59,6 +59,7 @@ var unusedUid = function (set) {
 // return an existing session, creating one if it does not already exist
 var lookup = function (map, id) {
     return (map[id] = map[id] || {
+        id: id,
         //blocking: [],
         active: {},
         blocked: {},
@@ -72,13 +73,30 @@ var isEmpty = function (map) {
     return true;
 };
 
-module.exports = function () {
+module.exports = function (Log) {
     // every scheduler instance has its own queue
     var queue = WriteQueue();
 
     // ordered tasks don't require any extra logic
     var Ordered = function (id, task) {
-        queue(id, task);
+        task.stack = new Error('debug').stack;
+        task.time = +new Date();
+
+        queue(id, next => {
+            let to = setTimeout(() => {
+                Log?.error('SCHEDULER_TIMEOUT_ORDERED', {
+                    id: local?.id,
+                    time: task.time,
+                    now: +new Date(),
+                    stack: task.stack
+                });
+            }, 30000);
+            task(() => {
+                clearTimeout(to);
+                next();
+            });
+        });
+        //queue(id, task);
     };
 
     // unordered and blocking tasks need a little extra state
@@ -105,7 +123,17 @@ module.exports = function () {
         var uid = unusedUid(local.active);
         local.active[uid] = true;
 
+        let to = setTimeout(() => {
+            Log?.error('SCHEDULER_TIMEOUT_UNORDERED', {
+                id: local?.id,
+                time: task.time,
+                now: +new Date(),
+                stack: task.stack
+            });
+        }, 30000);
+
         task(function () {
+            clearTimeout(to);
             // remove the flag you set to indicate that your task completed
             delete local.active[uid];
             // don't do anything if other unordered tasks are still running
@@ -129,6 +157,8 @@ module.exports = function () {
     // or immediately and in parallel if there are no blocking tasks scheduled.
     var Unordered = function (id, task) {
         var local = lookup(map, id);
+        task.stack = new Error('debug').stack;
+        task.time = +new Date();
         if (local.lock) { return runOnceUnblocked(local, task); }
         runImmediately(local, task);
     };
@@ -144,12 +174,24 @@ module.exports = function () {
     // and wait until any running 'unordered' tasks complete before commencing.
     var Blocking = function (id, task) {
         var local = lookup(map, id);
+        task.stack = new Error('debug').stack;
+        task.time = +new Date();
 
         queue(id, function (next) {
+            let to = setTimeout(() => {
+                Log?.error('SCHEDULER_TIMEOUT_BLOCKING', {
+                    id: local?.id,
+                    time: task.time,
+                    now: +new Date(),
+                    stack: task.stack
+                });
+            }, 30000);
+
             // start right away if there are no running unordered tasks
             if (isEmpty(local.active)) {
                 local.lock = true;
                 return void task(function () {
+                    clearTimeout(to);
                     delete local.lock;
                     runBlocked(local);
                     next();
@@ -159,6 +201,7 @@ module.exports = function () {
             local.waiting = function () {
                 local.lock = true;
                 task(function () {
+                    clearTimeout(to);
                     delete local.lock;
                     delete local.waiting;
                     runBlocked(local);

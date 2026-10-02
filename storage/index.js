@@ -848,7 +848,7 @@ const start = (mainConfig) => {
     } = Core.getPaths(mainConfig);
     nThen(waitFor => {
         File.create({
-            filePath, archivePath
+            filePath, archivePath, Log: Env.Log
         }, waitFor((err, store) => {
             if (err) { throw new Error(err); }
             Env.store = store;

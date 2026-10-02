@@ -1403,7 +1403,7 @@ module.exports.create = function (conf, _cb) {
            dangerous to perform any other task concurrently.
 
     */
-    var schedule = env.schedule = Schedule();
+    var schedule = env.schedule = Schedule(conf?.Log);
 
     nThen(function (w) {
         // make sure the store's directory exists
