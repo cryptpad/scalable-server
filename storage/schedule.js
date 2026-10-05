@@ -120,8 +120,9 @@ module.exports = function () {
 
     var runOnceUnblocked = function (local, task) {
         var uid = unusedUid(local.blocked);
-        local.blocked[uid] = function () {
-            runImmediately(local, task);
+        local.blocked[uid] = function (next) {
+            delete local.blocked[uid];
+            task(next);
         };
     };
 
