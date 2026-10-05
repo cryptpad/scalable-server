@@ -128,7 +128,7 @@ if (!type || type === "http") {
         plugins: getPlugins()
     });
 }
-if (type === "eviction") {
+if (!type || type === "eviction") {
     list.push({
         input: "./eviction/eviction.js",
         output: [{
