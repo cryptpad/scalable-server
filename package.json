@@ -5,7 +5,7 @@
   "license": "AGPL-3.0+",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/cryptpad/scalable-server.git"
+    "url": "git+https://github.com/cryptpad/server.git"
   },
   "funding": {
     "type": "opencollective",
